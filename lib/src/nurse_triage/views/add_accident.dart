@@ -1824,6 +1824,7 @@ class _AddAccidentState extends State<AddAccident> {
                                                                     TextButton(
                                                                       onPressed:
                                                                           () {
+                                                                        log('View ABHA button clicked from add_accident.dart');
                                                                         controller
                                                                             .showLastAadhaarProfileCard();
                                                                       },

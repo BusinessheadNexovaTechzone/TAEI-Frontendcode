@@ -22,6 +22,7 @@ class AadhaarAuthenticationStep extends StatelessWidget {
     required this.isSubmitting,
     required this.otpComplete,
     required this.mobileComplete,
+    required this.otpDeliveryMessage,
     required this.formatResendTimer,
     required this.buildMaskedMobileNumber,
     required this.isValidMobile,
@@ -45,6 +46,7 @@ class AadhaarAuthenticationStep extends StatelessWidget {
   final bool isSubmitting;
   final bool otpComplete;
   final bool mobileComplete;
+  final String otpDeliveryMessage;
   final String Function() formatResendTimer;
   final String Function() buildMaskedMobileNumber;
   final bool Function(String? value) isValidMobile;
@@ -101,10 +103,17 @@ class AadhaarAuthenticationStep extends StatelessWidget {
               ),
             const SizedBox(height: 20),
             Text(
-              'OTP Verification *',
+              otpDeliveryMessage.isNotEmpty
+                  ? otpDeliveryMessage
+                  : 'OTP Verification *',
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.visible,
               style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: primaryTextColor,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: secondaryTextColor,
+                height: 1.35,
               ),
             ),
             const SizedBox(height: 12),

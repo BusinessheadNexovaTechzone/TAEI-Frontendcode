@@ -9,6 +9,7 @@ import 'package:taei_gov/src/nurse_triage/controller/nurse_triage_controller.dar
 import 'package:taei_gov/src/nurse_triage/views/abha_address_creation.dart';
 import 'package:taei_gov/src/nurse_triage/views/aadhaar_authentication.dart';
 import 'package:taei_gov/src/nurse_triage/views/consent_collection.dart';
+import 'package:taei_gov/utils/common/error_dialog.dart';
 
 class CreateAbhaScreen extends StatefulWidget {
   const CreateAbhaScreen({super.key});
@@ -195,14 +196,18 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
 
   Future<void> _sendOtp() async {
     if (!_consentAccepted) {
-      Get.snackbar(
-          'Consent required', 'Please accept the consent to continue.');
+      await CommonErrorDialog.show(
+        context,
+        message: 'Please accept the consent to continue.',
+      );
       return;
     }
 
     if (!_isValidAadhaar(_aadhaarController.text)) {
-      Get.snackbar(
-          'Invalid Aadhaar', 'Please enter a valid 12 digit Aadhaar number.');
+      await CommonErrorDialog.show(
+        context,
+        message: 'Please enter a valid 12 digit Aadhaar number.',
+      );
       return;
     }
 
@@ -214,7 +219,6 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
 
       final otpSent = await controller.sendAadhaarOtp();
       if (!otpSent) {
-        Get.snackbar('OTP failed', 'Unable to send Aadhaar OTP right now.');
         return;
       }
 
@@ -226,7 +230,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       _goToStep(1);
     } catch (e) {
       log('ABHA send otp error: $e');
-      Get.snackbar('OTP failed', e.toString());
+      await CommonErrorDialog.show(
+        context,
+        message: e.toString(),
+      );
     } finally {
       if (mounted && !_otpSent) setState(() => _isSubmitting = false);
     }
@@ -235,14 +242,18 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   Future<void> _handleConsentNext() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_consentAccepted) {
-      Get.snackbar(
-          'Consent required', 'Please accept the consent to continue.');
+      await CommonErrorDialog.show(
+        context,
+        message: 'Please accept the consent to continue.',
+      );
       return;
     }
 
     if (!_isValidAadhaar(_aadhaarController.text)) {
-      Get.snackbar(
-          'Invalid Aadhaar', 'Please enter a valid 12 digit Aadhaar number.');
+      await CommonErrorDialog.show(
+        context,
+        message: 'Please enter a valid 12-digit Aadhaar number.',
+      );
       return;
     }
 
@@ -263,7 +274,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         await _authenticateWithFingerprint();
         break;
       default:
-        Get.snackbar('Authentication required', 'Please select a method.');
+        await CommonErrorDialog.show(
+          context,
+          message: 'Please select a method.',
+        );
     }
   }
 
@@ -276,7 +290,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     try {
       await controller.startFaceAuth();
       if (controller.faceTxnId.value.isEmpty) {
-        Get.snackbar('Face auth failed', 'Face authentication did not start.');
+        await CommonErrorDialog.show(
+          context,
+          message: 'Face authentication did not start.',
+        );
         return;
       }
 
@@ -290,7 +307,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       _handleAuthResult(controller.aadhaarProfileData.value);
     } catch (e) {
       log('ABHA face auth error: $e');
-      Get.snackbar('Face auth failed', e.toString());
+      await CommonErrorDialog.show(
+        context,
+        message: e.toString(),
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -304,7 +324,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       _handleAuthResult(null);
     } catch (e) {
       log('ABHA fingerprint auth error: $e');
-      Get.snackbar('Fingerprint auth failed', e.toString());
+      await CommonErrorDialog.show(
+        context,
+        message: e.toString(),
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -358,28 +381,33 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     if (_resendSeconds > 0) return;
 
     await _sendOtp();
-    if (mounted) {
-      Fluttertoast.showToast(msg: 'OTP resent successfully');
-    }
   }
 
   Future<void> _verifyOtpAndContinue() async {
     if (_otpDigitControllers.where((c) => c.text.isNotEmpty).length != 6) {
-      Get.snackbar('OTP required', 'Please enter the complete 6-digit OTP.');
+      await CommonErrorDialog.show(
+        context,
+        message: 'Please enter the complete 6-digit OTP.',
+      );
       return;
     }
 
     final otp = _otpDigitControllers.map((c) => c.text).join();
     if (otp.length != 6) {
-      Get.snackbar('OTP required', 'Please enter the complete 6-digit OTP.');
+      await CommonErrorDialog.show(
+        context,
+        message: 'Please enter the complete 6-digit OTP.',
+      );
       return;
     }
 
     final mobile = _mobileController.text.replaceAll(RegExp(r'\D'), '');
 
     if (!_isValidMobile(mobile)) {
-      Get.snackbar(
-          'Invalid mobile', 'Please enter a valid 10 digit mobile number.');
+      await CommonErrorDialog.show(
+        context,
+        message: 'Please enter a valid 10-digit mobile number.',
+      );
       return;
     }
 
@@ -429,7 +457,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       controller.createTriageModel.refresh();
     } catch (e) {
       log('ABHA verify otp error: $e');
-      Get.snackbar('Verification failed', e.toString());
+      await CommonErrorDialog.show(
+        context,
+        message: e.toString(),
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -710,6 +741,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       isSubmitting: _isSubmitting,
       otpComplete: otpComplete,
       mobileComplete: mobileComplete,
+      otpDeliveryMessage: controller.aadhaarOtpDeliveryMessage.value,
       formatResendTimer: _formatResendTimer,
       buildMaskedMobileNumber: _buildMaskedMobileNumber,
       isValidMobile: _isValidMobile,

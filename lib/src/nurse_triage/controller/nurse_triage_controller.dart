@@ -24,6 +24,7 @@ import 'package:taei_gov/src/nurse_triage/models/triage_lookup_model.dart';
 import 'package:taei_gov/src/transit_care/model/transit_care_model.dart';
 import 'package:taei_gov/src/transit_care/model/transitcare_dashboard_count_model.dart';
 import 'package:taei_gov/src/emo_user/model/emo_lookup_model.dart';
+import 'package:taei_gov/utils/common/error_dialog.dart';
 import 'package:taei_gov/utils/helpers/http_helper.dart';
 import '../models/create_triage_model.dart';
 import '../services/triage_service.dart';
@@ -77,6 +78,8 @@ class NurseTriageController extends GetxController {
   }
 
   RxString aadhaarTxnId = ''.obs;
+  RxString aadhaarOtpDeliveryMessage = ''.obs;
+  final Rxn<Map<String, dynamic>> lastApiError = Rxn<Map<String, dynamic>>();
 
   Future<bool> sendAadhaarOtp() async {
     String? aadhaar = createTriageModel.value?.triage?.aadhaar;
@@ -87,7 +90,12 @@ class NurseTriageController extends GetxController {
     log('sendAadhaarOtp inputs: aadhaar=$aadhaar');
 
     if (!isValidAadhaar(aadhaar)) {
-      Fluttertoast.showToast(msg: 'Please enter valid 12 digit Aadhaar number');
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: 'Please enter a valid 12-digit Aadhaar number.',
+        );
+      }
       return false;
     }
 
@@ -99,22 +107,51 @@ class NurseTriageController extends GetxController {
       final d = await TriageService.sendAadhaarOtp(aadhaar: aadhaar!);
 
       if (d != null) {
+        final responseMessage = CommonErrorDialog.extractErrorMessage(d);
         final txnId = d['txnId'] ?? d['data']?['txnId'];
+        final deliveryMessage = d['message'] ?? d['data']?['message'] ?? '';
+
         if (txnId != null) {
           aadhaarTxnId.value = txnId.toString();
         }
+
+        if (deliveryMessage.toString().trim().isNotEmpty) {
+          aadhaarOtpDeliveryMessage.value = deliveryMessage.toString().trim();
+        }
+
+        if (txnId == null && responseMessage.isNotEmpty) {
+          lastApiError.value = d;
+          if (Get.context != null) {
+            await CommonErrorDialog.showFromResponse(
+              Get.context!,
+              response: d,
+            );
+          }
+          return false;
+        }
+
         aadhaarOtpSent.value = true;
         _startAadhaarOtpTimer();
-        Fluttertoast.showToast(
-            msg: d['message'] ?? 'OTP sent to registered mobile');
         return true;
       }
 
-      Fluttertoast.showToast(msg: 'Failed to send Aadhaar OTP');
+      lastApiError.value = {'message': 'Unable to send Aadhaar OTP right now.'};
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: 'Unable to send Aadhaar OTP right now.',
+        );
+      }
       return false;
     } catch (e) {
       log('sendAadhaarOtp exception: $e');
-      Fluttertoast.showToast(msg: 'Failed to send Aadhaar OTP');
+      lastApiError.value = {'message': e.toString()};
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: e.toString(),
+        );
+      }
       return false;
     } finally {
       isSendingAadhaarOtp.value = false;
@@ -128,16 +165,30 @@ class NurseTriageController extends GetxController {
     log('verifyAadhaarOtp inputs: txnId=$txnId, otp=$otp, mobile=$mobile');
 
     if (txnId.isEmpty) {
-      Fluttertoast.showToast(msg: 'Please generate Aadhaar OTP first');
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: 'Please request a new OTP and try again.',
+        );
+      }
       return false;
     }
     if (otp.isEmpty) {
-      Fluttertoast.showToast(msg: 'Please enter OTP');
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: 'Please enter the complete 6-digit OTP.',
+        );
+      }
       return false;
     }
     if (mobile == null || mobile.length != 10) {
-      Fluttertoast.showToast(
-          msg: 'Please enter valid registered mobile number');
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: 'Please enter a valid 10-digit mobile number.',
+        );
+      }
       return false;
     }
 
@@ -152,14 +203,25 @@ class NurseTriageController extends GetxController {
 
       if (d == null) {
         aadhaarVerified.value = false;
-        Fluttertoast.showToast(msg: 'Failed to verify Aadhaar OTP');
+        if (Get.context != null) {
+          await CommonErrorDialog.show(
+            Get.context!,
+            message: 'Unable to verify Aadhaar OTP.',
+          );
+        }
         return false;
       }
 
+      final backendMessage = CommonErrorDialog.extractErrorMessage(d);
+      final friendlyMessage = CommonErrorDialog.extractFriendlyErrorMessage(d);
       final isFailure = d['success'] == false ||
           d['status'] == 'failed' ||
           d['status'] == 'error' ||
-          (d['message']?.toString().toLowerCase().contains('fail') ?? false);
+          (backendMessage.isNotEmpty &&
+              !d.containsKey('result') &&
+              !d.containsKey('profileId') &&
+              !d.containsKey('abhaNumber') &&
+              !d.containsKey('address'));
       final hasSuccessPayload = d['result'] != null ||
           d['profileId'] != null ||
           d['data']?['profileId'] != null ||
@@ -168,15 +230,20 @@ class NurseTriageController extends GetxController {
 
       if (isFailure && !hasSuccessPayload) {
         aadhaarVerified.value = false;
-        Fluttertoast.showToast(
-            msg: d['message']?.toString() ?? 'Failed to verify Aadhaar OTP');
+        lastApiError.value = d;
+        if (Get.context != null) {
+          await CommonErrorDialog.show(
+            Get.context!,
+            title: 'Unable to Continue',
+            message: friendlyMessage.isNotEmpty
+                ? friendlyMessage
+                : 'OTP verification failed. Please enter the correct OTP and try again.',
+          );
+        }
         return false;
       }
 
       aadhaarVerified.value = true;
-
-      Fluttertoast.showToast(
-          msg: d['message']?.toString() ?? 'Aadhaar verified');
 
       final profileId = d['profileId'] ??
           d['data']?['profileId'] ??
@@ -200,7 +267,13 @@ class NurseTriageController extends GetxController {
     } catch (e) {
       log('verifyAadhaarOtp exception: $e');
       aadhaarVerified.value = false;
-      Fluttertoast.showToast(msg: 'Failed to verify Aadhaar OTP');
+      lastApiError.value = {'message': e.toString()};
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: e.toString(),
+        );
+      }
       return false;
     }
   }
@@ -318,18 +391,51 @@ class NurseTriageController extends GetxController {
   }
 
   void showLastAadhaarProfileCard() {
+    log('View ABHA button clicked');
+
     final data = aadhaarProfileData.value;
-    if (data == null) {
+    if (data != null) {
+      log('ABHA profile payload available in cache: ${data.keys}');
+      if (_resolveAbhaProfilePayload(data) == null) {
+        Fluttertoast.showToast(msg: 'No ABHA profile data available to view');
+        return;
+      }
+
+      log('Opening existing ABHA profile popup from cached profile payload');
+      showAadhaarSuccessDialog(data);
+      return;
+    }
+
+    final triage = createTriageModel.value?.triage;
+    final abhaCard = triage?.abhaCard?.trim() ?? '';
+    if (abhaCard.isEmpty) {
+      log('No ABHA profile data available to view');
       Fluttertoast.showToast(msg: 'No imported profile data available');
       return;
     }
 
-    if (_resolveAbhaProfilePayload(data) == null) {
-      Fluttertoast.showToast(msg: 'No ABHA profile data available to view');
-      return;
-    }
+    log('Falling back to local triage model data for ABHA profile popup');
+    final fullName = (triage?.nameOfPatient ?? '').trim();
+    final nameParts = fullName.split(RegExp(r'\s+'));
+    final fallbackPayload = <String, dynamic>{
+      'result': {
+        'ABHAProfile': {
+          'ABHANumber': abhaCard,
+          'firstName': nameParts.isNotEmpty ? nameParts.first : '',
+          'middleName': nameParts.length > 2 ? nameParts[1] : '',
+          'lastName':
+              nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '',
+          'mobile': triage?.patientMobileNumber ?? '',
+          'address': triage?.addressLine ?? '',
+          'stateName': '',
+          'districtName': '',
+          'photo': null,
+        },
+      },
+    };
 
-    showAadhaarSuccessDialog(data);
+    log('Opening existing ABHA profile popup from fallback payload');
+    showAadhaarSuccessDialog(fallbackPayload);
   }
 
   Future<void> downloadAbhaCard() async {

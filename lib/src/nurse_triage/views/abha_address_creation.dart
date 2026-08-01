@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taei_gov/constants/urls.dart';
 import 'package:taei_gov/src/nurse_triage/controller/nurse_triage_controller.dart';
+import 'package:taei_gov/utils/common/error_dialog.dart';
 import 'package:taei_gov/utils/helpers/http_helper.dart';
 
 class AbhaAddressCreationStep extends StatefulWidget {
@@ -115,7 +116,10 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
   Future<void> _createAbhaAddress() async {
     final txnId = _controller.aadhaarTxnId.value;
     if (txnId.trim().isEmpty) {
-      Get.snackbar('Missing transaction ID', 'Unable to create ABHA address.');
+      await CommonErrorDialog.show(
+        context,
+        message: 'Unable to create ABHA address.',
+      );
       return;
     }
 
@@ -124,8 +128,10 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
         : (_selectedSuggestion ?? '').trim();
 
     if (address.isEmpty) {
-      Get.snackbar('ABHA Address required',
-          'Please select a suggestion or enter a custom address.');
+      await CommonErrorDialog.show(
+        context,
+        message: 'Please select a suggestion or enter a custom address.',
+      );
       return;
     }
 
@@ -162,11 +168,16 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
         return;
       }
 
-      Get.snackbar(
-          'Address creation failed', 'Unable to create ABHA address now.');
+      final payload = jsonDecode(response.body);
+      await CommonErrorDialog.showFromResponse(
+        context,
+        response: payload,
+      );
     } catch (_) {
-      Get.snackbar(
-          'Address creation failed', 'Unable to create ABHA address now.');
+      await CommonErrorDialog.show(
+        context,
+        message: 'Unable to create ABHA address now.',
+      );
     }
   }
 
