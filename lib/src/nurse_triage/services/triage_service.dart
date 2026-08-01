@@ -18,6 +18,25 @@ import '../../../constants/urls.dart';
 class TriageService {
   static final _client = CustomHttpHelper();
 
+  static Map<String, dynamic> _parseResponseBody(String body) {
+    if (body.trim().isEmpty) {
+      return <String, dynamic>{};
+    }
+
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+      return <String, dynamic>{'data': decoded};
+    } catch (_) {
+      return <String, dynamic>{'message': body, 'rawBody': body};
+    }
+  }
+
   static void _logApi({
     required String apiName,
     required String url,
@@ -142,17 +161,19 @@ class TriageService {
         responseBody: {'error': ex.toString()},
       );
       return null;
-    }  
-}  
+    }
+  }
 
   /// Update
   static Future<bool> updateTriage({required TriageModel data}) async {
     final url = Urls.updateTriage;
     final requestBody = data.toJson();
     try {
-      var response = await _client.put(Uri.parse(url), headers: {
-        "Content-Type": "application/json",
-      }, body: jsonEncode(requestBody));
+      var response = await _client.put(Uri.parse(url),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: jsonEncode(requestBody));
       final responseBody = response.body.isNotEmpty
           ? jsonDecode(response.body)
           : <String, dynamic>{};
@@ -183,13 +204,16 @@ class TriageService {
     }
   }
 
-  static Future<Map<String, dynamic>?> sendAadhaarOtp({required String aadhaar}) async {
+  static Future<Map<String, dynamic>?> sendAadhaarOtp(
+      {required String aadhaar}) async {
     final url = Urls.sendAadhaarOtp;
     final requestBody = {'aadhaar': aadhaar};
     try {
-      var response = await _client.post(Uri.parse(url), headers: {
-        "Content-Type": "application/json",
-      }, body: jsonEncode(requestBody));
+      var response = await _client.post(Uri.parse(url),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: jsonEncode(requestBody));
       final responseBody = response.body.isNotEmpty
           ? jsonDecode(response.body)
           : <String, dynamic>{};
@@ -223,12 +247,12 @@ class TriageService {
     final url = Urls.verifyAadhaarOtp;
     final requestBody = {'txnId': txnId, 'otp': otp, 'mobile': mobile};
     try {
-      var response = await _client.post(Uri.parse(url), headers: {
-        "Content-Type": "application/json",
-      }, body: jsonEncode(requestBody));
-      final responseBody = response.body.isNotEmpty
-          ? jsonDecode(response.body)
-          : <String, dynamic>{};
+      var response = await _client.post(Uri.parse(url),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: jsonEncode(requestBody));
+      final responseBody = _parseResponseBody(response.body);
       _logApi(
         apiName: 'verifyAadhaarOtp',
         url: url,
@@ -254,7 +278,7 @@ class TriageService {
   static Future<String?> downloadFile(String url) async {
     try {
       log('🔷 STARTING DOWNLOAD: $url');
-      
+
       // Use http.get directly to ensure we get bodyBytes
       final httpClient = http.Client();
       final response = await httpClient.get(Uri.parse(url));
@@ -288,9 +312,12 @@ class TriageService {
 
         // Verify PNG signature
         if (bytes.length > 4) {
-          final hexString = bytes.take(4).map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+          final hexString = bytes
+              .take(4)
+              .map((b) => b.toRadixString(16).padLeft(2, '0'))
+              .join();
           log('🔷 First 4 bytes (hex): $hexString');
-          
+
           // PNG magic number: 89 50 4E 47
           if (hexString == '89504e47') {
             log('✅ Valid PNG signature detected');
@@ -312,7 +339,10 @@ class TriageService {
 
             try {
               // Use universal_html to create blob and anchor for download
-              final blob = html.Blob([response.bodyBytes], response.headers['content-type'] ?? 'application/octet-stream');
+              final blob = html.Blob(
+                  [response.bodyBytes],
+                  response.headers['content-type'] ??
+                      'application/octet-stream');
               final url = html.Url.createObjectUrlFromBlob(blob);
               final anchor = html.AnchorElement(href: url)
                 ..download = fileName
@@ -323,11 +353,13 @@ class TriageService {
               anchor.remove();
               html.Url.revokeObjectUrl(url);
 
-              Fluttertoast.showToast(msg: 'ABHA Card download started in browser.');
+              Fluttertoast.showToast(
+                  msg: 'ABHA Card download started in browser.');
               return fileName;
             } catch (webEx) {
               log('❌ ERROR web download action failed: $webEx');
-              Fluttertoast.showToast(msg: 'Web download failed: ${webEx.toString()}');
+              Fluttertoast.showToast(
+                  msg: 'Web download failed: ${webEx.toString()}');
               return null;
             }
           }
@@ -356,7 +388,9 @@ class TriageService {
               log('🔷 Fallback to Directory.current: $downloadPath');
             } catch (currentEx) {
               log('❌ ERROR: all directory mechanisms failed (downloads, application, current): $currentEx');
-              Fluttertoast.showToast(msg: 'Cannot access download directory. Please ensure path_provider is configured and app has write permission.');
+              Fluttertoast.showToast(
+                  msg:
+                      'Cannot access download directory. Please ensure path_provider is configured and app has write permission.');
               return null;
             }
           }
@@ -377,30 +411,34 @@ class TriageService {
           log('✅ ABHA Card downloaded successfully!');
           log('✅ File path: $filePath');
           log('✅ File size: ${bytes.length} bytes');
-          
-          Fluttertoast.showToast(msg: 'ABHA Card downloaded!\nFile: $fileName\nLocation: $downloadPath');
+
+          Fluttertoast.showToast(
+              msg:
+                  'ABHA Card downloaded!\nFile: $fileName\nLocation: $downloadPath');
           return filePath;
         } catch (writeEx) {
           log('❌ ERROR writing file to disk: $writeEx');
-          Fluttertoast.showToast(msg: 'Error saving file: ${writeEx.toString()}');
+          Fluttertoast.showToast(
+              msg: 'Error saving file: ${writeEx.toString()}');
           return null;
         }
       } else {
         // API returned error status
-        final errorBody = response.body.isNotEmpty 
-            ? response.body.substring(0, min(200, response.body.length)) 
+        final errorBody = response.body.isNotEmpty
+            ? response.body.substring(0, min(200, response.body.length))
             : 'No response body';
-        
+
         log('❌ Download failed with status ${response.statusCode}');
         log('❌ Error response: $errorBody');
-        
-        Fluttertoast.showToast(msg: 'Download failed: Status ${response.statusCode}');
+
+        Fluttertoast.showToast(
+            msg: 'Download failed: Status ${response.statusCode}');
         return null;
       }
     } catch (ex) {
       log('❌ Download file exception: $ex');
       log('❌ Stack trace: $ex');
-      
+
       _logApi(
         apiName: 'downloadFile',
         url: url,
@@ -409,88 +447,110 @@ class TriageService {
         statusCode: 500,
         responseBody: {'error': ex.toString()},
       );
-      
+
       Fluttertoast.showToast(msg: 'Error: ${ex.toString()}');
       return null;
     }
   }
 
-
-Future<bool> testServerConnection() async {
-  final url = 'http://192.168.1.5:5000/health'; // replace with your PC IP
-  try {
-    final response = await http.get(Uri.parse(url)).timeout(Duration(seconds: 5));
-    if (response.statusCode == 200) {
-      print("✅ Server reachable! Response: ${response.body}");
-      return true;
-    } else {
-      print("⚠️ Server responded but with status: ${response.statusCode}");
+  Future<bool> testServerConnection() async {
+    final url = 'http://192.168.1.5:5000/health'; // replace with your PC IP
+    try {
+      final response =
+          await http.get(Uri.parse(url)).timeout(Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        print("✅ Server reachable! Response: ${response.body}");
+        return true;
+      } else {
+        print("⚠️ Server responded but with status: ${response.statusCode}");
+        return false;
+      }
+    } catch (e) {
+      print("❌ Cannot reach server: $e");
       return false;
     }
-  } catch (e) {
-    print("❌ Cannot reach server: $e");
-    return false;
   }
-}
-
 
 // ─────────────────────────────────────────
 // FACE AUTH STEP 3 - CREATE ABHA
 // ─────────────────────────────────────────
 
-static Future<Map<String, dynamic>?> createAbhaUsingFace({
-  required String txnId,
-  required String aadhaar,
-  required String mobile,
-}) async {
+  static Future<Map<String, dynamic>?> createAbhaUsingFace({
+    required String txnId,
+    required String aadhaar,
+    required String mobile,
+  }) async {
+    final url = Urls.createAbhaUsingFace;
 
-  final url = Urls.createAbhaUsingFace;
+    final requestBody = {
+      "txnId": txnId,
+      "aadhaar": aadhaar,
+      "mobile": mobile,
+    };
 
-  final requestBody = {
-    "txnId": txnId,
-    "aadhaar": aadhaar,
-    "mobile": mobile,
-  };
+    print("======================================");
+    print("ABHA ENROLL API");
+    print("URL : $url");
+    print("REQUEST");
+    print(requestBody);
+    print("======================================");
 
-  print("======================================");
-  print("ABHA ENROLL API");
-  print("URL : $url");
-  print("REQUEST");
-  print(requestBody);
-  print("======================================");
+    try {
+      final response = await _client.post(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode(requestBody),
+      );
 
-  try {
+      print("STATUS CODE : ${response.statusCode}");
+      print("BODY : ${response.body}");
 
-    final response = await _client.post(
-      Uri.parse(url),
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-      body: jsonEncode(requestBody),
-    );
+      Object? decodedBody;
 
-    print("STATUS CODE : ${response.statusCode}");
-    print("BODY : ${response.body}");
-
-    Object? decodedBody;
-
-    if (response.body.trim().isNotEmpty) {
-      try {
-        decodedBody = jsonDecode(response.body);
-      } catch (_) {
-        decodedBody = response.body;
+      if (response.body.trim().isNotEmpty) {
+        try {
+          decodedBody = jsonDecode(response.body);
+        } catch (_) {
+          decodedBody = response.body;
+        }
       }
-    }
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      final errorMessage = decodedBody is Map<String, dynamic>
-          ? (decodedBody['message']?.toString() ??
-              decodedBody['error']?.toString() ??
-              'Enroll API failed')
-          : decodedBody?.toString() ?? 'Enroll API failed';
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final errorMessage = decodedBody is Map<String, dynamic>
+            ? (decodedBody['message']?.toString() ??
+                decodedBody['error']?.toString() ??
+                'Enroll API failed')
+            : decodedBody?.toString() ?? 'Enroll API failed';
 
-      print("ENROLL API ERROR MESSAGE : $errorMessage");
+        print("ENROLL API ERROR MESSAGE : $errorMessage");
+
+        _logApi(
+          apiName: "createAbhaUsingFace",
+          url: url,
+          method: "POST",
+          requestBody: requestBody,
+          statusCode: response.statusCode,
+          responseBody: decodedBody ?? {},
+        );
+
+        return {
+          'success': false,
+          'message': errorMessage,
+          'statusCode': response.statusCode,
+        };
+      }
+
+      final decoded = decodedBody is Map<String, dynamic>
+          ? decodedBody
+          : <String, dynamic>{'data': decodedBody};
+
+      print("======================================");
+      print("ENROLL RESPONSE");
+      print(decoded);
+      print("======================================");
 
       _logApi(
         apiName: "createAbhaUsingFace",
@@ -498,48 +558,18 @@ static Future<Map<String, dynamic>?> createAbhaUsingFace({
         method: "POST",
         requestBody: requestBody,
         statusCode: response.statusCode,
-        responseBody: decodedBody ?? {},
+        responseBody: decoded,
       );
 
-      return {
-        'success': false,
-        'message': errorMessage,
-        'statusCode': response.statusCode,
-      };
+      return decoded;
+    } catch (e, stack) {
+      print("======================================");
+      print("ENROLL API ERROR");
+      print(e);
+      print(stack);
+      print("======================================");
+
+      return null;
     }
-
-    final decoded = decodedBody is Map<String, dynamic>
-        ? decodedBody
-        : <String, dynamic>{'data': decodedBody};
-
-    print("======================================");
-    print("ENROLL RESPONSE");
-    print(decoded);
-    print("======================================");
-
-    _logApi(
-      apiName: "createAbhaUsingFace",
-      url: url,
-      method: "POST",
-      requestBody: requestBody,
-      statusCode: response.statusCode,
-      responseBody: decoded,
-    );
-
-    return decoded;
-
-  } catch (e, stack) {
-
-    print("======================================");
-    print("ENROLL API ERROR");
-    print(e);
-    print(stack);
-    print("======================================");
-
-    return null;
-
   }
-
-}
-
 }

@@ -84,9 +84,7 @@ class NurseTriageController extends GetxController {
     // ✅ REMOVE DASHES AND NON-DIGITS
     aadhaar = aadhaar?.replaceAll(RegExp(r'\D'), '');
 
-    final mobile = createTriageModel.value?.triage?.patientMobileNumber;
-
-    log('sendAadhaarOtp inputs: aadhaar=$aadhaar, mobile=$mobile');
+    log('sendAadhaarOtp inputs: aadhaar=$aadhaar');
 
     if (!isValidAadhaar(aadhaar)) {
       Fluttertoast.showToast(msg: 'Please enter valid 12 digit Aadhaar number');
@@ -123,7 +121,7 @@ class NurseTriageController extends GetxController {
     }
   }
 
-  Future<bool> verifyAadhaarOtp() async {
+  Future<bool> verifyAadhaarOtp({bool showDialog = true}) async {
     final otp = aadhaarOtp.value;
     final txnId = aadhaarTxnId.value;
     final mobile = createTriageModel.value?.triage?.patientMobileNumber;
@@ -151,37 +149,54 @@ class NurseTriageController extends GetxController {
       );
       log('verifyAadhaarOtp raw response: $d');
       debugPrint('verifyAadhaarOtp raw response: $d');
-      if (d != null) {
-        aadhaarVerified.value = true;
 
-        Fluttertoast.showToast(msg: d['message'] ?? 'Aadhaar verified');
-
-        // ✅ Extract profileId from verifyAadhaarOtp response
-        final profileId = d['profileId'] ??
-            d['data']?['profileId'] ??
-            d['result']?['profileId'];
-        if (profileId != null) {
-          final parsedProfileId = int.tryParse(profileId.toString());
-          if (parsedProfileId != null) {
-            createTriageModel.value?.triage?.abhaProfileId = parsedProfileId;
-            log("ABHA PROFILE ID STORED from verifyAadhaarOtp: $parsedProfileId");
-          }
-        }
-
-        // ✅ CLEAR OTP HERE (CORRECT PLACE)
-        for (var c in otpControllers) {
-          c.clear();
-        }
-        aadhaarOtp.value = '';
-
-        // Show success popup
-        showAadhaarSuccessDialog(d);
-
-        return true;
+      if (d == null) {
+        aadhaarVerified.value = false;
+        Fluttertoast.showToast(msg: 'Failed to verify Aadhaar OTP');
+        return false;
       }
-      aadhaarVerified.value = false;
-      Fluttertoast.showToast(msg: 'Failed to verify Aadhaar OTP');
-      return false;
+
+      final isFailure = d['success'] == false ||
+          d['status'] == 'failed' ||
+          d['status'] == 'error' ||
+          (d['message']?.toString().toLowerCase().contains('fail') ?? false);
+      final hasSuccessPayload = d['result'] != null ||
+          d['profileId'] != null ||
+          d['data']?['profileId'] != null ||
+          d['abhaNumber'] != null ||
+          d['address'] != null;
+
+      if (isFailure && !hasSuccessPayload) {
+        aadhaarVerified.value = false;
+        Fluttertoast.showToast(
+            msg: d['message']?.toString() ?? 'Failed to verify Aadhaar OTP');
+        return false;
+      }
+
+      aadhaarVerified.value = true;
+
+      Fluttertoast.showToast(
+          msg: d['message']?.toString() ?? 'Aadhaar verified');
+
+      final profileId = d['profileId'] ??
+          d['data']?['profileId'] ??
+          d['result']?['profileId'];
+      if (profileId != null) {
+        final parsedProfileId = int.tryParse(profileId.toString());
+        if (parsedProfileId != null) {
+          createTriageModel.value?.triage?.abhaProfileId = parsedProfileId;
+          log("ABHA PROFILE ID STORED from verifyAadhaarOtp: $parsedProfileId");
+        }
+      }
+
+      for (var c in otpControllers) {
+        c.clear();
+      }
+      aadhaarOtp.value = '';
+
+      showAadhaarSuccessDialog(d, showDialog: showDialog);
+
+      return true;
     } catch (e) {
       log('verifyAadhaarOtp exception: $e');
       aadhaarVerified.value = false;
@@ -279,12 +294,41 @@ class NurseTriageController extends GetxController {
     return null;
   }
 
+  Map<String, dynamic>? _resolveAbhaProfilePayload(Map<String, dynamic> d) {
+    final candidates = <dynamic>[
+      d['result']?['ABHAProfile'],
+      d['result']?['profile'],
+      d['result']?['data'],
+      d['data']?['ABHAProfile'],
+      d['data']?['profile'],
+      d['ABHAProfile'],
+      d['profile'],
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate is Map<String, dynamic>) {
+        return candidate;
+      }
+      if (candidate is Map) {
+        return Map<String, dynamic>.from(candidate);
+      }
+    }
+
+    return null;
+  }
+
   void showLastAadhaarProfileCard() {
     final data = aadhaarProfileData.value;
     if (data == null) {
       Fluttertoast.showToast(msg: 'No imported profile data available');
       return;
     }
+
+    if (_resolveAbhaProfilePayload(data) == null) {
+      Fluttertoast.showToast(msg: 'No ABHA profile data available to view');
+      return;
+    }
+
     showAadhaarSuccessDialog(data);
   }
 
@@ -345,9 +389,9 @@ class NurseTriageController extends GetxController {
   void _applyAadhaarResponseData(Map<String, dynamic> d) {
     log("APPLY FUNCTION CALLED: $d");
 
-    final data = d['result']?['ABHAProfile'];
+    final data = _resolveAbhaProfilePayload(d);
     final triage = createTriageModel.value?.triage;
-    if (triage == null) return;
+    if (triage == null || data == null) return;
 
     log("ABHA Profile data: $data");
 
@@ -644,9 +688,10 @@ class NurseTriageController extends GetxController {
     ),
   );
 
-  void showAadhaarSuccessDialog(Map<String, dynamic> d) {
+  void showAadhaarSuccessDialog(Map<String, dynamic> d,
+      {bool showDialog = true}) {
     aadhaarProfileData.value = d; // store payload for later "View Card"
-    final profile = d['result']?['ABHAProfile'];
+    final profile = _resolveAbhaProfilePayload(d);
 
     if (profile == null) {
       Fluttertoast.showToast(msg: "No ABHA data found");
@@ -662,6 +707,11 @@ class NurseTriageController extends GetxController {
     final address = profile['address'] ?? '';
     final state = profile['stateName'] ?? '';
     final district = profile['districtName'] ?? '';
+
+    if (!showDialog) {
+      _applyAadhaarResponseData(d);
+      return;
+    }
 
     Get.dialog(
       Dialog(
@@ -1656,8 +1706,6 @@ class NurseTriageController extends GetxController {
 
         return;
       }
-
-     
     } catch (e, stack) {
       print(e);
       print(stack);
@@ -1675,8 +1723,9 @@ class NurseTriageController extends GetxController {
   Future<void> pollFaceStatus(
     String txnId,
     String aadhaar,
-    String mobile,
-  ) async {
+    String mobile, {
+    bool showDialog = true,
+  }) async {
     final faceService = FaceRDService();
 
     const int maxAttempts = 60;
@@ -1781,116 +1830,78 @@ class NurseTriageController extends GetxController {
     );
   }
 
+  Future<void> verifyFace({bool showDialog = true}) async {
+    if (faceTxnId.value.isEmpty) {
+      Fluttertoast.showToast(msg: "Please Scan Face First");
 
-  Future<void> verifyFace() async {
-
-    if(faceTxnId.value.isEmpty){
-
-        Fluttertoast.showToast(
-            msg:"Please Scan Face First"
-        );
-
-        return;
+      return;
     }
 
     final service = FaceRDService();
 
-    try{
+    try {
+      isFaceLoading.value = true;
 
-        isFaceLoading.value=true;
+      final response = await service.captureFaceAuth(
+        faceTxnId.value,
+      );
 
-        final response =
-            await service.captureFaceAuth(
-                faceTxnId.value,
-            );
+      final status = response["status"]?.toString().toUpperCase();
 
-        final status =
-            response["status"]
-            ?.toString()
-            .toUpperCase();
+      if (status == "PENDING") {
+        Fluttertoast.showToast(msg: "Face Scan not completed");
 
-        if(status=="PENDING"){
+        return;
+      }
 
-            Fluttertoast.showToast(
-                msg:"Face Scan not completed"
-            );
+      if (status == "FAILED") {
+        Fluttertoast.showToast(msg: "Face Verification Failed");
 
-            return;
+        return;
+      }
 
-        }
-
-        if(status=="FAILED"){
-
-            Fluttertoast.showToast(
-                msg:"Face Verification Failed"
-            );
-
-            return;
-
-        }
-
-        if(status=="COMPLETE"){
-
-            final enrollResponse =
-                await TriageService.createAbhaUsingFace(
-
-                    txnId: faceTxnId.value,
-
-                    aadhaar:
-                    createTriageModel.value!
-                        .triage!
-                        .aadhaar!,
-
-                    mobile:
-                    createTriageModel.value!
-                        .triage!
-                        .patientMobileNumber!,
-                );
-
-           print("======================================");
-print("ENROLL RESPONSE");
-print(enrollResponse);
-print("======================================");
-
-if (enrollResponse == null) {
-  Fluttertoast.showToast(
-    msg: "Enroll API returned NULL",
-  );
-  return;
-}
-
-if (enrollResponse["success"] == false) {
-  Fluttertoast.showToast(
-    msg: enrollResponse["message"] ?? "Enroll API Failed",
-  );
-  return;
-}
-
-if (enrollResponse["result"] == null) {
-  Fluttertoast.showToast(
-    msg: enrollResponse["message"] ?? "Enroll API Failed",
-  );
-
-  return;
-}
-
-showAadhaarSuccessDialog(enrollResponse);
-
-        }
-
-    }
-    catch(e){
-
-        Fluttertoast.showToast(
-            msg:e.toString(),
+      if (status == "COMPLETE") {
+        final enrollResponse = await TriageService.createAbhaUsingFace(
+          txnId: faceTxnId.value,
+          aadhaar: createTriageModel.value!.triage!.aadhaar!,
+          mobile: createTriageModel.value!.triage!.patientMobileNumber!,
         );
 
+        print("======================================");
+        print("ENROLL RESPONSE");
+        print(enrollResponse);
+        print("======================================");
+
+        if (enrollResponse == null) {
+          Fluttertoast.showToast(
+            msg: "Enroll API returned NULL",
+          );
+          return;
+        }
+
+        if (enrollResponse["success"] == false) {
+          Fluttertoast.showToast(
+            msg: enrollResponse["message"] ?? "Enroll API Failed",
+          );
+          return;
+        }
+
+        if (enrollResponse["result"] == null) {
+          Fluttertoast.showToast(
+            msg: enrollResponse["message"] ?? "Enroll API Failed",
+          );
+
+          return;
+        }
+
+        showAadhaarSuccessDialog(enrollResponse);
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: e.toString(),
+      );
+    } finally {
+      isFaceLoading.value = false;
     }
-    finally{
-
-        isFaceLoading.value=false;
-
-    }
-
-}
+  }
 }

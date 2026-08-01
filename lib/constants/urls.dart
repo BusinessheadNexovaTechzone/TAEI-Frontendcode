@@ -1,7 +1,7 @@
 class Urls {
   /// Triage API
   static const String baseUrl = 'https://dev.taei.co.in/';
-  static const String local = 'https://api.nexovatechzone.com/';
+  static const String local = 'https://taei.nexovatechzone.com/';
   static const String phone = 'http://192.168.1.5:5000/';
   //  ABHA Face API
   //  static const String baseUrl = "http://192.168.1.6:5000";
@@ -232,6 +232,9 @@ class Urls {
   // Aadhaar OTP APIs
   static const String sendAadhaarOtp = '${local}api/abha/aadhaar/generate-otp';
   static const String verifyAadhaarOtp = '${local}api/abha/aadhaar/verify-otp';
+  static const String abhaAddressSuggestions =
+      '${local}api/abha/address/suggestions';
+  static const String abhaAddressCreate = '${local}api/abha/address/create';
 
   // Add Screipt
   static const String createScript = '${baseUrl}api/stroke/create';

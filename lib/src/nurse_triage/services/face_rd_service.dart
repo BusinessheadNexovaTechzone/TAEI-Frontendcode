@@ -10,7 +10,7 @@ class FaceRDService {
   //     'https://abha-m1-hnefehcwghgzchgp.centralindia-01.azurewebsites.net';
   //static const String _baseUrl='https://192.168.1.6:5000';
 
-  static const String _baseUrl = 'https://api.nexovatechzone.com';
+  static const String _baseUrl = 'https://taei.nexovatechzone.com';
 
   static const String _packageName = 'in.ndhm.phr.debug';
   static const String _initEndpoint = '$_baseUrl/api/abha/face/init';

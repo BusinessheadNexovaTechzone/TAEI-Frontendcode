@@ -25,6 +25,7 @@ import '../../../utils/common/yes_or_no_radio_button.dart';
 import '../../../utils/helpers/space.dart';
 import '../controller/face_auth_controller.dart';
 import '../controller/nurse_triage_controller.dart';
+import 'create_abha.dart';
 
 enum AadhaarVerificationMethod { none, otp, face, fingerprint }
 
@@ -350,6 +351,74 @@ class _AddAccidentState extends State<AddAccident> {
     fetchData();
     print("TEST 108${controller.createTriageModel.value?.triageBy108?.rr}");
     super.initState();
+  }
+
+  Future<void> _launchCreateAbhaFlow() async {
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(builder: (_) => const CreateAbhaScreen()),
+    );
+
+    if (result == null || !mounted) return;
+
+    final abhaNumber = result['abhaNumber']?.toString() ?? '';
+    final abhaAddress = result['abhaAddress']?.toString() ?? '';
+    final fullName = result['fullName']?.toString() ?? '';
+    final mobile = result['mobile']?.toString() ?? '';
+
+    final triage = controller.createTriageModel.value?.triage;
+    if (triage != null) {
+      if (abhaNumber.isNotEmpty) {
+        triage.abhaCard = abhaNumber;
+      }
+      if (abhaAddress.isNotEmpty) {
+        triage.addressLine = abhaAddress;
+      }
+      if (fullName.isNotEmpty) {
+        triage.nameOfPatient = fullName;
+      }
+      if (mobile.isNotEmpty) {
+        triage.patientMobileNumber = mobile;
+      }
+      controller.createTriageModel.refresh();
+    }
+
+    controller.showCreateAbha.value = false;
+    setState(() {});
+  }
+
+  Widget _buildCreateAbhaLauncher() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Create a new ABHA card for this patient.',
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: _launchCreateAbhaFlow,
+            icon: const Icon(Icons.add_card_rounded, size: 18),
+            label: const Text('Create ABHA Card'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFB84A1B),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1708,13 +1777,7 @@ class _AddAccidentState extends State<AddAccident> {
                                                                       .isEmpty)
                                                                 TextButton.icon(
                                                                   onPressed:
-                                                                      () {
-                                                                    controller
-                                                                        .resetAbhaFlow();
-                                                                    controller
-                                                                        .showCreateAbha
-                                                                        .value = true;
-                                                                  },
+                                                                      _launchCreateAbhaFlow,
                                                                   icon: Text(
                                                                     '+',
                                                                     style:
@@ -1912,355 +1975,10 @@ class _AddAccidentState extends State<AddAccident> {
                                                         if (controller
                                                             .showCreateAbha
                                                             .value) {
-                                                          Future.delayed(
-                                                              Duration(
-                                                                  milliseconds:
-                                                                      300), () {
-                                                            FocusScope.of(
-                                                                    context)
-                                                                .requestFocus(
-                                                                    aadhaarFocusNode);
-                                                          });
+                                                          return _buildCreateAbhaLauncher();
                                                         }
-
-                                                        return controller
-                                                                .showCreateAbha
-                                                                .value
-                                                            ? Column(
-                                                                crossAxisAlignment:
-                                                                    CrossAxisAlignment
-                                                                        .start,
-                                                                children: [
-                                                                  /// Cancel
-                                                                  Row(
-                                                                    mainAxisAlignment:
-                                                                        MainAxisAlignment
-                                                                            .end,
-                                                                    children: [
-                                                                      TextButton(
-                                                                        onPressed:
-                                                                            controller.resetAbhaFlow,
-                                                                        child: Text(
-                                                                            "Cancel"),
-                                                                      ),
-                                                                    ],
-                                                                  ),
-
-                                                                  /// Aadhaar
-                                                                  Text(
-                                                                    'AADHAAR NUMBER',
-                                                                    style: TextStyle(
-                                                                        fontWeight:
-                                                                            FontWeight.bold),
-                                                                  ),
-
-                                                                  SizedBox(
-                                                                      height:
-                                                                          6),
-
-                                                                  Row(
-                                                                    children: [
-                                                                      Expanded(
-                                                                        child:
-                                                                            Stack(
-                                                                          alignment:
-                                                                              Alignment.centerLeft,
-                                                                          children: [
-                                                                            TextFormField(
-                                                                              controller: controller.aadhaarController,
-                                                                              focusNode: aadhaarFocusNode,
-                                                                              keyboardType: TextInputType.number,
-                                                                              inputFormatters: [
-                                                                                FilteringTextInputFormatter.digitsOnly,
-                                                                                LengthLimitingTextInputFormatter(12),
-                                                                              ],
-                                                                              decoration: InputDecoration(
-                                                                                counterText: '',
-                                                                                border: OutlineInputBorder(),
-                                                                              ),
-                                                                              style: TextStyle(
-                                                                                color: Colors.transparent,
-                                                                                decorationColor: Colors.transparent,
-                                                                              ),
-                                                                              cursorColor: Colors.black,
-                                                                              onChanged: (value) {
-                                                                                rawAadhaar = value.replaceAll(RegExp(r'[^0-9]'), '');
-                                                                                if (rawAadhaar.length > 12) {
-                                                                                  rawAadhaar = rawAadhaar.substring(0, 12);
-                                                                                  controller.aadhaarController.text = rawAadhaar;
-                                                                                  controller.aadhaarController.selection = TextSelection.collapsed(offset: rawAadhaar.length);
-                                                                                }
-                                                                                controller.createTriageModel.value!.triage!.aadhaar = rawAadhaar;
-                                                                                setState(() {});
-                                                                              },
-                                                                            ),
-                                                                            IgnorePointer(
-                                                                              child: Padding(
-                                                                                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                                                                                child: Align(
-                                                                                  alignment: Alignment.centerLeft,
-                                                                                  child: Text(
-                                                                                    rawAadhaar.isEmpty ? 'XXXX-XXXX-1234' : _maskAadhaar(rawAadhaar),
-                                                                                    style: TextStyle(fontSize: 16, color: rawAadhaar.isEmpty ? Colors.grey : Colors.black),
-                                                                                  ),
-                                                                                ),
-                                                                              ),
-                                                                            ),
-                                                                          ],
-                                                                        ),
-                                                                      ),
-                                                                      SizedBox(
-                                                                          width:
-                                                                              8),
-                                                                      if (_showAadhaarVerificationOptions &&
-                                                                          _aadhaarVerificationMethod ==
-                                                                              AadhaarVerificationMethod.otp)
-                                                                        Obx(() {
-                                                                          final isSending = controller
-                                                                              .isSendingAadhaarOtp
-                                                                              .value;
-                                                                          final remaining = controller
-                                                                              .aadhaarOtpRemainingSeconds
-                                                                              .value;
-                                                                          final otpSent = controller
-                                                                              .aadhaarOtpSent
-                                                                              .value;
-
-                                                                          String
-                                                                              buttonText;
-                                                                          if (isSending) {
-                                                                            buttonText =
-                                                                                'SENDING...';
-                                                                          } else if (otpSent &&
-                                                                              remaining > 0) {
-                                                                            buttonText =
-                                                                                'RESEND IN ${remaining}s';
-                                                                          } else if (otpSent) {
-                                                                            buttonText =
-                                                                                'RESEND OTP';
-                                                                          } else {
-                                                                            buttonText =
-                                                                                'SEND OTP';
-                                                                          }
-
-                                                                          final bool isDisabled = isSending ||
-                                                                              (otpSent && remaining > 0) ||
-                                                                              rawAadhaar.length != 12;
-
-                                                                          return ElevatedButton(
-                                                                            onPressed: isDisabled
-                                                                                ? null
-                                                                                : () {
-                                                                                    controller.showAadhaarInfoPopup(
-                                                                                      onContinue: () async {
-                                                                                        await controller.sendAadhaarOtp();
-                                                                                      },
-                                                                                    );
-                                                                                  },
-                                                                            child:
-                                                                                Text(buttonText),
-                                                                          );
-                                                                        }),
-                                                                    ],
-                                                                  ),
-
-                                                                  SizedBox(
-                                                                      height:
-                                                                          10),
-
-                                                                  if (!_showAadhaarVerificationOptions)
-                                                                    ElevatedButton(
-                                                                      style: ElevatedButton.styleFrom(
-                                                                          minimumSize: Size(
-                                                                              double.infinity,
-                                                                              45)),
-                                                                      onPressed: rawAadhaar.length ==
-                                                                              12
-                                                                          ? () async {
-                                                                              final method = await _showAadhaarVerificationDialog();
-                                                                              if (method != null && method != AadhaarVerificationMethod.none) {
-                                                                                setState(() {
-                                                                                  _showAadhaarVerificationOptions = true;
-                                                                                  _aadhaarVerificationMethod = method;
-                                                                                  controller.aadhaarOtpSent.value = false;
-                                                                                  controller.aadhaarVerified.value = false;
-                                                                                });
-                                                                              }
-                                                                            }
-                                                                          : null,
-                                                                      child: Text(
-                                                                          'Verify Aadhaar'),
-                                                                    ),
-
-                                                                  if (_showAadhaarVerificationOptions)
-                                                                    Column(
-                                                                      crossAxisAlignment:
-                                                                          CrossAxisAlignment
-                                                                              .stretch,
-                                                                      children: [
-                                                                        Text(
-                                                                            'Authentication Method',
-                                                                            style:
-                                                                                TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                                                        SizedBox(
-                                                                            height:
-                                                                                4),
-                                                                        Text(
-                                                                            'You selected ${_labelForMethod(_aadhaarVerificationMethod)}.',
-                                                                            style:
-                                                                                TextStyle(fontSize: 13, color: Colors.grey[700])),
-                                                                        SizedBox(
-                                                                            height:
-                                                                                12),
-                                                                        _buildVerificationMethodCard(
-                                                                          label:
-                                                                              _labelForMethod(_aadhaarVerificationMethod),
-                                                                          subtitle: _aadhaarVerificationMethod == AadhaarVerificationMethod.otp
-                                                                              ? 'Receive OTP'
-                                                                              : _aadhaarVerificationMethod == AadhaarVerificationMethod.face
-                                                                                  ? 'Face Authentication'
-                                                                                  : 'Fingerprint Scan',
-                                                                          icon:
-                                                                              _iconForMethod(_aadhaarVerificationMethod),
-                                                                          selected:
-                                                                              true,
-                                                                          onTap:
-                                                                              () {},
-                                                                        ),
-                                                                        SizedBox(
-                                                                            height:
-                                                                                12),
-                                                                        TextButton(
-                                                                          onPressed:
-                                                                              () async {
-                                                                            final method =
-                                                                                await _showAadhaarVerificationDialog();
-                                                                            if (method != null &&
-                                                                                method != AadhaarVerificationMethod.none) {
-                                                                              setState(() {
-                                                                                _aadhaarVerificationMethod = method;
-                                                                                controller.aadhaarOtpSent.value = false;
-                                                                                controller.aadhaarVerified.value = false;
-                                                                              });
-                                                                            }
-                                                                          },
-                                                                          child:
-                                                                              Text('Choose another method'),
-                                                                        ),
-                                                                        SizedBox(
-                                                                            height:
-                                                                                14),
-                                                                        if (_aadhaarVerificationMethod ==
-                                                                            AadhaarVerificationMethod.otp)
-                                                                          Obx(() {
-                                                                            if (controller.aadhaarOtpSent.value) {
-                                                                              Future.delayed(Duration(milliseconds: 300), () {
-                                                                                FocusScope.of(context).requestFocus(controller.otpFocusNodes[0]);
-                                                                              });
-                                                                            }
-
-                                                                            return Column(
-                                                                              children: [
-                                                                                if (controller.aadhaarOtpSent.value)
-                                                                                  Column(
-                                                                                    children: [
-                                                                                      Row(
-                                                                                        mainAxisAlignment: MainAxisAlignment.center,
-                                                                                        children: List.generate(6, (index) {
-                                                                                          return Padding(
-                                                                                            padding: EdgeInsets.symmetric(horizontal: 4),
-                                                                                            child: SizedBox(
-                                                                                              width: 44,
-                                                                                              height: 50,
-                                                                                              child: TextFormField(
-                                                                                                controller: controller.otpControllers[index],
-                                                                                                focusNode: controller.otpFocusNodes[index],
-                                                                                                keyboardType: TextInputType.number,
-                                                                                                textAlign: TextAlign.center,
-                                                                                                maxLength: 1,
-                                                                                                decoration: InputDecoration(
-                                                                                                  counterText: '',
-                                                                                                  border: OutlineInputBorder(),
-                                                                                                ),
-                                                                                                onChanged: (value) {
-                                                                                                  if (value.isNotEmpty && index < 5) {
-                                                                                                    FocusScope.of(context).requestFocus(controller.otpFocusNodes[index + 1]);
-                                                                                                  } else if (value.isEmpty && index > 0) {
-                                                                                                    FocusScope.of(context).requestFocus(controller.otpFocusNodes[index - 1]);
-                                                                                                  }
-                                                                                                  controller.aadhaarOtp.value = controller.otpControllers.map((c) => c.text).join();
-                                                                                                },
-                                                                                              ),
-                                                                                            ),
-                                                                                          );
-                                                                                        }),
-                                                                                      ),
-                                                                                      SizedBox(height: 10),
-                                                                                      ElevatedButton(
-                                                                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, minimumSize: Size(double.infinity, 45)),
-                                                                                        onPressed: controller.verifyAadhaarOtp,
-                                                                                        child: Text('VERIFY & CREATE ABHA'),
-                                                                                      ),
-                                                                                      SizedBox(height: 8),
-                                                                                    ],
-                                                                                  ),
-                                                                                Row(
-                                                                                  children: [
-                                                                                    Expanded(child: Obx(() => controller.aadhaarVerified.value ? Text('Aadhaar verified', style: TextStyle(color: Colors.green)) : Text('Aadhaar not verified', style: TextStyle(color: Colors.red))))
-                                                                                  ],
-                                                                                ),
-                                                                              ],
-                                                                            );
-                                                                          })
-                                                                        else if (_aadhaarVerificationMethod ==
-                                                                            AadhaarVerificationMethod.face)
-                                                                          Column(
-                                                                            children: [
-                                                                              Text(
-                                                                                "Use Face Authentication",
-                                                                              ),
-                                                                              const SizedBox(height: 12),
-                                                                              Row(
-                                                                                children: [
-                                                                                  Expanded(
-                                                                                    child: ElevatedButton.icon(
-                                                                                      icon: const Icon(Icons.face),
-                                                                                      label: const Text("Scan Face"),
-                                                                                      onPressed: () {
-                                                                                        _startBiometricScan(
-                                                                                          AadhaarVerificationMethod.face,
-                                                                                        );
-                                                                                      },
-                                                                                    ),
-                                                                                  ),
-                                                                                  const SizedBox(width: 10),
-                                                                                  Expanded(
-                                                                                    child: ElevatedButton.icon(
-                                                                                      icon: const Icon(Icons.verified),
-                                                                                      label: const Text("Verify Face"),
-                                                                                      onPressed: () async {
-                                                                                        await controller.verifyFace();
-                                                                                      },
-                                                                                    ),
-                                                                                  ),
-                                                                                ],
-                                                                              ),
-                                                                              const SizedBox(height: 12),
-                                                                              Obx(
-                                                                                () => Text(
-                                                                                  controller.aadhaarVerified.value ? "Aadhaar Verified" : "Aadhaar Not Verified",
-                                                                                  style: TextStyle(
-                                                                                    color: controller.aadhaarVerified.value ? Colors.green : Colors.red,
-                                                                                  ),
-                                                                                ),
-                                                                              ),
-                                                                            ],
-                                                                          )
-                                                                      ],
-                                                                    ),
-                                                                ],
-                                                              )
-                                                            : SizedBox();
+                                                        return const SizedBox
+                                                            .shrink();
                                                       }),
                                                     ],
                                                   ),
