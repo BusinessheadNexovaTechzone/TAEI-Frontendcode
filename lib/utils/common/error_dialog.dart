@@ -71,45 +71,40 @@ class CommonErrorDialog {
   }
 
   static String extractFriendlyErrorMessage(dynamic payload) {
-    final rawMessage = extractErrorMessage(payload);
-    final lower = rawMessage.toLowerCase();
+    // Priority-based extraction: return backend message exactly as received.
+    if (payload == null) return '';
 
-    if (lower.contains('invalid loginid') ||
-        lower.contains('loginid') &&
-            (lower.contains('invalid') || lower.contains('incorrect'))) {
-      return 'Please enter a valid 12-digit Aadhaar number.';
+    // If payload is a Map, inspect keys in the requested priority.
+    if (payload is Map) {
+      final map = Map<String, dynamic>.from(payload);
+
+      // 1) error.message
+      final nestedError = map['error'];
+      if (nestedError != null) {
+        if (nestedError is Map) {
+          final nestedMessage = _stringFrom(nestedError['message']);
+          if (nestedMessage.isNotEmpty) return nestedMessage;
+        }
+        // if error is a plain string
+        final nestedAsString = _stringFrom(nestedError);
+        if (nestedAsString.isNotEmpty) return nestedAsString;
+      }
+
+      // 2) message
+      final message = _stringFrom(map['message']);
+      if (message.isNotEmpty) return message;
+
+      // 3) loginId
+      final loginId = _stringFrom(map['loginId']);
+      if (loginId.isNotEmpty) return loginId;
+
+      // 4) mobile
+      final mobile = _stringFrom(map['mobile']);
+      if (mobile.isNotEmpty) return mobile;
     }
 
-    if (lower.contains('invalid mobile number') ||
-        lower.contains('invalid mobile')) {
-      return 'Please enter a valid 10-digit mobile number.';
-    }
-
-    if (lower.contains('otp validation failed') ||
-        (lower.contains('uidai error code') && lower.contains('otp'))) {
-      return 'OTP verification failed. Please enter the correct OTP and try again.';
-    }
-
-    if (lower.contains('expired') ||
-        lower.contains('otp is either expired or incorrect') ||
-        lower.contains('expired or incorrect')) {
-      return 'Your OTP has expired. Please request a new OTP and try again.';
-    }
-
-    if (lower.contains('aadhaar number is incorrect') ||
-        lower.contains('invalid aadhaar') ||
-        lower.contains('aadhaar validation') ||
-        lower.contains('aadhaar number is invalid')) {
-      return 'Please enter a valid 12-digit Aadhaar number.';
-    }
-
-    if (lower.contains('abha address already exists') ||
-        lower.contains('unique abha address') ||
-        lower.contains('already exists')) {
-      return 'This ABHA Address is already in use. Please choose another ABHA Address or create a unique custom ABHA Address.';
-    }
-
-    return rawMessage;
+    // 5) Fallback: return the first meaningful string found anywhere in the payload.
+    return extractErrorMessage(payload);
   }
 
   static String _stringFrom(Object? value) {
@@ -138,7 +133,7 @@ class CommonErrorDialog {
           ),
           backgroundColor: Colors.white,
           contentPadding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+          titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
           title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -148,22 +143,21 @@ titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
             ],
           ),
           content: ConstrainedBox(
-  constraints: const BoxConstraints(
-    maxWidth: 360,
-    minWidth: 300,
-  ),
-  child: Text(
-    message,
-    textAlign: TextAlign.center,
-    maxLines: 3,
-    overflow: TextOverflow.visible,
-    style: theme.textTheme.bodyMedium?.copyWith(
-      fontSize: 14,
-      height: 1.3,
-    ),
-  ),
-),
-         
+            constraints: const BoxConstraints(
+              maxWidth: 360,
+              minWidth: 300,
+            ),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.visible,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: 14,
+                height: 1.3,
+              ),
+            ),
+          ),
           actions: [
             SizedBox(
               width: 88,

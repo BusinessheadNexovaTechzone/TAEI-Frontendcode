@@ -26,6 +26,10 @@ class AadhaarAuthenticationStep extends StatelessWidget {
     required this.formatResendTimer,
     required this.buildMaskedMobileNumber,
     required this.isValidMobile,
+    required this.shouldShowOtpError,
+    required this.shouldShowMobileError,
+    required this.onOtpFieldChanged,
+    required this.onMobileFieldChanged,
   });
 
   final GlobalKey<FormState> formKey;
@@ -50,6 +54,10 @@ class AadhaarAuthenticationStep extends StatelessWidget {
   final String Function() formatResendTimer;
   final String Function() buildMaskedMobileNumber;
   final bool Function(String? value) isValidMobile;
+  final bool shouldShowOtpError;
+  final bool shouldShowMobileError;
+  final VoidCallback onOtpFieldChanged;
+  final VoidCallback onMobileFieldChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +79,7 @@ class AadhaarAuthenticationStep extends StatelessWidget {
       ),
       child: Form(
         key: formKey,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
+        autovalidateMode: AutovalidateMode.disabled,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -88,16 +96,7 @@ class AadhaarAuthenticationStep extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: secondaryColor, size: 18),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'OTP sent to Aadhaar registered mobile number ending with ${buildMaskedMobileNumber()}.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: secondaryTextColor,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -119,6 +118,7 @@ class AadhaarAuthenticationStep extends StatelessWidget {
             const SizedBox(height: 12),
             FormField<String>(
               validator: (value) {
+                if (!shouldShowOtpError) return null;
                 if (otpDigitControllers
                         .map((controller) => controller.text)
                         .join()
@@ -174,8 +174,10 @@ class AadhaarAuthenticationStep extends StatelessWidget {
                                     BorderSide(color: primaryColor, width: 2),
                               ),
                             ),
-                            onChanged: (value) =>
-                                onOtpDigitChanged(index, value),
+                            onChanged: (value) {
+                              onOtpDigitChanged(index, value);
+                              onOtpFieldChanged();
+                            },
                           ),
                         );
                       }),
@@ -237,6 +239,7 @@ class AadhaarAuthenticationStep extends StatelessWidget {
             TextFormField(
               controller: mobileController,
               keyboardType: TextInputType.phone,
+              onChanged: (_) => onMobileFieldChanged(),
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(10),
@@ -265,6 +268,7 @@ class AadhaarAuthenticationStep extends StatelessWidget {
                 ),
               ),
               validator: (value) {
+                if (!shouldShowMobileError) return null;
                 if (!isValidMobile(value)) {
                   return 'Mobile Number must contain exactly 10 digits.';
                 }

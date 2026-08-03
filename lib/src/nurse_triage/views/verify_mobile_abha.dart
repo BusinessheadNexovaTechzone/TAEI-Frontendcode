@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -47,15 +48,24 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
   Future<void> _handleNext() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final mobile = _mobileController.text.replaceAll(RegExp(r'\D'), '');
+    final rawMobile = _mobileController.text.trim();
+    final mobile = rawMobile.replaceAll(RegExp(r'\D'), '');
+
+    debugPrint('===== VERIFY MOBILE ENTRY =====');
+    debugPrint('Raw mobile input: $rawMobile');
+    debugPrint('Digits-only mobile: $mobile');
+    debugPrint('Mobile length: ${mobile.length}');
+
     final sent = await _controller.sendOtp(method: 'mobile', loginId: mobile);
+    debugPrint('sendOtp result for mobile: $sent');
     if (!sent) return;
 
-    await widget.onNext?.call(
-      _controller.otpMessage.value.isNotEmpty
-          ? _controller.otpMessage.value
-          : 'OTP sent to your registered mobile number.',
-    );
+    final message = _controller.otpMessage.value.isNotEmpty
+        ? _controller.otpMessage.value
+        : 'OTP sent to your registered mobile number.';
+    debugPrint('OTP message from controller: $message');
+
+    await widget.onNext?.call(message);
   }
 
   @override

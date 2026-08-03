@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -48,19 +49,27 @@ class _VerifyAadhaarAbhaScreenState extends State<VerifyAadhaarAbhaScreen> {
   Future<void> _handleNext() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final aadhaar = _aadhaarController.text.replaceAll(RegExp(r'\D'), '');
+    final rawAadhaar = _aadhaarController.text.trim();
+    final aadhaar = rawAadhaar.replaceAll(RegExp(r'\D'), '');
     if (aadhaar.length != 12) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Aadhaar must contain exactly 12 digits.')));
       return;
     }
 
+    debugPrint('===== VERIFY AADHAAR ENTRY =====');
+    debugPrint('Raw Aadhaar input: $rawAadhaar');
+    debugPrint('Digits-only Aadhaar: $aadhaar');
+    debugPrint('Aadhaar length: ${aadhaar.length}');
+
     final sent = await _controller.sendOtp(method: 'aadhaar', loginId: aadhaar);
+    debugPrint('sendOtp result for aadhaar: $sent');
     if (!sent) return;
 
     final message = _controller.otpMessage.value.isNotEmpty
         ? _controller.otpMessage.value
         : 'OTP sent to Aadhaar registered mobile number.';
+    debugPrint('OTP message from controller: $message');
 
     await widget.onNext?.call(message);
   }

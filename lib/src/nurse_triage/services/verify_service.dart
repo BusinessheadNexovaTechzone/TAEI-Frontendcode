@@ -32,6 +32,8 @@ class VerifyAbhaService {
 
       debugPrint('Status : ${response.statusCode}');
       debugPrint('Response : ${response.body}');
+      debugPrint(
+          'Decoded sendOtp response: ${response.body.trim().isEmpty ? '<empty>' : jsonDecode(response.body)}');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (response.body.trim().isEmpty) {
@@ -74,11 +76,21 @@ class VerifyAbhaService {
     };
 
     try {
+      debugPrint('===== VERIFY OTP REQUEST =====');
+      debugPrint('URL : $url');
+      debugPrint('loginType : $loginType');
+      debugPrint('txnId : $txnId');
+      debugPrint('otp : $otp');
+      debugPrint('Body : ${jsonEncode(body)}');
+
       final response = await _client.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(body),
       );
+
+      debugPrint('Status : ${response.statusCode}');
+      debugPrint('Response : ${response.body}');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (response.body.trim().isEmpty) {

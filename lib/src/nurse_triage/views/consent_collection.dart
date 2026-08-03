@@ -31,6 +31,12 @@ class ConsentCollectionStep extends StatelessWidget {
     required this.onNext,
     required this.isValidAadhaar,
     required this.buildInputDecoration,
+    required this.shouldShowAadhaarError,
+    required this.shouldShowConsentError,
+    required this.shouldShowAuthMethodError,
+    required this.shouldShowCaptchaError,
+    required this.onAadhaarFieldChanged,
+    required this.onCaptchaChanged,
     this.otpHintText,
   });
 
@@ -64,6 +70,12 @@ class ConsentCollectionStep extends StatelessWidget {
       {String? labelText,
       String? hintText,
       String? counterText}) buildInputDecoration;
+  final bool shouldShowAadhaarError;
+  final bool shouldShowConsentError;
+  final bool shouldShowAuthMethodError;
+  final bool shouldShowCaptchaError;
+  final VoidCallback onAadhaarFieldChanged;
+  final VoidCallback onCaptchaChanged;
   final String? otpHintText;
 
   @override
@@ -103,7 +115,7 @@ class ConsentCollectionStep extends StatelessWidget {
           ),
           child: Form(
             key: formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
+            autovalidateMode: AutovalidateMode.disabled,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -117,6 +129,7 @@ class ConsentCollectionStep extends StatelessWidget {
                 const SizedBox(height: 10),
                 FormField<String>(
                   validator: (value) {
+                    if (!shouldShowAadhaarError) return null;
                     if (!isValidAadhaar(aadhaarPartControllers
                         .map((controller) => controller.text)
                         .join())) {
@@ -141,8 +154,10 @@ class ConsentCollectionStep extends StatelessWidget {
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(4),
                                 ],
-                                onChanged: (value) =>
-                                    onAadhaarPartChanged(0, value),
+                                onChanged: (value) {
+                                  onAadhaarPartChanged(0, value);
+                                  onAadhaarFieldChanged();
+                                },
                                 decoration:
                                     buildInputDecoration(hintText: '0000'),
                               ),
@@ -164,8 +179,10 @@ class ConsentCollectionStep extends StatelessWidget {
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(4),
                                 ],
-                                onChanged: (value) =>
-                                    onAadhaarPartChanged(1, value),
+                                onChanged: (value) {
+                                  onAadhaarPartChanged(1, value);
+                                  onAadhaarFieldChanged();
+                                },
                                 decoration:
                                     buildInputDecoration(hintText: '0000'),
                               ),
@@ -187,8 +204,10 @@ class ConsentCollectionStep extends StatelessWidget {
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(4),
                                 ],
-                                onChanged: (value) =>
-                                    onAadhaarPartChanged(2, value),
+                                onChanged: (value) {
+                                  onAadhaarPartChanged(2, value);
+                                  onAadhaarFieldChanged();
+                                },
                                 decoration:
                                     buildInputDecoration(hintText: '0000'),
                               ),
@@ -285,6 +304,7 @@ class ConsentCollectionStep extends StatelessWidget {
                       const SizedBox(height: 12),
                       FormField<bool>(
                         validator: (value) {
+                          if (!shouldShowConsentError) return null;
                           if (!consentAccepted) {
                             return 'Please accept the Terms and Conditions.';
                           }
@@ -346,6 +366,7 @@ class ConsentCollectionStep extends StatelessWidget {
                   ],
                   onChanged: onAuthMethodChanged,
                   validator: (value) {
+                    if (!shouldShowAuthMethodError) return null;
                     if (value == null || value.isEmpty) {
                       return 'Please select an authentication method.';
                     }
@@ -414,12 +435,14 @@ class ConsentCollectionStep extends StatelessWidget {
                         keyboardType: TextInputType.number,
                         decoration:
                             buildInputDecoration(labelText: 'Enter Answer'),
+                        onChanged: (_) => onCaptchaChanged(),
                         validator: (value) {
+                          if (!shouldShowCaptchaError) return null;
                           if ((value ?? '').trim().isEmpty) {
                             return 'Answer is required.';
                           }
                           if ((value ?? '').trim() != captchaAnswer) {
-                            return 'Incorrect answer.';
+                            return 'Please enter the correct captcha answer.';
                           }
                           return null;
                         },

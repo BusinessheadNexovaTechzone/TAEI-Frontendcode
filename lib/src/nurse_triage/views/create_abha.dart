@@ -3,7 +3,6 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:taei_gov/src/nurse_triage/controller/nurse_triage_controller.dart';
 import 'package:taei_gov/src/nurse_triage/views/abha_address_creation.dart';
@@ -68,6 +67,14 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   Timer? _resendTimer;
   bool _showSuccess = false;
   Map<String, dynamic>? _verificationResponse;
+  bool _consentFieldTouched = false;
+  bool _authMethodFieldTouched = false;
+  bool _captchaFieldTouched = false;
+  bool _aadhaarFieldTouched = false;
+  bool _otpFieldTouched = false;
+  bool _mobileFieldTouched = false;
+  int _resendAttempts = 0;
+  static const int _maxResendAttempts = 3;
 
   String? _abhaNumber;
   String? _abhaAddress;
@@ -159,7 +166,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
 
   void _startResendTimer() {
     _resendTimer?.cancel();
-    setState(() => _resendSeconds = 60);
+    setState(() {
+      _resendSeconds = 60;
+      _resendAttempts = 0;
+    });
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_resendSeconds <= 1) {
         timer.cancel();
@@ -225,6 +235,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       setState(() {
         _otpSent = true;
         _isSubmitting = false;
+        _resendAttempts = 0;
       });
       _startResendTimer();
       _goToStep(1);
@@ -240,6 +251,13 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   }
 
   Future<void> _handleConsentNext() async {
+    setState(() {
+      _consentFieldTouched = true;
+      _aadhaarFieldTouched = true;
+      _authMethodFieldTouched = true;
+      _captchaFieldTouched = true;
+    });
+
     if (!_formKey.currentState!.validate()) return;
     if (!_consentAccepted) {
       await CommonErrorDialog.show(
@@ -380,10 +398,25 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   Future<void> _resendOtp() async {
     if (_resendSeconds > 0) return;
 
+    if (_resendAttempts >= _maxResendAttempts) {
+      await CommonErrorDialog.show(
+        context,
+        message:
+            'You have reached the maximum of $_maxResendAttempts OTP resend attempts for this transaction. Please try again after a new OTP request.',
+      );
+      return;
+    }
+
+    _resendAttempts += 1;
     await _sendOtp();
   }
 
   Future<void> _verifyOtpAndContinue() async {
+    setState(() {
+      _otpFieldTouched = true;
+      _mobileFieldTouched = true;
+    });
+
     if (_otpDigitControllers.where((c) => c.text.isNotEmpty).length != 6) {
       await CommonErrorDialog.show(
         context,
@@ -644,17 +677,28 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       onAadhaarPartChanged: _handleAadhaarPartChanged,
       consentAccepted: _consentAccepted,
       onConsentChanged: (value) {
-        setState(() => _consentAccepted = value ?? false);
+        setState(() {
+          _consentAccepted = value ?? false;
+          _consentFieldTouched = true;
+        });
       },
       selectedAuthMethod: _selectedAuthMethod,
-      onAuthMethodChanged: (value) =>
-          setState(() => _selectedAuthMethod = value),
+      onAuthMethodChanged: (value) => setState(() {
+        _selectedAuthMethod = value;
+        _authMethodFieldTouched = true;
+      }),
       captchaQuestion: _captchaQuestion,
       captchaAnswer: _captchaAnswer,
       captchaController: _captchaController,
       onRefreshCaptcha: _refreshCaptcha,
       isSubmitting: _isSubmitting,
       canProceed: canProceed,
+      shouldShowAadhaarError: _aadhaarFieldTouched,
+      shouldShowConsentError: _consentFieldTouched,
+      shouldShowAuthMethodError: _authMethodFieldTouched,
+      shouldShowCaptchaError: _captchaFieldTouched,
+      onAadhaarFieldChanged: () => setState(() => _aadhaarFieldTouched = true),
+      onCaptchaChanged: () => setState(() => _captchaFieldTouched = true),
       onCancel: () => Navigator.of(context).maybePop(),
       onNext: _handleConsentNext,
       isValidAadhaar: _isValidAadhaar,
@@ -745,6 +789,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       formatResendTimer: _formatResendTimer,
       buildMaskedMobileNumber: _buildMaskedMobileNumber,
       isValidMobile: _isValidMobile,
+      shouldShowOtpError: _otpFieldTouched,
+      shouldShowMobileError: _mobileFieldTouched,
+      onOtpFieldChanged: () => setState(() => _otpFieldTouched = true),
+      onMobileFieldChanged: () => setState(() => _mobileFieldTouched = true),
     );
   }
 

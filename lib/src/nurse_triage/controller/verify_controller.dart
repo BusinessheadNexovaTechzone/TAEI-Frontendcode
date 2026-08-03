@@ -235,6 +235,8 @@ class VerifyAbhaController extends GetxController {
     final normalizedLoginId = normalizeInput(loginId);
     debugPrint('Normalized : $normalizedLoginId');
     debugPrint('Length : ${normalizedLoginId.length}');
+    debugPrint(
+        'Current selected login type before send: ${selectedLoginType.value}');
 
     if (!validateInput(method: method, value: normalizedLoginId)) {
       final message = method == 'mobile'
@@ -261,6 +263,7 @@ class VerifyAbhaController extends GetxController {
     );
 
     debugPrint('Request LoginId : $requestLoginId');
+    debugPrint('Resolved login type for request: $loginType');
 
     isLoading.value = true;
     try {
@@ -268,6 +271,7 @@ class VerifyAbhaController extends GetxController {
         loginType: loginType,
         loginId: requestLoginId,
       );
+      debugPrint('sendOtp service response: $response');
 
       if (response == null) {
         lastApiError.value = {'message': 'Unable to send OTP right now.'};
@@ -376,10 +380,13 @@ class VerifyAbhaController extends GetxController {
         return false;
       }
 
+      debugPrint('verifyOtp response payload: $response');
+
       final success = response['success'] == true ||
           response['status'] == 'success' ||
           response['message']?.toString().toLowerCase().contains('success') ==
               true;
+      debugPrint('verifyOtp success flag resolved to: $success');
 
       if (!success) {
         lastApiError.value = response;
