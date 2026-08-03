@@ -324,18 +324,25 @@ class VerifyAbhaController extends GetxController {
   }
 
   void _syncVerifiedResponse(Map<String, dynamic> response) {
+    debugPrint('===== VERIFY OTP RESPONSE =====');
+    debugPrint(response.toString());
+
     verifiedAuthResponse.value = response;
 
     final nurseController = Get.isRegistered<NurseTriageController>()
         ? Get.find<NurseTriageController>()
         : null;
     if (nurseController == null) {
+      debugPrint('NurseTriageController not available for profile sync');
       return;
     }
 
     final payload = _buildAadhaarProfileCardPayload(response);
+    debugPrint('===== PROFILE PAYLOAD =====');
+    debugPrint(payload.toString());
     nurseController.aadhaarProfileData.value = payload;
     nurseController.aadhaarProfileImported.value = true;
+    debugPrint('Opening shared profile card from verify flow');
     nurseController.showLastAadhaarProfileCard();
   }
 

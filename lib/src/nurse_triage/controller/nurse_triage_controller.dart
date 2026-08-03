@@ -1031,10 +1031,37 @@ class NurseTriageController extends GetxController {
                         minimumSize: Size(170, 42),
                       ),
                       onPressed: () async {
+                        debugPrint('===== IMPORT PROFILE STARTED =====');
+                        debugPrint('Profile dialog payload: $d');
+                        final profilePayload = _resolveAbhaProfilePayload(d);
+                        debugPrint('Resolved profile payload: $profilePayload');
+                        debugPrint('Applying imported profile data');
                         _applyAadhaarResponseData(d);
-                        // Update triage to persist ABHA profile ID to backend
-                        await updateTriage();
-                        Get.back();
+                        debugPrint('Updating triage after profile import');
+                        final updated = await updateTriage();
+                        debugPrint('Triage update result: $updated');
+
+                        if (!updated) {
+                          debugPrint('Import flow failed during triage update');
+                          return;
+                        }
+
+                        debugPrint('Closing profile dialog');
+                        if (Get.isDialogOpen ?? false) {
+                          Get.back();
+                        }
+
+                        debugPrint('Navigation to add_accident.dart');
+                        final context = Get.context;
+                        if (context != null) {
+                          final navigator = Navigator.of(context);
+                          if (navigator.canPop()) {
+                            navigator.pop();
+                          }
+                          if (navigator.canPop()) {
+                            navigator.pop();
+                          }
+                        }
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1232,36 +1259,62 @@ class NurseTriageController extends GetxController {
     }
   }
 
-  // Update Triage
   Future<bool> updateTriage() async {
     try {
       isLoading.value = true;
-      log(createTriageModel.toJson().toString());
-      var url = Uri.parse(
-          Urls.updateTriage + createTriageModel.value!.triage!.id.toString() ??
-              "");
-      var response = await _client
-          .put(url, body: jsonEncode(createTriageModel.value), headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      });
-      log('Triage Update Payload: ${createTriageModel.value!}');
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        var d = jsonDecode(response.body);
-        Fluttertoast.showToast(msg: d["message"]);
-        log('Triage Update Response: ${d.toString()}');
-        isLoading.value = false;
-        Get.back();
+      debugPrint('===== UPDATE TRIAGE STARTED =====');
+      debugPrint('Triage payload: ${createTriageModel.value?.toJson()}');
+
+      final triageId = createTriageModel.value?.triage?.id?.toString();
+      if (triageId == null || triageId.isEmpty) {
+        debugPrint('Triage update skipped because no triage id is available');
         return true;
-      } else {
-        Fluttertoast.showToast(msg: "Failed to create triage");
-        isLoading.value = false;
-        return false;
       }
-    } catch (e) {
-      log(e.toString());
-      isLoading.value = false;
+
+      final url = Uri.parse('${Urls.updateTriage}$triageId');
+      final response = await _client.put(
+        url,
+        body: jsonEncode(createTriageModel.value),
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+      );
+
+      debugPrint('Triage update status: ${response.statusCode}');
+      debugPrint('Triage update response: ${response.body}');
+
+      final isSuccess = response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 202 ||
+          response.statusCode == 204;
+
+      if (isSuccess) {
+        try {
+          final payload = response.body.trim().isEmpty
+              ? <String, dynamic>{}
+              : jsonDecode(response.body);
+          final message = payload is Map && payload['message'] != null
+              ? payload['message'].toString()
+              : 'Triage updated successfully';
+          Fluttertoast.showToast(msg: message);
+          debugPrint('Triage update completed successfully');
+          return true;
+        } catch (e) {
+          debugPrint('Triage response parse warning: $e');
+          return true;
+        }
+      }
+
+      Fluttertoast.showToast(msg: 'Failed to update triage');
+      debugPrint('Triage update failed');
       return false;
+    } catch (e) {
+      debugPrint('Triage update exception: $e');
+      Fluttertoast.showToast(msg: 'Failed to update triage');
+      return false;
+    } finally {
+      isLoading.value = false;
     }
   }
 
