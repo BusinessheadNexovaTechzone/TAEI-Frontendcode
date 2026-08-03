@@ -547,8 +547,18 @@ class NurseTriageController extends GetxController {
     }
 
     // ✅ Address
-    triage.addressLine = data['address']?.toString();
-    triage.pincode = data['pinCode']?.toString();
+    final residentialAddress = data['residentialAddress']?.toString() ??
+        data['address']?.toString() ??
+        '';
+    if (residentialAddress.isNotEmpty) {
+      triage.addressLine = residentialAddress;
+    }
+
+    final pincode =
+        data['pinCode']?.toString() ?? data['pincode']?.toString() ?? '';
+    if (pincode.isNotEmpty) {
+      triage.pincode = pincode;
+    }
 
     // ✅ Gender
     final gender = data['gender']?.toString();
@@ -810,7 +820,12 @@ class NurseTriageController extends GetxController {
 
     final mobile = profile['mobile'] ?? 'Not Available';
     final abha = profile['ABHANumber'] ?? 'Not Available';
-    final address = profile['address'] ?? '';
+    final preferredAbhaAddress = profile['preferredAbhaAddress']?.toString() ??
+        profile['abhaAddress']?.toString() ??
+        '';
+    final residentialAddress = profile['residentialAddress']?.toString() ??
+        profile['address']?.toString() ??
+        '';
     final state = profile['stateName'] ?? '';
     final district = profile['districtName'] ?? '';
 
@@ -961,16 +976,29 @@ class NurseTriageController extends GetxController {
                             ],
                           ),
                           SizedBox(height: 8),
-                          Text('ADDRESS',
+                          if (preferredAbhaAddress.isNotEmpty) ...[
+                            SizedBox(height: 8),
+                            Text('PREFERRED ABHA ADDRESS',
+                                style: TextStyle(
+                                    letterSpacing: 0.5,
+                                    fontSize: 10,
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.bold)),
+                            Text(preferredAbhaAddress,
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.black87)),
+                          ],
+                          SizedBox(height: 8),
+                          Text('RESIDENTIAL ADDRESS',
                               style: TextStyle(
                                   letterSpacing: 0.5,
                                   fontSize: 10,
                                   color: Colors.grey[700],
                                   fontWeight: FontWeight.bold)),
                           Text(
-                              address.isEmpty
+                              residentialAddress.isEmpty
                                   ? 'Address not available'
-                                  : address,
+                                  : residentialAddress,
                               style: TextStyle(
                                   fontSize: 12, color: Colors.black87)),
                         ],

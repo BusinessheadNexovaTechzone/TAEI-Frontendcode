@@ -26,6 +26,7 @@ import '../../../utils/helpers/space.dart';
 import '../controller/face_auth_controller.dart';
 import '../controller/nurse_triage_controller.dart';
 import 'create_abha.dart';
+import 'verify_abha.dart';
 
 enum AadhaarVerificationMethod { none, otp, face, fingerprint }
 
@@ -1775,45 +1776,84 @@ class _AddAccidentState extends State<AddAccident> {
                                                                       .abhaCard!
                                                                       .trim()
                                                                       .isEmpty)
-                                                                TextButton.icon(
-                                                                  onPressed:
-                                                                      _launchCreateAbhaFlow,
-                                                                  icon: Text(
-                                                                    '+',
-                                                                    style:
-                                                                        TextStyle(
-                                                                      fontSize:
-                                                                          16,
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .bold,
-                                                                      color: Colors
-                                                                          .red,
+                                                                Row(
+                                                                  children: [
+                                                                    TextButton.icon(
+                                                                      onPressed:
+                                                                          _launchCreateAbhaFlow,
+                                                                      icon: Text(
+                                                                        '+',
+                                                                        style:
+                                                                            TextStyle(
+                                                                          fontSize:
+                                                                              16,
+                                                                          fontWeight:
+                                                                              FontWeight
+                                                                                  .bold,
+                                                                          color: Colors
+                                                                              .red,
+                                                                        ),
+                                                                      ),
+                                                                      label: Text(
+                                                                        'Create New ABHA',
+                                                                        style:
+                                                                            TextStyle(
+                                                                          color: Colors
+                                                                              .red,
+                                                                          fontWeight:
+                                                                              FontWeight
+                                                                                  .bold,
+                                                                        ),
+                                                                      ),
+                                                                      style: TextButton
+                                                                          .styleFrom(
+                                                                        padding:
+                                                                            EdgeInsets
+                                                                                .zero,
+                                                                        minimumSize:
+                                                                            Size(0,
+                                                                                24),
+                                                                        alignment:
+                                                                            Alignment
+                                                                                .centerRight,
+                                                                      ),
                                                                     ),
-                                                                  ),
-                                                                  label: Text(
-                                                                    'Create New ABHA',
-                                                                    style:
-                                                                        TextStyle(
-                                                                      color: Colors
-                                                                          .red,
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .bold,
+                                                                    SizedBox(width: 8),
+                                                                    TextButton(
+                                                                      onPressed: () {
+                                                                        Navigator.of(context)
+                                                                            .push(
+                                                                          MaterialPageRoute(
+                                                                            builder: (_) =>
+                                                                                const VerifyAbhaScreen(),
+                                                                          ),
+                                                                        );
+                                                                      },
+                                                                      child: Text(
+                                                                        'Verify ABHA',
+                                                                        style:
+                                                                            TextStyle(
+                                                                          color: Colors
+                                                                              .red,
+                                                                          fontWeight:
+                                                                              FontWeight
+                                                                                  .bold,
+                                                                        ),
+                                                                      ),
+                                                                      style: TextButton
+                                                                          .styleFrom(
+                                                                        padding:
+                                                                            EdgeInsets
+                                                                                .zero,
+                                                                        minimumSize:
+                                                                            Size(0,
+                                                                                24),
+                                                                        alignment:
+                                                                            Alignment
+                                                                                .centerRight,
+                                                                      ),
                                                                     ),
-                                                                  ),
-                                                                  style: TextButton
-                                                                      .styleFrom(
-                                                                    padding:
-                                                                        EdgeInsets
-                                                                            .zero,
-                                                                    minimumSize:
-                                                                        Size(0,
-                                                                            24),
-                                                                    alignment:
-                                                                        Alignment
-                                                                            .centerRight,
-                                                                  ),
+                                                                  ],
                                                                 )
                                                               else
                                                                 Row(
