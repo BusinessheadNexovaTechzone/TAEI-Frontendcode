@@ -1778,49 +1778,51 @@ class _AddAccidentState extends State<AddAccident> {
                                                                       .isEmpty)
                                                                 Row(
                                                                   children: [
-                                                                    TextButton.icon(
+                                                                    TextButton
+                                                                        .icon(
                                                                       onPressed:
                                                                           _launchCreateAbhaFlow,
-                                                                      icon: Text(
+                                                                      icon:
+                                                                          Text(
                                                                         '+',
                                                                         style:
                                                                             TextStyle(
                                                                           fontSize:
                                                                               16,
                                                                           fontWeight:
-                                                                              FontWeight
-                                                                                  .bold,
-                                                                          color: Colors
-                                                                              .red,
+                                                                              FontWeight.bold,
+                                                                          color:
+                                                                              Colors.red,
                                                                         ),
                                                                       ),
-                                                                      label: Text(
+                                                                      label:
+                                                                          Text(
                                                                         'Create New ABHA',
                                                                         style:
                                                                             TextStyle(
-                                                                          color: Colors
-                                                                              .red,
+                                                                          color:
+                                                                              Colors.red,
                                                                           fontWeight:
-                                                                              FontWeight
-                                                                                  .bold,
+                                                                              FontWeight.bold,
                                                                         ),
                                                                       ),
                                                                       style: TextButton
                                                                           .styleFrom(
                                                                         padding:
-                                                                            EdgeInsets
-                                                                                .zero,
-                                                                        minimumSize:
-                                                                            Size(0,
-                                                                                24),
+                                                                            EdgeInsets.zero,
+                                                                        minimumSize: Size(
+                                                                            0,
+                                                                            24),
                                                                         alignment:
-                                                                            Alignment
-                                                                                .centerRight,
+                                                                            Alignment.centerRight,
                                                                       ),
                                                                     ),
-                                                                    SizedBox(width: 8),
+                                                                    SizedBox(
+                                                                        width:
+                                                                            8),
                                                                     TextButton(
-                                                                      onPressed: () {
+                                                                      onPressed:
+                                                                          () {
                                                                         Navigator.of(context)
                                                                             .push(
                                                                           MaterialPageRoute(
@@ -1829,28 +1831,26 @@ class _AddAccidentState extends State<AddAccident> {
                                                                           ),
                                                                         );
                                                                       },
-                                                                      child: Text(
-                                                                        'Verify ABHA',
+                                                                      child:
+                                                                          Text(
+                                                                        '  + Verify ABHA',
                                                                         style:
                                                                             TextStyle(
-                                                                          color: Colors
-                                                                              .red,
+                                                                          color:
+                                                                              Colors.red,
                                                                           fontWeight:
-                                                                              FontWeight
-                                                                                  .bold,
+                                                                              FontWeight.bold,
                                                                         ),
                                                                       ),
                                                                       style: TextButton
                                                                           .styleFrom(
                                                                         padding:
-                                                                            EdgeInsets
-                                                                                .zero,
-                                                                        minimumSize:
-                                                                            Size(0,
-                                                                                24),
+                                                                            EdgeInsets.zero,
+                                                                        minimumSize: Size(
+                                                                            0,
+                                                                            24),
                                                                         alignment:
-                                                                            Alignment
-                                                                                .centerRight,
+                                                                            Alignment.centerRight,
                                                                       ),
                                                                     ),
                                                                   ],

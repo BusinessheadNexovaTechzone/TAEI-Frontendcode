@@ -300,9 +300,33 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   }
 
   Future<void> _authenticateWithFace() async {
+    await _authenticateWithBiometric('Face Authentication');
+  }
+
+  Future<void> _authenticateWithFingerprint() async {
+    await _authenticateWithBiometric('Fingerprint Authentication');
+  }
+
+  Future<void> _authenticateWithBiometric(String authMethod) async {
     final aadhaar = controller.createTriageModel.value?.triage?.aadhaar ?? '';
     final mobile =
         controller.createTriageModel.value?.triage?.patientMobileNumber ?? '';
+
+    if (aadhaar.isEmpty) {
+      await CommonErrorDialog.show(
+        context,
+        message: 'Aadhaar number is required for $authMethod.',
+      );
+      return;
+    }
+
+    if (mobile.isEmpty) {
+      await CommonErrorDialog.show(
+        context,
+        message: 'Mobile number is required for $authMethod.',
+      );
+      return;
+    }
 
     setState(() => _isSubmitting = true);
     try {
@@ -310,7 +334,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       if (controller.faceTxnId.value.isEmpty) {
         await CommonErrorDialog.show(
           context,
-          message: 'Face authentication did not start.',
+          message: '$authMethod did not start.',
         );
         return;
       }
@@ -324,24 +348,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
 
       _handleAuthResult(controller.aadhaarProfileData.value);
     } catch (e) {
-      log('ABHA face auth error: $e');
-      await CommonErrorDialog.show(
-        context,
-        message: e.toString(),
-      );
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  Future<void> _authenticateWithFingerprint() async {
-    setState(() => _isSubmitting = true);
-    try {
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-      controller.aadhaarVerified.value = true;
-      _handleAuthResult(null);
-    } catch (e) {
-      log('ABHA fingerprint auth error: $e');
+      log('ABHA $authMethod error: $e');
       await CommonErrorDialog.show(
         context,
         message: e.toString(),
