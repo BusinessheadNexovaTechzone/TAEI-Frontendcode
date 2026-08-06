@@ -238,6 +238,11 @@ class Urls {
       '${local}api/abha/address/suggestions';
   static const String abhaAddressCreate = '${local}api/abha/address/create';
 
+  static const String fingerprintCapture =
+      '${local}api/abha/fingerprint/capture';
+  static const String biometricFingerprintEnroll =
+      '${local}api/abha/aadhaar/biometric-fingerprint-enroll';
+
   // Add Screipt
   static const String createScript = '${baseUrl}api/stroke/create';
 

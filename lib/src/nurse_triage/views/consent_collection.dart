@@ -357,9 +357,9 @@ class ConsentCollectionStep extends StatelessWidget {
                   items: const [
                     DropdownMenuItem(
                         value: 'Aadhaar OTP', child: Text('Aadhaar OTP')),
-                    DropdownMenuItem(
-                        value: 'Fingerprint Authentication',
-                        child: Text('Fingerprint Authentication')),
+                    // DropdownMenuItem(
+                    //     value: 'Fingerprint Authentication',
+                    //     child: Text('Fingerprint Authentication')),
                     DropdownMenuItem(
                         value: 'Face Authentication',
                         child: Text('Face Authentication')),

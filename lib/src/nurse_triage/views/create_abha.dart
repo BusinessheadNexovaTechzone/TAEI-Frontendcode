@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:taei_gov/src/nurse_triage/controller/nurse_triage_controller.dart';
+import 'package:taei_gov/src/nurse_triage/utils/create_abha_validation.dart';
 import 'package:taei_gov/src/nurse_triage/views/abha_address_creation.dart';
 import 'package:taei_gov/src/nurse_triage/views/aadhaar_authentication.dart';
 import 'package:taei_gov/src/nurse_triage/views/consent_collection.dart';
+import 'package:taei_gov/src/nurse_triage/views/face_authentication.dart';
+import 'package:taei_gov/src/nurse_triage/views/fingerprint_authentication.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
 
 class CreateAbhaScreen extends StatefulWidget {
@@ -250,6 +253,29 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     }
   }
 
+  String? _validateFaceAuthInputs() {
+    final aadhaarValidation = CreateAbhaValidation.validateAadhaar(
+      _aadhaarController.text,
+      shouldShowError: true,
+    );
+    if (aadhaarValidation != null) return aadhaarValidation;
+
+    final consentValidation = CreateAbhaValidation.validateConsent(
+      _consentAccepted,
+      shouldShowError: true,
+    );
+    if (consentValidation != null) return consentValidation;
+
+    final captchaValidation = CreateAbhaValidation.validateCaptcha(
+      _captchaController.text,
+      shouldShowError: true,
+      expectedAnswer: _captchaAnswer,
+    );
+    if (captchaValidation != null) return captchaValidation;
+
+    return null;
+  }
+
   Future<void> _handleConsentNext() async {
     setState(() {
       _consentFieldTouched = true;
@@ -259,18 +285,12 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     });
 
     if (!_formKey.currentState!.validate()) return;
-    if (!_consentAccepted) {
-      await CommonErrorDialog.show(
-        context,
-        message: 'Please accept the consent to continue.',
-      );
-      return;
-    }
 
-    if (!_isValidAadhaar(_aadhaarController.text)) {
+    final validationMessage = _validateFaceAuthInputs();
+    if (validationMessage != null) {
       await CommonErrorDialog.show(
         context,
-        message: 'Please enter a valid 12-digit Aadhaar number.',
+        message: validationMessage,
       );
       return;
     }
@@ -308,9 +328,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   }
 
   Future<void> _authenticateWithBiometric(String authMethod) async {
-    final aadhaar = controller.createTriageModel.value?.triage?.aadhaar ?? '';
-    final mobile =
-        controller.createTriageModel.value?.triage?.patientMobileNumber ?? '';
+    final aadhaar = (controller.createTriageModel.value?.triage?.aadhaar ?? '')
+        .replaceAll(RegExp(r'\D'), '');
 
     if (aadhaar.isEmpty) {
       await CommonErrorDialog.show(
@@ -320,42 +339,28 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       return;
     }
 
-    if (mobile.isEmpty) {
-      await CommonErrorDialog.show(
-        context,
-        message: 'Mobile number is required for $authMethod.',
+    if (!mounted) return;
+
+    if (authMethod == 'Fingerprint Authentication') {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => FingerprintAuthenticationScreen(
+            aadhaar: aadhaar,
+            mobile: _mobileController.text,
+          ),
+        ),
       );
       return;
     }
 
-    setState(() => _isSubmitting = true);
-    try {
-      await controller.startFaceAuth();
-      if (controller.faceTxnId.value.isEmpty) {
-        await CommonErrorDialog.show(
-          context,
-          message: '$authMethod did not start.',
-        );
-        return;
-      }
-
-      await controller.pollFaceStatus(
-        controller.faceTxnId.value,
-        aadhaar,
-        mobile,
-        showDialog: false,
-      );
-
-      _handleAuthResult(controller.aadhaarProfileData.value);
-    } catch (e) {
-      log('ABHA $authMethod error: $e');
-      await CommonErrorDialog.show(
-        context,
-        message: e.toString(),
-      );
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FaceAuthenticationScreen(
+          aadhaar: aadhaar,
+          mobile: _mobileController.text,
+        ),
+      ),
+    );
   }
 
   void _handleAuthResult(Map<String, dynamic>? response) {
