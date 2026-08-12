@@ -15,9 +15,12 @@ class AadhaarAuthenticationStep extends StatelessWidget {
     required this.otpDigitControllers,
     required this.otpFocusNodes,
     required this.onOtpDigitChanged,
+    required this.onOtpKey,
     required this.mobileController,
     required this.resendSeconds,
     required this.onResendOtp,
+    required this.resendAttempts,
+    required this.maxResendAttempts,
     required this.onVerify,
     required this.isSubmitting,
     required this.otpComplete,
@@ -30,6 +33,10 @@ class AadhaarAuthenticationStep extends StatelessWidget {
     required this.shouldShowMobileError,
     required this.onOtpFieldChanged,
     required this.onMobileFieldChanged,
+    this.title,
+    this.description,
+    this.buttonLabel,
+    this.showMobileNumberField = true,
   });
 
   final GlobalKey<FormState> formKey;
@@ -43,8 +50,11 @@ class AadhaarAuthenticationStep extends StatelessWidget {
   final List<TextEditingController> otpDigitControllers;
   final List<FocusNode> otpFocusNodes;
   final void Function(int index, String value) onOtpDigitChanged;
+  final void Function(int index, RawKeyEvent event) onOtpKey;
   final TextEditingController mobileController;
   final int resendSeconds;
+  final int resendAttempts;
+  final int maxResendAttempts;
   final Future<void> Function() onResendOtp;
   final Future<void> Function() onVerify;
   final bool isSubmitting;
@@ -58,11 +68,20 @@ class AadhaarAuthenticationStep extends StatelessWidget {
   final bool shouldShowMobileError;
   final VoidCallback onOtpFieldChanged;
   final VoidCallback onMobileFieldChanged;
+  final String? title;
+  final String? description;
+  final String? buttonLabel;
+  final bool showMobileNumberField;
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final digitWidth = ((screenWidth - 80) / 6).clamp(40.0, 56.0);
+    final headingTitle = title ?? 'Confirm OTP';
+    final messageText = description ??
+        (otpDeliveryMessage.isNotEmpty
+            ? otpDeliveryMessage
+            : 'OTP Verification *');
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -84,27 +103,16 @@ class AadhaarAuthenticationStep extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Confirm OTP',
+              headingTitle,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: primaryTextColor,
               ),
             ),
             const SizedBox(height: 8),
-            if (buildMaskedMobileNumber().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 8),
-                  ],
-                ),
-              ),
             const SizedBox(height: 20),
             Text(
-              otpDeliveryMessage.isNotEmpty
-                  ? otpDeliveryMessage
-                  : 'OTP Verification *',
+              messageText,
               textAlign: TextAlign.center,
               maxLines: 3,
               overflow: TextOverflow.visible,
@@ -135,49 +143,56 @@ class AadhaarAuthenticationStep extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(6, (index) {
-                        final isActive =
-                            otpDigitControllers[index].text.isEmpty;
+                        final isActive = otpDigitControllers[index].text.isEmpty;
                         return SizedBox(
                           width: digitWidth,
                           height: 52,
-                          child: TextFormField(
-                            controller: otpDigitControllers[index],
-                            focusNode: otpFocusNodes[index],
-                            textAlign: TextAlign.center,
-                            keyboardType: TextInputType.number,
-                            maxLength: 1,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly
-                            ],
-                            decoration: InputDecoration(
-                              counterText: '',
-                              filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.all(0),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(
-                                  color: isActive ? borderColor : primaryColor,
-                                  width: 1.2,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(
-                                  color: isActive ? borderColor : primaryColor,
-                                  width: 1.2,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide:
-                                    BorderSide(color: primaryColor, width: 2),
-                              ),
-                            ),
-                            onChanged: (value) {
-                              onOtpDigitChanged(index, value);
-                              onOtpFieldChanged();
+                          child: Focus(
+                            onKey: (node, event) {
+                              onOtpKey(index, event);
+                              return KeyEventResult.ignored;
                             },
+                            child: TextFormField(
+                              controller: otpDigitControllers[index],
+                              focusNode: otpFocusNodes[index],
+                              textAlign: TextAlign.center,
+                              keyboardType: TextInputType.number,
+                              maxLength: 1,
+                              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(1),
+                              ],
+                              decoration: InputDecoration(
+                                counterText: '',
+                                filled: true,
+                                fillColor: Colors.white,
+                                contentPadding: const EdgeInsets.all(0),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide(
+                                    color: isActive ? borderColor : primaryColor,
+                                    width: 1.2,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide(
+                                    color: isActive ? borderColor : primaryColor,
+                                    width: 1.2,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide:
+                                      BorderSide(color: primaryColor, width: 2),
+                                ),
+                              ),
+                              onChanged: (value) {
+                                onOtpDigitChanged(index, value);
+                                onOtpFieldChanged();
+                              },
+                            ),
                           ),
                         );
                       }),
@@ -197,25 +212,43 @@ class AadhaarAuthenticationStep extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  'Didn\'t receive OTP?',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: secondaryTextColor),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: resendSeconds == 0
-                      ? () async {
-                          await onResendOtp();
-                        }
-                      : null,
-                  style: TextButton.styleFrom(
-                    foregroundColor: primaryColor,
-                    padding: EdgeInsets.zero,
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text(
+                        'Didn\'t receive OTP?',
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: secondaryTextColor),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: resendSeconds == 0
+                            ? () async {
+                                await onResendOtp();
+                              }
+                            : null,
+                        style: TextButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          padding: EdgeInsets.zero,
+                        ),
+                        child: const Text('Resend OTP'),
+                      ),
+                    ],
                   ),
-                  child: Text(resendSeconds == 0 ? 'Resend OTP' : 'Resend OTP'),
                 ),
+                if (resendAttempts > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, bottom: 2),
+                    child: Text(
+                      'Attempt $resendAttempts/$maxResendAttempts',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: secondaryTextColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
               ],
             ),
             if (resendSeconds > 0)
@@ -227,73 +260,75 @@ class AadhaarAuthenticationStep extends StatelessWidget {
                       ?.copyWith(color: secondaryTextColor),
                 ),
               ),
-            const SizedBox(height: 20),
-            Text(
-              'Mobile Number *',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: primaryTextColor,
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: mobileController,
-              keyboardType: TextInputType.phone,
-              onChanged: (_) => onMobileFieldChanged(),
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(10),
-              ],
-              decoration: InputDecoration(
-                prefixIcon: Container(
-                  width: 54,
-                  alignment: Alignment.center,
-                  child: const Text('+91',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                ),
-                hintText: 'Enter 10-digit mobile number',
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: borderColor),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: borderColor),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: primaryColor, width: 2),
+            if (showMobileNumberField) ...[
+              const SizedBox(height: 20),
+              Text(
+                'Mobile Number *',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: primaryTextColor,
                 ),
               ),
-              validator: (value) {
-                if (!shouldShowMobileError) return null;
-                if (!isValidMobile(value)) {
-                  return 'Mobile Number must contain exactly 10 digits.';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Icon(Icons.info_outline, color: secondaryColor, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'It is preferable to use your Aadhaar-linked mobile number. If you choose a different mobile number, it will be verified again and used for all future ABHA communications.',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: secondaryTextColor),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: mobileController,
+                keyboardType: TextInputType.phone,
+                onChanged: (_) => onMobileFieldChanged(),
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ],
+                decoration: InputDecoration(
+                  prefixIcon: Container(
+                    width: 54,
+                    alignment: Alignment.center,
+                    child: const Text('+91',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                  hintText: 'Enter 10-digit mobile number',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: primaryColor, width: 2),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
+                validator: (value) {
+                  if (!shouldShowMobileError) return null;
+                  if (!isValidMobile(value)) {
+                    return 'Mobile Number must contain exactly 10 digits.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(Icons.info_outline, color: secondaryColor, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'It is preferable to use your Aadhaar-linked mobile number. If you choose a different mobile number, it will be verified again and used for all future ABHA communications.',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: secondaryTextColor),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton(
-                onPressed: isSubmitting || !otpComplete || !mobileComplete
+                onPressed: isSubmitting || !otpComplete || (showMobileNumberField && !mobileComplete)
                     ? null
                     : () async {
                         if (!formKey.currentState!.validate()) return;
@@ -307,7 +342,7 @@ class AadhaarAuthenticationStep extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Verify & Continue'),
+                child: Text(buttonLabel ?? 'Verify & Continue'),
               ),
             ),
           ],

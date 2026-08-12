@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:taei_gov/utils/helpers/http_helper.dart';
 
 class FaceRDService {
   // static const String _baseUrl =
@@ -17,9 +18,9 @@ class FaceRDService {
   static const String _captureEndpoint = '$_baseUrl/api/abha/face/capture';
   static const MethodChannel _channel = MethodChannel('abha_face_auth');
 
-  final http.Client _client;
+  final http.BaseClient _client;
 
-  FaceRDService({http.Client? client}) : _client = client ?? http.Client();
+  FaceRDService({http.BaseClient? client}) : _client = client ?? CustomHttpHelper();
 
   Future<String> initFaceAuth() async {
     debugPrint('INIT API START');

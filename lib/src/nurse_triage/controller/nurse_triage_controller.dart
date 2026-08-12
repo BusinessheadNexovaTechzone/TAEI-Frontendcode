@@ -27,9 +27,11 @@ import 'package:taei_gov/src/emo_user/model/emo_lookup_model.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
 import 'package:taei_gov/utils/helpers/http_helper.dart';
 import '../models/create_triage_model.dart';
+import '../models/update_mobile_verify_otp_response.dart';
 import '../services/triage_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/face_rd_service.dart';
+import '../utils/abha_otp_utils.dart';
 
 class NurseTriageController extends GetxController {
   RxInt currentIndex = 0.obs;
@@ -77,11 +79,28 @@ class NurseTriageController extends GetxController {
     return aadhaar != null && RegExp(r'^[0-9]{12}$').hasMatch(aadhaar);
   }
 
+  String _maskValue(String? value, {int visibleChars = 4}) {
+    if (value == null || value.isEmpty) return 'n/a';
+    final digits = value.toString();
+    if (digits.length <= visibleChars) return '*${digits.substring(0, digits.length)}';
+    final suffix = digits.substring(digits.length - visibleChars);
+    return '${'*' * (digits.length - visibleChars)}$suffix';
+  }
+
+  String _maskOtp(String? otp) {
+    if (otp == null || otp.isEmpty) return 'n/a';
+    return '*' * otp.length;
+  }
+
+  void _logFlow(String message) => log(message);
+
   RxString aadhaarTxnId = ''.obs;
+  RxString currentProfileId = ''.obs;
+  RxString currentMobile = ''.obs;
   RxString aadhaarOtpDeliveryMessage = ''.obs;
   final Rxn<Map<String, dynamic>> lastApiError = Rxn<Map<String, dynamic>>();
 
-  Future<bool> sendAadhaarOtp() async {
+  Future<bool> sendAadhaarOtp({String? flowId}) async {
     String? aadhaar = createTriageModel.value?.triage?.aadhaar;
 
     // ✅ REMOVE DASHES AND NON-DIGITS
@@ -100,19 +119,36 @@ class NurseTriageController extends GetxController {
     }
 
     try {
+      _logFlow('========== CREATE ABHA AADHAAR FLOW ==========');
+      _logFlow('[AADHAAR] Aadhaar number entered');
+      _logFlow('[AADHAAR] Aadhaar number length: ${aadhaar?.length ?? 0}');
+      _logFlow('[AADHAAR] Calling generate OTP API...');
+      _logFlow('[AADHAAR] Request: aadhaar=${_maskValue(aadhaar)}');
+
       isSendingAadhaarOtp.value = true;
       aadhaarOtpSent.value = false;
       aadhaarVerified.value = false;
+      mobileUpdateTxnId.value = '';
+      currentProfileId.value = '';
 
-      final d = await TriageService.sendAadhaarOtp(aadhaar: aadhaar!);
+      final d = await TriageService.sendAadhaarOtp(
+        aadhaar: aadhaar!,
+        flowId: flowId,
+      );
 
       if (d != null) {
+        _logFlow('[AADHAAR] Generate OTP response received');
+        _logFlow('[AADHAAR] Response: $d');
+
         final responseMessage = CommonErrorDialog.extractErrorMessage(d);
         final txnId = d['txnId'] ?? d['data']?['txnId'];
         final deliveryMessage = d['message'] ?? d['data']?['message'] ?? '';
 
         if (txnId != null) {
           aadhaarTxnId.value = txnId.toString();
+          _logFlow('[AADHAAR] Transaction ID received: ${_maskValue(txnId.toString(), visibleChars: 6)}');
+        } else {
+          _logFlow('[AADHAAR] ERROR: transaction ID missing in generate OTP response');
         }
 
         if (deliveryMessage.toString().trim().isNotEmpty) {
@@ -131,6 +167,7 @@ class NurseTriageController extends GetxController {
         }
 
         aadhaarOtpSent.value = true;
+        _logFlow('[AADHAAR] OTP sent successfully');
         _startAadhaarOtpTimer();
         return true;
       }
@@ -161,7 +198,7 @@ class NurseTriageController extends GetxController {
     }
   }
 
-  Future<bool> verifyAadhaarOtp({bool showDialog = true}) async {
+  Future<bool> verifyAadhaarOtp({bool showDialog = true, String? flowId}) async {
     final otp = aadhaarOtp.value;
     final txnId = aadhaarTxnId.value;
     final mobile = createTriageModel.value?.triage?.patientMobileNumber;
@@ -196,13 +233,20 @@ class NurseTriageController extends GetxController {
     }
 
     try {
+      _logFlow('========== AADHAAR OTP VERIFICATION ==========');
+      _logFlow('[AADHAAR OTP] OTP entered');
+      _logFlow('[AADHAAR OTP] OTP length: ${otp.length}');
+      _logFlow('[AADHAAR OTP] Transaction ID exists: ${txnId.isNotEmpty}');
+      _logFlow('[AADHAAR OTP] Calling verify OTP API...');
+
       final d = await TriageService.verifyAadhaarOtp(
         txnId: txnId,
         otp: otp,
         mobile: mobile,
+        flowId: flowId,
       );
-      log('verifyAadhaarOtp raw response: $d');
-      debugPrint('verifyAadhaarOtp raw response: $d');
+      _logFlow('[AADHAAR OTP] Verify response received');
+      _logFlow('[AADHAAR OTP] Response: $d');
 
       if (d == null) {
         aadhaarVerified.value = false;
@@ -247,16 +291,23 @@ class NurseTriageController extends GetxController {
       }
 
       aadhaarVerified.value = true;
+      _logFlow('[AADHAAR OTP] Verify success: true');
 
-      final profileId = d['profileId'] ??
-          d['data']?['profileId'] ??
-          d['result']?['profileId'];
-      if (profileId != null) {
-        final parsedProfileId = int.tryParse(profileId.toString());
-        if (parsedProfileId != null) {
-          createTriageModel.value?.triage?.abhaProfileId = parsedProfileId;
-          log("ABHA PROFILE ID STORED from verifyAadhaarOtp: $parsedProfileId");
+      final profileId = extractAbhaProfileId(d);
+      if (profileId != null && profileId > 0) {
+        currentProfileId.value = profileId.toString();
+        createTriageModel.value?.triage?.abhaProfileId = profileId;
+        _logFlow('[AADHAAR OTP] profileId extracted: true');
+        _logFlow('[AADHAAR OTP] profileId: $profileId');
+      } else {
+        _logFlow('[AADHAAR OTP] ERROR: profileId was not found in verification response');
+        if (Get.context != null) {
+          await CommonErrorDialog.show(
+            Get.context!,
+            message: 'We couldn\'t continue with the mobile verification step. Please try again.',
+          );
         }
+        return false;
       }
 
       for (var c in otpControllers) {
@@ -278,6 +329,228 @@ class NurseTriageController extends GetxController {
           message: friendlyMessage.isNotEmpty
               ? friendlyMessage
               : 'Unable to complete your request.\n\nPlease try again or contact your system administrator if the problem continues.',
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<bool> sendMobileUpdateOtp({
+    required int profileId,
+    required String mobile,
+    String? flowId,
+  }) async {
+    if (profileId <= 0) {
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: 'We could not identify your ABHA profile. Please try again.',
+        );
+      }
+      return false;
+    }
+
+    if (mobile.length != 10) {
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: 'Please enter a valid 10-digit mobile number.',
+        );
+      }
+      return false;
+    }
+
+    try {
+      _logFlow('========== MOBILE UPDATE OTP ==========');
+      _logFlow('[MOBILE UPDATE] Starting send OTP');
+      _logFlow('[MOBILE UPDATE] profileId available: true');
+      _logFlow('[MOBILE UPDATE] mobile available: ${mobile.isNotEmpty}');
+      _logFlow('[MOBILE UPDATE] mobile length: ${mobile.length}');
+      _logFlow('[MOBILE UPDATE] Calling updatemobile/send-otp...');
+
+      isSendingMobileUpdateOtp.value = true;
+      mobileUpdateOtpSent.value = false;
+      mobileUpdateVerified.value = false;
+
+      final d = await TriageService.sendMobileUpdateOtp(
+        profileId: profileId,
+        mobile: mobile,
+        flowId: flowId,
+      );
+
+      _logFlow('[MOBILE UPDATE] Send OTP response received');
+      _logFlow('[MOBILE UPDATE] Response: $d');
+
+      if (d == null) {
+        _logFlow('[MOBILE UPDATE] ERROR: send OTP returned no payload');
+        if (Get.context != null) {
+          await CommonErrorDialog.show(
+            Get.context!,
+            message: 'We couldn\'t send the verification OTP to your mobile number. Please try again.',
+          );
+        }
+        return false;
+      }
+
+      final txnId = d['txnId'] ?? d['data']?['txnId'];
+      final deliveryMessage = d['message'] ?? d['data']?['message'] ?? '';
+      if (txnId != null) {
+        mobileUpdateTxnId.value = txnId.toString();
+        _logFlow('[MOBILE UPDATE] mobileUpdateTxnId extracted: true');
+        _logFlow('[MOBILE UPDATE] Transaction ID received successfully');
+        if (deliveryMessage.toString().trim().isNotEmpty) {
+          mobileUpdateOtpDeliveryMessage.value = deliveryMessage.toString().trim();
+        }
+        mobileUpdateOtpSent.value = true;
+        return true;
+      }
+
+      _logFlow('[MOBILE UPDATE] ERROR: Transaction ID missing');
+
+      lastApiError.value = d;
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: CommonErrorDialog.extractFriendlyErrorMessage(d),
+        );
+      }
+      return false;
+    } catch (e) {
+      log('sendMobileUpdateOtp exception: $e');
+      final friendlyMessage = CommonErrorDialog.extractFriendlyErrorMessage(e);
+      lastApiError.value = {'message': friendlyMessage};
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: friendlyMessage.isNotEmpty
+              ? friendlyMessage
+              : 'We couldn\'t send the verification OTP to your mobile number. Please try again.',
+        );
+      }
+      return false;
+    } finally {
+      isSendingMobileUpdateOtp.value = false;
+    }
+  }
+
+  Future<bool> verifyMobileUpdateOtp({
+    required int profileId,
+    required String txnId,
+    required String otp,
+    String? flowId,
+  }) async {
+    debugPrint('[ABHA][TRACE][FLOW:${flowId ?? 'unknown'}] ENTER controller.verifyMobileUpdateOtp');
+    debugPrint('[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] profileId: $profileId');
+    if (profileId <= 0) {
+      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] profileId is missing or invalid');
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: 'We could not verify your mobile number because the session expired. Please try again.',
+        );
+      }
+      return false;
+    }
+
+    if (txnId.isEmpty) {
+      debugPrint('[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] txnId present: false');
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: 'We could not verify your mobile number because the session expired. Please try again.',
+        );
+      }
+      return false;
+    }
+
+    debugPrint('[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] txnId present: true');
+
+    if (otp.isEmpty || otp.length != 6) {
+      debugPrint('[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] OTP length: ${otp.length}');
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: 'Please enter the complete 6-digit OTP.',
+        );
+      }
+      return false;
+    }
+
+    debugPrint('[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] OTP length: ${otp.length}');
+
+    try {
+      _logFlow('========== MOBILE OTP VERIFICATION ==========');
+      _logFlow('[MOBILE OTP] OTP length: ${otp.length}');
+      _logFlow('[MOBILE OTP] profileId available: ${profileId > 0}');
+      _logFlow('[MOBILE OTP] mobileUpdateTxnId available: ${txnId.isNotEmpty}');
+      _logFlow('[MOBILE OTP] Calling verify mobile OTP...');
+
+      final d = await TriageService.verifyMobileUpdateOtp(
+        profileId: profileId,
+        txnId: txnId,
+        otp: otp,
+        flowId: flowId,
+      );
+      _logFlow('[MOBILE OTP] Verify response received');
+      _logFlow('[MOBILE OTP] Response: $d');
+
+      if (d == null) {
+        mobileUpdateVerified.value = false;
+        if (Get.context != null) {
+          await CommonErrorDialog.show(
+            Get.context!,
+            message: 'We couldn\'t verify your mobile number. Please try again.',
+          );
+        }
+        return false;
+      }
+
+      final payload = d is Map<String, dynamic> ? d : Map<String, dynamic>.from(d);
+      final response = UpdateMobileVerifyOtpResponse.fromJson(payload);
+      final backendAuth = (payload['authResult'] ?? '').toString().trim().toLowerCase();
+      final isAuthSuccess = backendAuth == 'success' || response.isSuccess;
+
+      if (!isAuthSuccess) {
+        mobileUpdateVerified.value = false;
+        lastApiError.value = payload;
+        debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp failed');
+        debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] authResult: ${payload['authResult'] ?? 'missing'}');
+        debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] RESPONSE BODY: ${jsonEncode(payload)}');
+        if (Get.context != null) {
+          await CommonErrorDialog.show(
+            Get.context!,
+            title: 'Unable to Continue',
+            message: CommonErrorDialog.extractFriendlyErrorMessage(payload).isNotEmpty
+                ? CommonErrorDialog.extractFriendlyErrorMessage(payload)
+                : 'The mobile verification OTP is incorrect. Please check the OTP and try again.',
+          );
+        }
+        return false;
+      }
+
+      debugPrint('============================================================');
+      debugPrint('[ABHA][WORKFLOW][FLOW:${flowId ?? 'unknown'}] MOBILE OTP VERIFICATION SUCCESS');
+      debugPrint('============================================================');
+      debugPrint('[ABHA][WORKFLOW][FLOW:${flowId ?? 'unknown'}] authResult: success');
+      debugPrint('[ABHA][WORKFLOW][FLOW:${flowId ?? 'unknown'}] Mobile number updated successfully');
+      debugPrint('============================================================');
+
+      mobileUpdateVerified.value = true;
+      _logFlow('[MOBILE OTP] Verification success: true');
+      return true;
+    } catch (e, stackTrace) {
+      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp exception: $e');
+      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] stackTrace: $stackTrace');
+      log('verifyMobileUpdateOtp exception: $e');
+      mobileUpdateVerified.value = false;
+      final friendlyMessage = CommonErrorDialog.extractFriendlyErrorMessage(e);
+      lastApiError.value = {'message': friendlyMessage};
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: friendlyMessage.isNotEmpty
+              ? friendlyMessage
+              : 'We couldn\'t verify your mobile number. Please try again.',
         );
       }
       return false;
@@ -444,8 +717,17 @@ class NurseTriageController extends GetxController {
     showAadhaarSuccessDialog(fallbackPayload);
   }
 
-  Future<void> downloadAbhaCard() async {
+  Future<void> downloadAbhaCard({String? flowId}) async {
     final profileId = createTriageModel.value?.triage?.abhaProfileId;
+    final abhaNumber = createTriageModel.value?.triage?.abhaCard?.toString() ?? '';
+    final abhaAddress = createTriageModel.value?.triage?.addressLine ?? '';
+
+    debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD ABHA CARD PRESSED');
+    debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] Preparing ABHA card download');
+    debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] Profile ID: $profileId');
+    debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA Number: ${AbhaDebugLogger.maskMobile(abhaNumber)}');
+    debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA Address: ${abhaAddress.isNotEmpty ? abhaAddress : 'n/a'}');
+
     log('Download ABHA Card - Current abhaProfileId: $profileId');
     log('Download ABHA Card - Full triage data: ${createTriageModel.value?.triage?.toJson()}');
 
@@ -461,7 +743,7 @@ class NurseTriageController extends GetxController {
           log('Fetched updated profile ID from backend: $updatedProfileId');
           if (updatedProfileId != null) {
             // Retry download with fetched ID
-            await _performAbhaCardDownload(updatedProfileId);
+            await _performAbhaCardDownload(updatedProfileId, flowId: flowId);
             return;
           }
         }
@@ -471,28 +753,41 @@ class NurseTriageController extends GetxController {
       return;
     }
 
-    await _performAbhaCardDownload(profileId);
+    await _performAbhaCardDownload(profileId, flowId: flowId);
   }
 
-  Future<void> _performAbhaCardDownload(int profileId) async {
+  Future<void> _performAbhaCardDownload(int profileId, {String? flowId}) async {
+    debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD API REQUEST START');
     try {
       final url = '${Urls.local}api/abha/card/$profileId';
       log('Downloading ABHA card from: $url');
+      debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD API REQUEST');
+      debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] URL: $url');
 
       // Download and save the file
       final filePath = await TriageService.downloadFile(url);
       if (filePath != null) {
+        debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD API RESPONSE');
+        debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] STATUS: 200');
+        debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA CARD DOWNLOAD SUCCESS');
         Fluttertoast.showToast(
             msg:
                 'ABHA Card downloaded successfully!\nFile: ${filePath.split('/').last}');
         log('ABHA Card saved to: $filePath');
       } else {
+        debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD API RESPONSE');
+        debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] STATUS: failed');
+        debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA CARD DOWNLOAD FAILED');
         Fluttertoast.showToast(
             msg:
                 'Failed to download ABHA Card - Check ProfileId or API response');
         log('Download returned null filepath');
       }
     } catch (e) {
+      debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD API RESPONSE');
+      debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] STATUS: exception');
+      debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA CARD DOWNLOAD FAILED');
+      debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] Error: ${e.toString()}');
       log('Download ABHA card error: $e');
       Fluttertoast.showToast(msg: 'Error: ${e.toString()}');
     }
@@ -684,11 +979,16 @@ class NurseTriageController extends GetxController {
   RxBool isSendingAadhaarOtp = false.obs;
   RxBool aadhaarOtpSent = false.obs;
   RxBool aadhaarVerified = false.obs;
+  RxBool isSendingMobileUpdateOtp = false.obs;
+  RxBool mobileUpdateOtpSent = false.obs;
+  RxBool mobileUpdateVerified = false.obs;
   RxBool showCreateAbha = false.obs;
   RxBool aadhaarProfileImported = false.obs;
   Rxn<Map<String, dynamic>> aadhaarProfileData = Rxn<Map<String, dynamic>>();
   RxString aadhaar = ''.obs;
   RxString aadhaarOtp = ''.obs;
+  RxString mobileUpdateTxnId = ''.obs;
+  RxString mobileUpdateOtpDeliveryMessage = ''.obs;
   List<TextEditingController> otpControllers =
       List.generate(6, (_) => TextEditingController());
 
@@ -810,8 +1110,11 @@ class NurseTriageController extends GetxController {
     ),
   );
 
-  void showAadhaarSuccessDialog(Map<String, dynamic> d,
-      {bool showDialog = true}) {
+  Future<Map<String, dynamic>?> showAadhaarSuccessDialog(
+    Map<String, dynamic> d, {
+    bool showDialog = true,
+    bool returnToCaller = false,
+  }) async {
     aadhaarProfileData.value = d; // store payload for later "View Card"
     final profile = _resolveAbhaProfilePayload(d);
 
@@ -820,32 +1123,57 @@ class NurseTriageController extends GetxController {
       return;
     }
 
-    final name =
-        "${profile['firstName'] ?? ''} ${profile['middleName'] ?? ''} ${profile['lastName'] ?? ''}"
-            .trim();
-
-    final mobile = profile['mobile'] ?? 'Not Available';
-    final abha = profile['ABHANumber'] ?? 'Not Available';
-    final preferredAbhaAddress = profile['preferredAbhaAddress']?.toString() ??
-        profile['abhaAddress']?.toString() ??
-        '';
-    final residentialAddress = profile['residentialAddress']?.toString() ??
-        profile['address']?.toString() ??
-        '';
-    final state = profile['stateName'] ?? '';
-    final district = profile['districtName'] ?? '';
-
     if (!showDialog) {
       _applyAadhaarResponseData(d);
       return;
     }
 
-    Get.dialog(
+    _applyAadhaarResponseData(d);
+
+    final firstName = profile['firstName']?.toString() ?? '';
+    final middleName = profile['middleName']?.toString() ?? '';
+    final lastName = profile['lastName']?.toString() ?? '';
+    final name = '$firstName $middleName $lastName'.trim();
+    final abhaNumber = profile['ABHANumber']?.toString() ??
+        profile['abhaNumber']?.toString() ??
+        'Not Available';
+    final mobile = profile['mobile']?.toString() ?? 'Not Available';
+    final maskedMobile = _maskValue(mobile);
+    final preferredAbhaAddress = profile['preferredAbhaAddress']?.toString() ??
+        profile['abhaAddress']?.toString() ??
+        profile['address']?.toString() ??
+        '';
+    final residentialAddress = profile['residentialAddress']?.toString() ??
+        profile['address']?.toString() ??
+        '';
+    final dob = profile['dob']?.toString() ?? 'Not Available';
+    final gender = profile['gender']?.toString() ?? 'Not Available';
+    final status = profile['abhaStatus']?.toString() ?? 'Not Available';
+    final profileId = profile['id']?.toString() ??
+        profile['profileId']?.toString() ??
+        profile['abhaProfileId']?.toString() ??
+        profile['ABHAProfileId']?.toString() ??
+        'Not Available';
+    final photoRaw = profile['photo']?.toString();
+
+    ImageProvider? photoProvider;
+    if (photoRaw != null && photoRaw.isNotEmpty) {
+      try {
+        final cleanPhoto = photoRaw.contains(',')
+            ? photoRaw.split(',').last
+            : photoRaw;
+        photoProvider = MemoryImage(base64Decode(cleanPhoto));
+      } catch (_) {
+        photoProvider = null;
+      }
+    }
+
+    final dialogResult = await Get.dialog(
       Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: 520, minWidth: 280),
+          constraints: const BoxConstraints(maxWidth: 520, minWidth: 280),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -853,9 +1181,9 @@ class NurseTriageController extends GetxController {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                 ),
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -866,16 +1194,16 @@ class NurseTriageController extends GetxController {
                             shape: BoxShape.circle,
                             color: Colors.blue[50],
                           ),
-                          padding: EdgeInsets.all(6),
+                          padding: const EdgeInsets.all(6),
                           child: Icon(
-                            Icons.info,
-                            color: Colors.blue,
+                            Icons.person,
+                            color: Colors.blue.shade700,
                             size: 18,
                           ),
                         ),
-                        SizedBox(width: 8),
-                        Text(
-                          'ABHA Already Exists',
+                        const SizedBox(width: 8),
+                        const Text(
+                          'ABHA PROFILE',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -884,9 +1212,9 @@ class NurseTriageController extends GetxController {
                         ),
                       ],
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Verified Record Found',
+                      'Your ABHA profile is ready to view and download.',
                       style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                     ),
                   ],
@@ -894,190 +1222,92 @@ class NurseTriageController extends GetxController {
               ),
               Container(
                 width: double.infinity,
-                color: Color(0xFFDFF6FF),
-                padding: EdgeInsets.all(14),
-                child: Row(
+                color: const Color(0xFFF8FAFC),
+                padding: const EdgeInsets.all(16),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: Colors.grey[200],
-                        image: (profile != null &&
-                                profile['photo'] != null &&
-                                profile['photo'].toString().isNotEmpty)
-                            ? DecorationImage(
-                                image: MemoryImage(base64Decode(profile['photo']
-                                    .toString()
-                                    .split(',')
-                                    .last)),
-                                fit: BoxFit.cover,
-                              )
+                    Center(
+                      child: Container(
+                        width: 92,
+                        height: 92,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.grey[200],
+                          image: photoProvider != null
+                              ? DecorationImage(
+                                  image: photoProvider,
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
+                        child: photoProvider == null
+                            ? Icon(Icons.person, size: 46, color: Colors.grey[600])
                             : null,
                       ),
-                      child: (profile == null ||
-                              profile['photo'] == null ||
-                              profile['photo'].toString().isEmpty)
-                          ? Icon(Icons.person,
-                              size: 30, color: Colors.grey[700])
-                          : null,
                     ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('PATIENT NAME',
-                                        style: TextStyle(
-                                            letterSpacing: 0.5,
-                                            fontSize: 10,
-                                            color: Colors.grey[700],
-                                            fontWeight: FontWeight.bold)),
-                                    Text(name.isEmpty ? 'Unknown' : name,
-                                        style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black87)),
-                                    SizedBox(height: 6),
-                                    Text('MOBILE',
-                                        style: TextStyle(
-                                            letterSpacing: 0.5,
-                                            fontSize: 10,
-                                            color: Colors.grey[700],
-                                            fontWeight: FontWeight.bold)),
-                                    Text(mobile,
-                                        style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black87)),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('ABHA ID',
-                                        style: TextStyle(
-                                            letterSpacing: 0.5,
-                                            fontSize: 10,
-                                            color: Colors.grey[700],
-                                            fontWeight: FontWeight.bold)),
-                                    Text(abha,
-                                        style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.red)),
-                                  ],
-                                ),
-                              ),
-                            ],
+                    const SizedBox(height: 16),
+                    _buildDialogInfoRow('Name', name.isEmpty ? 'Unknown' : name),
+                    _buildDialogInfoRow('ABHA Number', abhaNumber),
+                    _buildDialogInfoRow('ABHA Address',
+                        preferredAbhaAddress.isNotEmpty ? preferredAbhaAddress : 'Not available'),
+                    _buildDialogInfoRow('Date of Birth', dob),
+                    _buildDialogInfoRow('Gender', gender),
+                    _buildDialogInfoRow('Mobile', maskedMobile),
+                    _buildDialogInfoRow('Status', status),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => downloadAbhaCard(),
+                            icon: const Icon(Icons.download_rounded),
+                            label: const Text('DOWNLOAD ABHA CARD'),
                           ),
-                          SizedBox(height: 8),
-                          if (preferredAbhaAddress.isNotEmpty) ...[
-                            SizedBox(height: 8),
-                            Text('PREFERRED ABHA ADDRESS',
-                                style: TextStyle(
-                                    letterSpacing: 0.5,
-                                    fontSize: 10,
-                                    color: Colors.grey[700],
-                                    fontWeight: FontWeight.bold)),
-                            Text(preferredAbhaAddress,
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.black87)),
-                          ],
-                          SizedBox(height: 8),
-                          Text('RESIDENTIAL ADDRESS',
-                              style: TextStyle(
-                                  letterSpacing: 0.5,
-                                  fontSize: 10,
-                                  color: Colors.grey[700],
-                                  fontWeight: FontWeight.bold)),
-                          Text(
-                              residentialAddress.isEmpty
-                                  ? 'Address not available'
-                                  : residentialAddress,
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.black87)),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              _applyAadhaarResponseData(d);
+                              final result = <String, dynamic>{
+                                'abhaNumber': profile['ABHANumber']?.toString() ??
+                                    profile['abhaNumber']?.toString() ??
+                                    '',
+                                'abhaAddress': preferredAbhaAddress,
+                                'fullName': name,
+                                'mobile': mobile,
+                              };
+                              if (returnToCaller) {
+                                if (Get.isDialogOpen ?? false) {
+                                  Get.back(result: result);
+                                } else {
+                                  Get.back(result: result);
+                                }
+                              } else {
+                                if (Get.isDialogOpen ?? false) {
+                                  Get.back();
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: const Text('USE THIS PROFILE'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        Get.back();
-                      },
-                      child: Text('No',
-                          style: TextStyle(
-                              color: Colors.black87,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                    SizedBox(width: 8),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6)),
-                        minimumSize: Size(170, 42),
-                      ),
-                      onPressed: () async {
-                        debugPrint('===== IMPORT PROFILE STARTED =====');
-                        debugPrint('Profile dialog payload: $d');
-                        final profilePayload = _resolveAbhaProfilePayload(d);
-                        debugPrint('Resolved profile payload: $profilePayload');
-                        debugPrint('Applying imported profile data');
-                        _applyAadhaarResponseData(d);
-                        debugPrint('Updating triage after profile import');
-                        final updated = await updateTriage();
-                        debugPrint('Triage update result: $updated');
-
-                        if (!updated) {
-                          debugPrint('Import flow failed during triage update');
-                          return;
-                        }
-
-                        debugPrint('Closing profile dialog');
-                        if (Get.isDialogOpen ?? false) {
-                          Get.back();
-                        }
-
-                        debugPrint('Navigation to add_accident.dart');
-                        final context = Get.context;
-                        if (context != null) {
-                          final navigator = Navigator.of(context);
-                          if (navigator.canPop()) {
-                            navigator.pop();
+                    const SizedBox(height: 10),
+                    Center(
+                      child: TextButton(
+                        onPressed: () {
+                          if (Get.isDialogOpen ?? false) {
+                            Get.back();
                           }
-                          if (navigator.canPop()) {
-                            navigator.pop();
-                          }
-                        }
-                      },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text('Yes, Import Profile',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          SizedBox(width: 6),
-                          Icon(Icons.arrow_forward,
-                              size: 16, color: Colors.white),
-                        ],
+                        },
+                        child: const Text('CLOSE'),
                       ),
                     ),
                   ],
@@ -1086,6 +1316,38 @@ class NurseTriageController extends GetxController {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDialogInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              '$label',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black87,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

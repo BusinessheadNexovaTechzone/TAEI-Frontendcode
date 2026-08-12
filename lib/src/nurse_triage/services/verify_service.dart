@@ -12,9 +12,9 @@ class VerifyAbhaService {
     required String debugLabel,
     required Map<String, dynamic> body,
   }) async {
-    debugPrint('===== $debugLabel =====');
-    debugPrint('URL : $url');
-    debugPrint('Body : ${jsonEncode(body)}');
+    log('[ABHA VerifyService] ===== $debugLabel =====');
+    log('[ABHA VerifyService] URL : $url');
+    log('[ABHA VerifyService] Body : ${jsonEncode(body)}');
 
     try {
       final response = await _client.post(
@@ -23,8 +23,8 @@ class VerifyAbhaService {
         body: jsonEncode(body),
       );
 
-      debugPrint('Status : ${response.statusCode}');
-      debugPrint('Response : ${response.body}');
+      log('[ABHA VerifyService] Status : ${response.statusCode}');
+      log('[ABHA VerifyService] Response : ${response.body}');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (response.body.trim().isEmpty) {

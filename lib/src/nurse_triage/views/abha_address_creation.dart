@@ -157,13 +157,12 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
         if (payload is Map<String, dynamic>) {
           _controller.aadhaarProfileData.value = payload;
         }
-        _controller.showLastAadhaarProfileCard();
-        await Future.doWhile(() async {
-          await Future.delayed(const Duration(milliseconds: 100));
-          return mounted && (Get.isDialogOpen ?? false);
-        });
-        if (mounted) {
-          Navigator.of(context).maybePop();
+        final result = await _controller.showAadhaarSuccessDialog(
+          payload,
+          returnToCaller: true,
+        );
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(result);
         }
         return;
       }

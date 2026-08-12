@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:taei_gov/src/nurse_triage/models/create_triage_model.dart';
 import 'package:taei_gov/src/nurse_triage/models/triage_list_model.dart';
 import 'package:taei_gov/src/nurse_triage/models/triage_lookup_model.dart';
+import 'package:taei_gov/src/nurse_triage/utils/abha_debug_logger.dart';
 import 'package:taei_gov/utils/helpers/http_helper.dart';
 import 'package:http/http.dart' as http;
 import '../../../constants/urls.dart';
@@ -204,10 +205,21 @@ class TriageService {
     }
   }
 
-  static Future<Map<String, dynamic>?> sendAadhaarOtp(
-      {required String aadhaar}) async {
+  static Future<Map<String, dynamic>?> sendAadhaarOtp({
+    required String aadhaar,
+    String? flowId,
+  }) async {
     final url = Urls.sendAadhaarOtp;
     final requestBody = {'aadhaar': aadhaar};
+    AbhaDebugLogger.log('START sendAadhaarOtp', flowId: flowId);
+    AbhaDebugLogger.http('→ POST $url', flowId: flowId);
+    AbhaDebugLogger.request(
+      api: 'aadhaar/generate-otp',
+      method: 'POST',
+      url: url,
+      data: AbhaDebugLogger.sanitizeData(requestBody),
+      flowId: flowId,
+    );
     try {
       var response = await _client.post(Uri.parse(url),
           headers: {
@@ -215,25 +227,28 @@ class TriageService {
           },
           body: jsonEncode(requestBody));
       final responseBody = response.body.isNotEmpty
-          ? jsonDecode(response.body)
+          ? _parseResponseBody(response.body)
           : <String, dynamic>{};
-      _logApi(
-        apiName: 'sendAadhaarOtp',
-        url: url,
-        method: 'POST',
-        requestBody: requestBody,
+      AbhaDebugLogger.http('← ${response.statusCode} $url', flowId: flowId);
+      AbhaDebugLogger.response(
+        api: 'aadhaar/generate-otp',
         statusCode: response.statusCode,
-        responseBody: responseBody,
+        data: responseBody is Map<String, dynamic>
+            ? AbhaDebugLogger.sanitizeData(responseBody)
+            : {'raw': responseBody},
+        flowId: flowId,
       );
+      AbhaDebugLogger.log('END sendAadhaarOtp', flowId: flowId);
       return responseBody;
-    } catch (ex) {
-      _logApi(
-        apiName: 'sendAadhaarOtp',
-        url: url,
-        method: 'POST',
-        requestBody: requestBody,
+    } catch (ex, stackTrace) {
+      AbhaDebugLogger.error('API FAILED: sendAadhaarOtp', flowId: flowId);
+      AbhaDebugLogger.error('Exception: $ex', flowId: flowId);
+      AbhaDebugLogger.error('StackTrace: $stackTrace', flowId: flowId);
+      AbhaDebugLogger.response(
+        api: 'aadhaar/generate-otp',
         statusCode: 500,
-        responseBody: {'error': ex.toString()},
+        data: {'error': ex.toString()},
+        flowId: flowId,
       );
       return null;
     }
@@ -243,9 +258,19 @@ class TriageService {
     required String txnId,
     required String otp,
     required String mobile,
+    String? flowId,
   }) async {
     final url = Urls.verifyAadhaarOtp;
     final requestBody = {'txnId': txnId, 'otp': otp, 'mobile': mobile};
+    AbhaDebugLogger.log('START verifyAadhaarOtp', flowId: flowId);
+    AbhaDebugLogger.http('→ POST $url', flowId: flowId);
+    AbhaDebugLogger.request(
+      api: 'aadhaar/verify-otp',
+      method: 'POST',
+      url: url,
+      data: AbhaDebugLogger.sanitizeData(requestBody),
+      flowId: flowId,
+    );
     try {
       var response = await _client.post(Uri.parse(url),
           headers: {
@@ -253,23 +278,178 @@ class TriageService {
           },
           body: jsonEncode(requestBody));
       final responseBody = _parseResponseBody(response.body);
-      _logApi(
-        apiName: 'verifyAadhaarOtp',
-        url: url,
-        method: 'POST',
-        requestBody: requestBody,
+      AbhaDebugLogger.http('← ${response.statusCode} $url', flowId: flowId);
+      AbhaDebugLogger.response(
+        api: 'aadhaar/verify-otp',
         statusCode: response.statusCode,
-        responseBody: responseBody,
+        data: responseBody is Map<String, dynamic>
+            ? AbhaDebugLogger.sanitizeData(responseBody)
+            : {'raw': responseBody},
+        flowId: flowId,
       );
+      AbhaDebugLogger.log('END verifyAadhaarOtp', flowId: flowId);
       return responseBody;
-    } catch (ex) {
-      _logApi(
-        apiName: 'verifyAadhaarOtp',
-        url: url,
-        method: 'POST',
-        requestBody: requestBody,
+    } catch (ex, stackTrace) {
+      AbhaDebugLogger.error('API FAILED: verifyAadhaarOtp', flowId: flowId);
+      AbhaDebugLogger.error('Exception: $ex', flowId: flowId);
+      AbhaDebugLogger.error('StackTrace: $stackTrace', flowId: flowId);
+      AbhaDebugLogger.response(
+        api: 'aadhaar/verify-otp',
         statusCode: 500,
-        responseBody: {'error': ex.toString()},
+        data: {'error': ex.toString()},
+        flowId: flowId,
+      );
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> sendMobileUpdateOtp({
+    required int profileId,
+    required String mobile,
+    String? flowId,
+  }) async {
+    final url = Urls.updateMobileSendOtp;
+    final requestBody = {
+      'profileId': profileId,
+      'mobile': mobile,
+    };
+    AbhaDebugLogger.log('START sendMobileUpdateOtp', flowId: flowId);
+    AbhaDebugLogger.http('→ POST $url', flowId: flowId);
+    AbhaDebugLogger.request(
+      api: 'updatemobile/send-otp',
+      method: 'POST',
+      url: url,
+      data: AbhaDebugLogger.sanitizeData(requestBody),
+      flowId: flowId,
+    );
+    try {
+      var response = await _client.post(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode(requestBody),
+      );
+      final responseBody = _parseResponseBody(response.body);
+      AbhaDebugLogger.http('← ${response.statusCode} $url', flowId: flowId);
+      AbhaDebugLogger.response(
+        api: 'updatemobile/send-otp',
+        statusCode: response.statusCode,
+        data: responseBody is Map<String, dynamic>
+            ? AbhaDebugLogger.sanitizeData(responseBody)
+            : {'raw': responseBody},
+        flowId: flowId,
+      );
+      AbhaDebugLogger.log('END sendMobileUpdateOtp', flowId: flowId);
+      return responseBody;
+    } catch (ex, stackTrace) {
+      AbhaDebugLogger.error('API FAILED: sendMobileUpdateOtp', flowId: flowId);
+      AbhaDebugLogger.error('Exception: $ex', flowId: flowId);
+      AbhaDebugLogger.error('StackTrace: $stackTrace', flowId: flowId);
+      AbhaDebugLogger.response(
+        api: 'updatemobile/send-otp',
+        statusCode: 500,
+        data: {'error': ex.toString()},
+        flowId: flowId,
+      );
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> verifyMobileUpdateOtp({
+    required int profileId,
+    required String txnId,
+    required String otp,
+    String? flowId,
+  }) async {
+    final url = Urls.updateMobileVerifyOtp;
+    final requestBody = {
+      'profileId': profileId,
+      'txnId': txnId,
+      'otp': otp,
+    };
+
+    final maskedOtp = otp.isEmpty ? 'EMPTY' : '*' * otp.length;
+
+    debugPrint('============================================================');
+    debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp REQUEST');
+    debugPrint('============================================================');
+    debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] URL:');
+    debugPrint(url);
+    debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] METHOD: POST');
+    debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] profileId: $profileId');
+    debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] txnId: $txnId');
+    debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] otp: $maskedOtp');
+    debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] REQUEST BODY:');
+    debugPrint('{');
+    debugPrint('  "profileId": ${profileId},');
+    debugPrint('  "txnId": "$txnId",');
+    debugPrint('  "otp": "$maskedOtp"');
+    debugPrint('}');
+    debugPrint('============================================================');
+
+    AbhaDebugLogger.log('START verifyMobileUpdateOtp', flowId: flowId);
+    AbhaDebugLogger.http('→ POST $url', flowId: flowId);
+    AbhaDebugLogger.request(
+      api: 'updatemobile/verify-otp',
+      method: 'POST',
+      url: url,
+      data: AbhaDebugLogger.sanitizeData(requestBody),
+      flowId: flowId,
+    );
+    try {
+      var response = await _client.post(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode(requestBody),
+      );
+      final responseBody = _parseResponseBody(response.body);
+
+      debugPrint('============================================================');
+      debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp RESPONSE');
+      debugPrint('============================================================');
+      debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] STATUS: ${response.statusCode}');
+      debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] RESPONSE:');
+      debugPrint(jsonEncode(responseBody));
+      debugPrint('============================================================');
+
+      if (responseBody is Map<String, dynamic>) {
+        final authResult = responseBody['authResult']?.toString();
+        if (authResult != null && authResult.isNotEmpty) {
+          debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] authResult: $authResult');
+        }
+        final msg = responseBody['message']?.toString();
+        if (msg != null && msg.isNotEmpty) {
+          debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] message: $msg');
+        }
+      }
+
+      AbhaDebugLogger.http('← ${response.statusCode} $url', flowId: flowId);
+      AbhaDebugLogger.response(
+        api: 'updatemobile/verify-otp',
+        statusCode: response.statusCode,
+        data: responseBody is Map<String, dynamic>
+            ? AbhaDebugLogger.sanitizeData(responseBody)
+            : {'raw': responseBody},
+        flowId: flowId,
+      );
+      AbhaDebugLogger.log('END verifyMobileUpdateOtp', flowId: flowId);
+      return responseBody;
+    } catch (ex, stackTrace) {
+      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp failed');
+      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] Exception: $ex');
+      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] StackTrace: $stackTrace');
+      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] Request: profileId=$profileId txnId=$txnId otp=$maskedOtp');
+      AbhaDebugLogger.error('API FAILED: verifyMobileUpdateOtp', flowId: flowId);
+      AbhaDebugLogger.error('Exception: $ex', flowId: flowId);
+      AbhaDebugLogger.error('StackTrace: $stackTrace', flowId: flowId);
+      AbhaDebugLogger.response(
+        api: 'updatemobile/verify-otp',
+        statusCode: 500,
+        data: {'error': ex.toString()},
+        flowId: flowId,
       );
       return null;
     }
@@ -281,7 +461,7 @@ class TriageService {
 
       // Use http.get directly to ensure we get bodyBytes
       final httpClient = http.Client();
-      final response = await httpClient.get(Uri.parse(url));
+      final response = await _client.get(Uri.parse(url));
 
       log('🔷 Response Status: ${response.statusCode}');
       log('🔷 Content-Type: ${response.headers['content-type']}');

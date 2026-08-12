@@ -232,6 +232,8 @@ class Urls {
   // Aadhaar OTP APIs
   static const String sendAadhaarOtp = '${local}api/abha/aadhaar/generate-otp';
   static const String verifyAadhaarOtp = '${local}api/abha/aadhaar/verify-otp';
+  static const String updateMobileSendOtp = '${local}api/abha/updatemobile/send-otp';
+  static const String updateMobileVerifyOtp = '${local}api/abha/updatemobile/verify-otp';
   static const String sendVerifyAbhaOtp = '${local}api/abha/login/send-otp';
   static const String verifyVerifyAbhaOtp = '${local}api/abha/login/verify-otp';
   static const String mobileOtpVerify = '${local}api/abha/login/mobile/verify-otp';
