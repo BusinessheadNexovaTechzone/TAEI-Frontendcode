@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
@@ -750,6 +751,176 @@ class TriageService {
       print("======================================");
 
       return null;
+    }
+  }
+
+  /// Download official ABHA card from backend
+  /// 
+  /// Returns a map with:
+  /// - 'success': bool indicating if download succeeded
+  /// - 'bytes': Uint8List containing the card file data
+  /// - 'contentType': String indicating file type (image/png or application/pdf)
+  /// - 'filename': String suggested filename
+  /// - 'error': String error message if failed
+  static Future<Map<String, dynamic>> downloadAbhaCard({
+    required int profileId,
+    String? flowId,
+  }) async {
+    final url = '${Urls.downloadAbhaCard}/$profileId';
+    
+    log('[ABHA CARD][DOWNLOAD] Starting download from backend');
+    log('[ABHA CARD][DOWNLOAD] URL: $url');
+    log('[ABHA CARD][DOWNLOAD] profileId: $profileId');
+    
+    AbhaDebugLogger.log('START downloadAbhaCard', flowId: flowId);
+    AbhaDebugLogger.http('→ GET $url', flowId: flowId);
+    AbhaDebugLogger.request(
+      api: 'abha/card/{profileId}',
+      method: 'GET',
+      url: url,
+      data: {'profileId': profileId},
+      flowId: flowId,
+    );
+
+    try {
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'Accept': 'application/pdf, image/png',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw TimeoutException('ABHA card download timeout'),
+      );
+
+      log('[ABHA CARD][DOWNLOAD] HTTP Status: ${response.statusCode}');
+      log('[ABHA CARD][DOWNLOAD] Content-Type: ${response.headers['content-type']}');
+      log('[ABHA CARD][DOWNLOAD] Content-Length: ${response.bodyBytes.length}');
+
+      AbhaDebugLogger.http(
+        '← ${response.statusCode} $url',
+        flowId: flowId,
+      );
+
+      // Validate successful response
+      if (response.statusCode != 200) {
+        final errorMessage = 'Failed to download ABHA card. '
+            'Status: ${response.statusCode}';
+        
+        log('[ABHA CARD][DOWNLOAD][ERROR] $errorMessage');
+        AbhaDebugLogger.error(
+          'API FAILED: downloadAbhaCard - Status ${response.statusCode}',
+          flowId: flowId,
+        );
+        AbhaDebugLogger.response(
+          api: 'abha/card/{profileId}',
+          statusCode: response.statusCode,
+          data: {'error': errorMessage},
+          flowId: flowId,
+        );
+
+        return {
+          'success': false,
+          'error': errorMessage,
+          'statusCode': response.statusCode,
+        };
+      }
+
+      // Validate response bytes
+      if (response.bodyBytes.isEmpty) {
+        const errorMessage = 'ABHA card response was empty';
+        log('[ABHA CARD][DOWNLOAD][ERROR] $errorMessage');
+        AbhaDebugLogger.error(
+          'API FAILED: downloadAbhaCard - Empty response',
+          flowId: flowId,
+        );
+        AbhaDebugLogger.response(
+          api: 'abha/card/{profileId}',
+          statusCode: 200,
+          data: {'error': errorMessage},
+          flowId: flowId,
+        );
+
+        return {
+          'success': false,
+          'error': errorMessage,
+        };
+      }
+
+      // Determine content type and filename
+      final contentType = response.headers['content-type'] ?? 'application/octet-stream';
+      late String fileExtension;
+      
+      if (contentType.contains('pdf')) {
+        fileExtension = '.pdf';
+      } else if (contentType.contains('png')) {
+        fileExtension = '.png';
+      } else if (contentType.contains('image')) {
+        fileExtension = '.png'; // Default to PNG for generic image types
+      } else {
+        fileExtension = '.pdf'; // Default to PDF
+      }
+
+      final filename = 'ABHA_Card_$profileId$fileExtension';
+
+      log('[ABHA CARD][DOWNLOAD][SUCCESS]');
+      log('[ABHA CARD][DOWNLOAD] Filename: $filename');
+      log('[ABHA CARD][DOWNLOAD] Content-Type: $contentType');
+      log('[ABHA CARD][DOWNLOAD] Byte Length: ${response.bodyBytes.length}');
+
+      AbhaDebugLogger.log('END downloadAbhaCard', flowId: flowId);
+      AbhaDebugLogger.response(
+        api: 'abha/card/{profileId}',
+        statusCode: 200,
+        data: {
+          'filename': filename,
+          'contentType': contentType,
+          'byteLength': response.bodyBytes.length,
+        },
+        flowId: flowId,
+      );
+
+      return {
+        'success': true,
+        'bytes': response.bodyBytes,
+        'contentType': contentType,
+        'filename': filename,
+      };
+    } on TimeoutException catch (e) {
+      const errorMessage = 'ABHA card download timed out. Please check your connection.';
+      log('[ABHA CARD][DOWNLOAD][ERROR] $errorMessage');
+      AbhaDebugLogger.error('API TIMEOUT: downloadAbhaCard', flowId: flowId);
+      AbhaDebugLogger.error('Exception: $e', flowId: flowId);
+      AbhaDebugLogger.response(
+        api: 'abha/card/{profileId}',
+        statusCode: 408,
+        data: {'error': errorMessage},
+        flowId: flowId,
+      );
+
+      return {
+        'success': false,
+        'error': errorMessage,
+      };
+    } catch (e, stackTrace) {
+      final errorMessage = 'Error downloading ABHA card: ${e.toString()}';
+      log('[ABHA CARD][DOWNLOAD][ERROR] $errorMessage');
+      log('[ABHA CARD][DOWNLOAD][STACK] $stackTrace');
+      AbhaDebugLogger.error('API FAILED: downloadAbhaCard', flowId: flowId);
+      AbhaDebugLogger.error('Exception: $e', flowId: flowId);
+      AbhaDebugLogger.error('StackTrace: $stackTrace', flowId: flowId);
+      AbhaDebugLogger.response(
+        api: 'abha/card/{profileId}',
+        statusCode: 500,
+        data: {'error': errorMessage},
+        flowId: flowId,
+      );
+
+      return {
+        'success': false,
+        'error': errorMessage,
+      };
     }
   }
 }

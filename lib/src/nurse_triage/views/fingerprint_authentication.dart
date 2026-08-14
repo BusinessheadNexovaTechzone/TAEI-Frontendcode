@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:taei_gov/src/nurse_triage/controller/fingerprint_auth_controller.dart';
 import 'package:taei_gov/src/nurse_triage/controller/nurse_triage_controller.dart';
+import 'package:taei_gov/src/nurse_triage/utils/abha_otp_utils.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
 
 class FingerprintAuthenticationScreen extends StatefulWidget {
@@ -72,7 +73,7 @@ class _FingerprintAuthenticationScreenState
     if (aadhaar.isEmpty) {
       await CommonErrorDialog.show(
         context,
-        message: 'Aadhaar number is required to continue.',
+        message: 'Please enter a valid 12-digit Aadhaar number.',
       );
       return;
     }
@@ -87,22 +88,24 @@ class _FingerprintAuthenticationScreenState
 
     setState(() {
       _isLoading = true;
-      _statusMessage = 'Calling Capture API...';
+      _statusMessage = 'Initializing fingerprint capture...';
       _captureCompleted = false;
     });
 
     try {
-      log('========== FINGERPRINT AUTH =========');
-      log('Aadhaar : $aadhaar');
-      log('Mobile : $mobile');
-      log('Calling Capture API...');
+      log('========== FINGERPRINT AUTH FLOW START ==========');
+      log('Aadhaar: ${aadhaar.replaceRange(0, aadhaar.length - 4, '*' * (aadhaar.length - 4))}');
+      log('Mobile: ${mobile.replaceRange(0, mobile.length - 4, '*' * (mobile.length - 4))}');
 
+      // Step 1: Capture fingerprint from local Mantra RD Service
+      log('Step 1: Calling captureFingerprint...');
       final captureSuccess = await _fingerprintController.captureFingerprint();
+
       if (!captureSuccess) {
         final message = _fingerprintController.errorMessage.value.isNotEmpty
             ? _fingerprintController.errorMessage.value
             : 'Fingerprint capture failed. Please try again.';
-        log('Capture Failed: $message');
+        log('Fingerprint capture failed: $message');
         await CommonErrorDialog.show(context, message: message);
         setState(() {
           _statusMessage = message;
@@ -110,15 +113,16 @@ class _FingerprintAuthenticationScreenState
         return;
       }
 
-      log('Capture Success');
-      log('fingerPrintAuthPid : ${_fingerprintController.fingerPrintAuthPid.value}');
+      log('Fingerprint captured successfully');
+      log('PID length: ${_fingerprintController.fingerPrintAuthPid.value.length}');
 
       setState(() {
-        _statusMessage = 'Capture Success. Enrolling fingerprint now...';
+        _statusMessage = 'Fingerprint captured. Enrolling with ABHA...';
         _captureCompleted = true;
       });
 
-      log('Calling Enroll API...');
+      // Step 2: Send captured PID to ABHA backend for enrollment
+      log('Step 2: Calling enrollFingerprint with captured PID...');
       final enrollResponse = await _fingerprintController.enrollFingerprint(
         aadhaar: aadhaar,
         mobile: mobile,
@@ -128,7 +132,7 @@ class _FingerprintAuthenticationScreenState
         final message = _fingerprintController.errorMessage.value.isNotEmpty
             ? _fingerprintController.errorMessage.value
             : 'Fingerprint enrollment failed. Please try again.';
-        log('Enroll Failed: $message');
+        log('ABHA enrollment failed: $message');
         await CommonErrorDialog.show(context, message: message);
         setState(() {
           _statusMessage = message;
@@ -141,7 +145,7 @@ class _FingerprintAuthenticationScreenState
               enrollResponse['ABHAProfile'] == null) {
         final message =
             CommonErrorDialog.extractFriendlyErrorMessage(enrollResponse);
-        log('Enroll Failed: $message');
+        log('ABHA enrollment response indicates failure: $message');
         await CommonErrorDialog.show(
           context,
           message:
@@ -153,6 +157,7 @@ class _FingerprintAuthenticationScreenState
         return;
       }
 
+      // Step 3: Store response and update triage model
       _nurseController.aadhaarProfileData.value = enrollResponse;
       _nurseController.createTriageModel.value!.triage!.aadhaar = aadhaar;
       _nurseController.createTriageModel.value!.triage!.patientMobileNumber =
@@ -166,10 +171,23 @@ class _FingerprintAuthenticationScreenState
         _fingerprintController.txnId.value = responseTxn;
       }
 
+      // Extract and store profileId from enrollment response
+      final profileId = extractAbhaProfileId(enrollResponse);
+      if (profileId != null && profileId > 0) {
+        _nurseController.currentProfileId.value = profileId.toString();
+        _nurseController.createTriageModel.value?.triage?.abhaProfileId = profileId;
+        log('[FINGERPRINT] profileId extracted: $profileId');
+      } else {
+        log('[FINGERPRINT] WARNING: profileId not found in enrollment response');
+      }
+
       setState(() {
         _statusMessage = 'Enrollment successful. Showing ABHA profile.';
       });
-      log('Enrollment successful. Profile response saved.');
+      log('Fingerprint enrollment successful. Showing profile card.');
+      log('========== FINGERPRINT AUTH FLOW COMPLETE ==========');
+
+      // Step 4: Display ABHA profile card using existing flow
       _nurseController.showLastAadhaarProfileCard();
     } catch (e) {
       log('Fingerprint flow exception: $e');

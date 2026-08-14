@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +32,7 @@ import '../models/update_mobile_verify_otp_response.dart';
 import '../services/triage_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/face_rd_service.dart';
+import '../utils/abha_debug_logger.dart';
 import '../utils/abha_otp_utils.dart';
 
 class NurseTriageController extends GetxController {
@@ -717,79 +719,147 @@ class NurseTriageController extends GetxController {
     showAadhaarSuccessDialog(fallbackPayload);
   }
 
+  RxBool isDownloadingAbhaCard = false.obs;
+
   Future<void> downloadAbhaCard({String? flowId}) async {
-    final profileId = createTriageModel.value?.triage?.abhaProfileId;
-    final abhaNumber = createTriageModel.value?.triage?.abhaCard?.toString() ?? '';
-    final abhaAddress = createTriageModel.value?.triage?.addressLine ?? '';
+    final profileIdStr = currentProfileId.value.trim();
 
+    log('[ABHA CARD][DOWNLOAD] Button clicked');
     debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD ABHA CARD PRESSED');
-    debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] Preparing ABHA card download');
-    debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] Profile ID: $profileId');
-    debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA Number: ${AbhaDebugLogger.maskMobile(abhaNumber)}');
-    debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA Address: ${abhaAddress.isNotEmpty ? abhaAddress : 'n/a'}');
 
-    log('Download ABHA Card - Current abhaProfileId: $profileId');
-    log('Download ABHA Card - Full triage data: ${createTriageModel.value?.triage?.toJson()}');
-
-    if (profileId == null) {
-      // Try to fetch updated triage data from backend
-      if (createTriageModel.value?.triage?.id != null) {
-        log('Profile ID not found locally, trying to fetch from backend...');
-        final fetched = await getTriageById(
-            id: createTriageModel.value!.triage!.id.toString());
-        if (fetched) {
-          final updatedProfileId =
-              createTriageModel.value?.triage?.abhaProfileId;
-          log('Fetched updated profile ID from backend: $updatedProfileId');
-          if (updatedProfileId != null) {
-            // Retry download with fetched ID
-            await _performAbhaCardDownload(updatedProfileId, flowId: flowId);
-            return;
-          }
-        }
-      }
-
-      Fluttertoast.showToast(msg: 'ABHA Profile ID not found');
+    // Prevent duplicate clicks
+    if (isDownloadingAbhaCard.value) {
+      log('[ABHA CARD][DOWNLOAD] Already downloading, ignoring duplicate click');
       return;
     }
 
-    await _performAbhaCardDownload(profileId, flowId: flowId);
+    // Validate profileId
+    if (profileIdStr.isEmpty) {
+      log('[ABHA CARD][DOWNLOAD] profileId missing');
+      Fluttertoast.showToast(
+        msg: 'ABHA card is not available yet. Please complete ABHA verification first.',
+      );
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          title: 'ABHA Card Not Available',
+          message: 'ABHA card is not available yet. Please complete ABHA verification first.',
+        );
+      }
+      return;
+    }
+
+    final profileId = int.tryParse(profileIdStr);
+    if (profileId == null || profileId <= 0) {
+      log('[ABHA CARD][DOWNLOAD] profileId invalid: $profileIdStr');
+      Fluttertoast.showToast(
+        msg: 'ABHA card is not available yet. Please complete ABHA verification first.',
+      );
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          title: 'Invalid ABHA Profile',
+          message: 'ABHA profile ID is invalid. Please try again.',
+        );
+      }
+      return;
+    }
+
+    isDownloadingAbhaCard.value = true;
+    try {
+      log('[ABHA CARD][DOWNLOAD] profileId available: true');
+      log('[ABHA CARD][DOWNLOAD] profileId: $profileId');
+
+      // Call backend API to download official ABHA card
+      final result = await TriageService.downloadAbhaCard(
+        profileId: profileId,
+        flowId: flowId,
+      );
+
+      if (result['success'] != true) {
+        final errorMessage = result['error']?.toString() ??
+            'Unable to download the ABHA card. Please try again.';
+        log('[ABHA CARD][DOWNLOAD][ERROR] ${result["error"]}');
+
+        Fluttertoast.showToast(msg: errorMessage);
+        if (Get.context != null) {
+          await CommonErrorDialog.show(
+            Get.context!,
+            title: 'Download Failed',
+            message: errorMessage,
+          );
+        }
+        return;
+      }
+
+      // Extract downloaded bytes and file info
+      final bytes = result['bytes'] as Uint8List?;
+      final contentType = result['contentType']?.toString() ?? 'application/octet-stream';
+      final filename = result['filename']?.toString() ?? 'ABHA_Card.pdf';
+
+      if (bytes == null || bytes.isEmpty) {
+        log('[ABHA CARD][DOWNLOAD][ERROR] Downloaded bytes are empty');
+        Fluttertoast.showToast(msg: 'ABHA card download returned empty file.');
+        return;
+      }
+
+      log('[ABHA CARD][DOWNLOAD] Download response received');
+      log('[ABHA CARD][DOWNLOAD] Filename: $filename');
+      log('[ABHA CARD][DOWNLOAD] Content-Type: $contentType');
+      log('[ABHA CARD][DOWNLOAD] Byte Length: ${bytes.length}');
+
+      // Trigger browser download
+      log('[ABHA CARD][DOWNLOAD] WEB DOWNLOAD START');
+      await _triggerWebDownloadForBackendCard(bytes, filename, contentType);
+      log('[ABHA CARD][DOWNLOAD] WEB DOWNLOAD SUCCESS');
+
+      debugPrint(
+        '[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA CARD DOWNLOAD SUCCESS',
+      );
+      Fluttertoast.showToast(msg: 'ABHA Card downloaded successfully.');
+      log('[ABHA CARD][DOWNLOAD] SUCCESS');
+    } catch (e) {
+      debugPrint(
+        '[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA CARD DOWNLOAD FAILED',
+      );
+      debugPrint(
+        '[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] Error: ${e.toString()}',
+      );
+      log('[ABHA CARD][DOWNLOAD][ERROR] ${e.toString()}');
+      Fluttertoast.showToast(
+        msg: 'Unable to download the ABHA Card. Please try again.',
+      );
+    } finally {
+      isDownloadingAbhaCard.value = false;
+    }
   }
 
-  Future<void> _performAbhaCardDownload(int profileId, {String? flowId}) async {
-    debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD API REQUEST START');
+  Future<void> _triggerWebDownloadForBackendCard(
+    Uint8List fileBytes,
+    String filename,
+    String contentType,
+  ) async {
     try {
-      final url = '${Urls.local}api/abha/card/$profileId';
-      log('Downloading ABHA card from: $url');
-      debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD API REQUEST');
-      debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] URL: $url');
+      log('[ABHA CARD][WEB DOWNLOAD] Starting web download');
+      log('[ABHA CARD][WEB DOWNLOAD] Filename: $filename');
+      log('[ABHA CARD][WEB DOWNLOAD] Content-Type: $contentType');
 
-      // Download and save the file
-      final filePath = await TriageService.downloadFile(url);
-      if (filePath != null) {
-        debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD API RESPONSE');
-        debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] STATUS: 200');
-        debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA CARD DOWNLOAD SUCCESS');
-        Fluttertoast.showToast(
-            msg:
-                'ABHA Card downloaded successfully!\nFile: ${filePath.split('/').last}');
-        log('ABHA Card saved to: $filePath');
-      } else {
-        debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD API RESPONSE');
-        debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] STATUS: failed');
-        debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA CARD DOWNLOAD FAILED');
-        Fluttertoast.showToast(
-            msg:
-                'Failed to download ABHA Card - Check ProfileId or API response');
-        log('Download returned null filepath');
-      }
+      // Use universal_html for web-safe download
+      final blob = html.Blob([fileBytes], contentType);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.AnchorElement(href: url)
+        ..download = filename
+        ..style.display = 'none';
+
+      html.document.body?.append(anchor);
+      anchor.click();
+      anchor.remove();
+      html.Url.revokeObjectUrl(url);
+
+      log('[ABHA CARD][WEB DOWNLOAD] Browser download triggered: $filename');
     } catch (e) {
-      debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD API RESPONSE');
-      debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] STATUS: exception');
-      debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA CARD DOWNLOAD FAILED');
-      debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] Error: ${e.toString()}');
-      log('Download ABHA card error: $e');
-      Fluttertoast.showToast(msg: 'Error: ${e.toString()}');
+      log('[ABHA CARD][WEB DOWNLOAD][ERROR] Web download mechanism failed: $e');
+      rethrow;
     }
   }
 
@@ -1120,12 +1190,12 @@ class NurseTriageController extends GetxController {
 
     if (profile == null) {
       Fluttertoast.showToast(msg: "No ABHA data found");
-      return;
+      return null;
     }
 
     if (!showDialog) {
       _applyAadhaarResponseData(d);
-      return;
+      return null;
     }
 
     _applyAadhaarResponseData(d);

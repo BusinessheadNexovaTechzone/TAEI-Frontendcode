@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:taei_gov/src/nurse_triage/controller/nurse_triage_controller.dart';
+import 'package:taei_gov/src/nurse_triage/utils/abha_otp_utils.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
 import '../services/verify_service.dart';
 
@@ -398,6 +399,16 @@ class VerifyAbhaController extends GetxController {
     debugPrint(payload.toString());
     nurseController.aadhaarProfileData.value = payload;
     nurseController.aadhaarProfileImported.value = true;
+
+    // Extract and store profileId from verify response
+    final profileId = extractAbhaProfileId(response);
+    if (profileId != null && profileId > 0) {
+      nurseController.currentProfileId.value = profileId.toString();
+      log('[VERIFY ABHA] profileId extracted: $profileId');
+    } else {
+      log('[VERIFY ABHA] WARNING: profileId not found in verify response');
+    }
+
     debugPrint('Opening shared profile card from verify flow');
     nurseController.showLastAadhaarProfileCard();
   }
