@@ -1,27 +1,52 @@
 int? extractAbhaProfileId(Map<String, dynamic>? response) {
-  final candidates = <Object?>[
-    response?['profileId'],
-    response?['data']?['profileId'],
-    response?['result']?['profileId'],
-    response?['result']?['ABHAProfile']?['profileId'],
-    response?['result']?['ABHAProfile']?['id'],
-    response?['result']?['id'],
-    response?['abhaProfileId'],
-    response?['data']?['abhaProfileId'],
-    response?['result']?['abhaProfileId'],
-    response?['ABHAProfileId'],
-    response?['result']?['ABHAProfileId'],
-  ];
+  if (response == null) return null;
 
-  for (final candidate in candidates) {
-    if (candidate == null) continue;
-    final parsed = int.tryParse(candidate.toString());
-    if (parsed != null) {
-      return parsed;
+  int? walk(Object? node, {bool inProfileContext = false}) {
+    if (node is Map) {
+      final keys = node.keys.map((key) => key.toString().toLowerCase()).toList();
+      final hasProfileContext = inProfileContext ||
+          keys.any((key) => key.contains('profile') || key.contains('abha'));
+
+      for (final entry in node.entries) {
+        final key = entry.key.toString().toLowerCase();
+        final value = entry.value;
+
+        final keyLooksLikeProfileId = key == 'profileid' ||
+            key == 'abhaprofileid' ||
+            key == 'abha_profile_id' ||
+            key == 'profile_id';
+
+        if (keyLooksLikeProfileId) {
+          final parsed = int.tryParse(value?.toString() ?? '');
+          if (parsed != null) return parsed;
+        }
+
+        final keyLooksLikeNestedId = key == 'id' && hasProfileContext;
+        if (keyLooksLikeNestedId) {
+          final parsed = int.tryParse(value?.toString() ?? '');
+          if (parsed != null) return parsed;
+        }
+
+        final nestedResult = walk(
+          value,
+          inProfileContext: hasProfileContext || key.contains('profile') || key.contains('abha'),
+        );
+        if (nestedResult != null) return nestedResult;
+      }
+      return null;
     }
+
+    if (node is List) {
+      for (final item in node) {
+        final result = walk(item, inProfileContext: inProfileContext);
+        if (result != null) return result;
+      }
+    }
+
+    return null;
   }
 
-  return null;
+  return walk(response);
 }
 
 String buildMobileOtpFailureMessage(dynamic payload) {

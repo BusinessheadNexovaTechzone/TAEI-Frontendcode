@@ -363,6 +363,9 @@ class ConsentCollectionStep extends StatelessWidget {
                     DropdownMenuItem(
                         value: 'Face Authentication',
                         child: Text('Face Authentication')),
+                    DropdownMenuItem(
+                        value: 'Demo Authentication',
+                        child: Text('Demo Authentication')),
                   ],
                   onChanged: onAuthMethodChanged,
                   validator: (value) {

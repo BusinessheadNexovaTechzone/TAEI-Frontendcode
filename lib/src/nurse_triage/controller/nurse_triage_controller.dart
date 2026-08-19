@@ -22,11 +22,13 @@ import 'package:taei_gov/src/nurse_triage/models/triage_dashboard_model.dart';
 import 'package:taei_gov/src/nurse_triage/models/triage_details_model.dart';
 import 'package:taei_gov/src/nurse_triage/models/triage_list_model.dart';
 import 'package:taei_gov/src/nurse_triage/models/triage_lookup_model.dart';
+import 'package:taei_gov/src/nurse_triage/models/abha_verified_profile.dart';
 import 'package:taei_gov/src/transit_care/model/transit_care_model.dart';
 import 'package:taei_gov/src/transit_care/model/transitcare_dashboard_count_model.dart';
 import 'package:taei_gov/src/emo_user/model/emo_lookup_model.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
 import 'package:taei_gov/utils/helpers/http_helper.dart';
+import '../models/abha_verified_profile.dart';
 import '../models/create_triage_model.dart';
 import '../models/update_mobile_verify_otp_response.dart';
 import '../services/triage_service.dart';
@@ -657,6 +659,8 @@ class NurseTriageController extends GetxController {
       d['data']?['profile'],
       d['ABHAProfile'],
       d['profile'],
+      d['profiles'],
+      d['accounts'],
     ];
 
     for (final candidate in candidates) {
@@ -665,6 +669,9 @@ class NurseTriageController extends GetxController {
       }
       if (candidate is Map) {
         return Map<String, dynamic>.from(candidate);
+      }
+      if (candidate is List && candidate.isNotEmpty && candidate.first is Map) {
+        return Map<String, dynamic>.from(candidate.first as Map);
       }
     }
 
@@ -720,20 +727,52 @@ class NurseTriageController extends GetxController {
   }
 
   RxBool isDownloadingAbhaCard = false.obs;
+  final RxSet<int> downloadingAbhaProfileIds = <int>{}.obs;
 
-  Future<void> downloadAbhaCard({String? flowId}) async {
-    final profileIdStr = currentProfileId.value.trim();
+  Future<void> downloadAbhaCard({
+    String? flowId,
+    int? profileId,
+    bool selectedProfileOnly = false,
+  }) async {
+    var profileIdStr = '';
 
-    log('[ABHA CARD][DOWNLOAD] Button clicked');
+    log('[ABHA][CARD-DOWNLOAD] START');
+    log('[ABHA][CARD-DOWNLOAD] Download button clicked');
     debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD ABHA CARD PRESSED');
 
-    // Prevent duplicate clicks
-    if (isDownloadingAbhaCard.value) {
-      log('[ABHA CARD][DOWNLOAD] Already downloading, ignoring duplicate click');
-      return;
+    final selectedProfileId = selectedProfileOnly
+      ? profileId
+      : profileId ?? extractAbhaProfileId(aadhaarProfileData.value);
+    if (selectedProfileId != null && selectedProfileId > 0) {
+      profileIdStr = selectedProfileId.toString();
+      currentProfileId.value = profileIdStr;
     }
 
-    // Validate profileId
+    if (!selectedProfileOnly) {
+      if (profileIdStr.isEmpty) {
+        profileIdStr = currentProfileId.value.trim();
+      }
+    }
+
+    if (!selectedProfileOnly && profileIdStr.isEmpty) {
+      final triageProfileId = createTriageModel.value?.triage?.abhaProfileId;
+      if (triageProfileId != null && triageProfileId > 0) {
+        profileIdStr = triageProfileId.toString();
+        currentProfileId.value = profileIdStr;
+      }
+    }
+
+    if (!selectedProfileOnly && profileIdStr.isEmpty && aadhaarProfileData.value != null) {
+      final cachedProfileId = extractAbhaProfileId(aadhaarProfileData.value);
+      if (cachedProfileId != null && cachedProfileId > 0) {
+        profileIdStr = cachedProfileId.toString();
+        currentProfileId.value = profileIdStr;
+      }
+    }
+
+    log('[ABHA][CARD-DOWNLOAD] Profile ID: ${profileIdStr.isNotEmpty ? 'available' : 'missing'}');
+    log('[ABHA][CARD-DOWNLOAD] API: /api/abha/card');
+
     if (profileIdStr.isEmpty) {
       log('[ABHA CARD][DOWNLOAD] profileId missing');
       Fluttertoast.showToast(
@@ -743,14 +782,14 @@ class NurseTriageController extends GetxController {
         await CommonErrorDialog.show(
           Get.context!,
           title: 'ABHA Card Not Available',
-          message: 'ABHA card is not available yet. Please complete ABHA verification first.',
+          message: 'Unable to download ABHA Card: Profile ID is missing.',
         );
       }
       return;
     }
 
-    final profileId = int.tryParse(profileIdStr);
-    if (profileId == null || profileId <= 0) {
+    final parsedProfileId = int.tryParse(profileIdStr);
+    if (parsedProfileId == null || parsedProfileId <= 0) {
       log('[ABHA CARD][DOWNLOAD] profileId invalid: $profileIdStr');
       Fluttertoast.showToast(
         msg: 'ABHA card is not available yet. Please complete ABHA verification first.',
@@ -765,14 +804,28 @@ class NurseTriageController extends GetxController {
       return;
     }
 
+    if (profileId != null &&
+        downloadingAbhaProfileIds.contains(parsedProfileId)) {
+      log('[ABHA CARD][DOWNLOAD] This profile is already downloading');
+      return;
+    }
+
+    if (profileId == null && isDownloadingAbhaCard.value) {
+      log('[ABHA CARD][DOWNLOAD] Already downloading, ignoring duplicate click');
+      return;
+    }
+
     isDownloadingAbhaCard.value = true;
+    if (profileId != null) {
+      downloadingAbhaProfileIds.add(parsedProfileId);
+    }
     try {
       log('[ABHA CARD][DOWNLOAD] profileId available: true');
-      log('[ABHA CARD][DOWNLOAD] profileId: $profileId');
+      log('[ABHA CARD][DOWNLOAD] profileId: $parsedProfileId');
 
       // Call backend API to download official ABHA card
       final result = await TriageService.downloadAbhaCard(
-        profileId: profileId,
+        profileId: parsedProfileId,
         flowId: flowId,
       );
 
@@ -804,6 +857,7 @@ class NurseTriageController extends GetxController {
       }
 
       log('[ABHA CARD][DOWNLOAD] Download response received');
+      log('[ABHA][CARD-DOWNLOAD] Response received');
       log('[ABHA CARD][DOWNLOAD] Filename: $filename');
       log('[ABHA CARD][DOWNLOAD] Content-Type: $contentType');
       log('[ABHA CARD][DOWNLOAD] Byte Length: ${bytes.length}');
@@ -812,6 +866,7 @@ class NurseTriageController extends GetxController {
       log('[ABHA CARD][DOWNLOAD] WEB DOWNLOAD START');
       await _triggerWebDownloadForBackendCard(bytes, filename, contentType);
       log('[ABHA CARD][DOWNLOAD] WEB DOWNLOAD SUCCESS');
+      log('[ABHA][CARD-DOWNLOAD] Download SUCCESS');
 
       debugPrint(
         '[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] ABHA CARD DOWNLOAD SUCCESS',
@@ -831,7 +886,27 @@ class NurseTriageController extends GetxController {
       );
     } finally {
       isDownloadingAbhaCard.value = false;
+      if (profileId != null) {
+        downloadingAbhaProfileIds.remove(parsedProfileId);
+      }
     }
+  }
+
+  Future<void> downloadAbhaCardForProfile(
+    AbhaVerifiedProfile profile, {
+    String? flowId,
+  }) async {
+    log('[ABHA][CARD] DOWNLOAD PRESSED');
+    log('[ABHA][CARD] PROFILE NAME: ${profile.name}');
+    log('[ABHA][CARD] ABHA NUMBER: ${profile.abhaNumber}');
+    log('[ABHA][CARD] PROFILE ID: ${profile.profileId ?? 'missing'}');
+    log('[ABHA][CARD] CALLING DOWNLOAD API');
+
+    await downloadAbhaCard(
+      profileId: profile.profileId,
+      selectedProfileOnly: true,
+      flowId: flowId,
+    );
   }
 
   Future<void> _triggerWebDownloadForBackendCard(
@@ -1055,6 +1130,7 @@ class NurseTriageController extends GetxController {
   RxBool showCreateAbha = false.obs;
   RxBool aadhaarProfileImported = false.obs;
   Rxn<Map<String, dynamic>> aadhaarProfileData = Rxn<Map<String, dynamic>>();
+  Rxn<Map<String, dynamic>> selectedAbhaProfile = Rxn<Map<String, dynamic>>();
   RxString aadhaar = ''.obs;
   RxString aadhaarOtp = ''.obs;
   RxString mobileUpdateTxnId = ''.obs;
@@ -1200,42 +1276,10 @@ class NurseTriageController extends GetxController {
 
     _applyAadhaarResponseData(d);
 
-    final firstName = profile['firstName']?.toString() ?? '';
-    final middleName = profile['middleName']?.toString() ?? '';
-    final lastName = profile['lastName']?.toString() ?? '';
-    final name = '$firstName $middleName $lastName'.trim();
-    final abhaNumber = profile['ABHANumber']?.toString() ??
-        profile['abhaNumber']?.toString() ??
-        'Not Available';
-    final mobile = profile['mobile']?.toString() ?? 'Not Available';
-    final maskedMobile = _maskValue(mobile);
-    final preferredAbhaAddress = profile['preferredAbhaAddress']?.toString() ??
-        profile['abhaAddress']?.toString() ??
-        profile['address']?.toString() ??
-        '';
-    final residentialAddress = profile['residentialAddress']?.toString() ??
-        profile['address']?.toString() ??
-        '';
-    final dob = profile['dob']?.toString() ?? 'Not Available';
-    final gender = profile['gender']?.toString() ?? 'Not Available';
-    final status = profile['abhaStatus']?.toString() ?? 'Not Available';
-    final profileId = profile['id']?.toString() ??
-        profile['profileId']?.toString() ??
-        profile['abhaProfileId']?.toString() ??
-        profile['ABHAProfileId']?.toString() ??
-        'Not Available';
-    final photoRaw = profile['photo']?.toString();
-
-    ImageProvider? photoProvider;
-    if (photoRaw != null && photoRaw.isNotEmpty) {
-      try {
-        final cleanPhoto = photoRaw.contains(',')
-            ? photoRaw.split(',').last
-            : photoRaw;
-        photoProvider = MemoryImage(base64Decode(cleanPhoto));
-      } catch (_) {
-        photoProvider = null;
-      }
+    final normalizedProfiles = AbhaVerifiedProfile.fromResponseList(d);
+    if (normalizedProfiles.isEmpty) {
+      Fluttertoast.showToast(msg: 'No ABHA profile data found');
+      return null;
     }
 
     final dialogResult = await Get.dialog(
@@ -1294,93 +1338,22 @@ class NurseTriageController extends GetxController {
                 width: double.infinity,
                 color: const Color(0xFFF8FAFC),
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 92,
-                        height: 92,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.grey[200],
-                          image: photoProvider != null
-                              ? DecorationImage(
-                                  image: photoProvider,
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: photoProvider == null
-                            ? Icon(Icons.person, size: 46, color: Colors.grey[600])
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildDialogInfoRow('Name', name.isEmpty ? 'Unknown' : name),
-                    _buildDialogInfoRow('ABHA Number', abhaNumber),
-                    _buildDialogInfoRow('ABHA Address',
-                        preferredAbhaAddress.isNotEmpty ? preferredAbhaAddress : 'Not available'),
-                    _buildDialogInfoRow('Date of Birth', dob),
-                    _buildDialogInfoRow('Gender', gender),
-                    _buildDialogInfoRow('Mobile', maskedMobile),
-                    _buildDialogInfoRow('Status', status),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => downloadAbhaCard(),
-                            icon: const Icon(Icons.download_rounded),
-                            label: const Text('DOWNLOAD ABHA CARD'),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              _applyAadhaarResponseData(d);
-                              final result = <String, dynamic>{
-                                'abhaNumber': profile['ABHANumber']?.toString() ??
-                                    profile['abhaNumber']?.toString() ??
-                                    '',
-                                'abhaAddress': preferredAbhaAddress,
-                                'fullName': name,
-                                'mobile': mobile,
-                              };
-                              if (returnToCaller) {
-                                if (Get.isDialogOpen ?? false) {
-                                  Get.back(result: result);
-                                } else {
-                                  Get.back(result: result);
-                                }
-                              } else {
-                                if (Get.isDialogOpen ?? false) {
-                                  Get.back();
-                                }
-                              }
-                            },
-                            icon: const Icon(Icons.check_circle_outline),
-                            label: const Text('USE THIS PROFILE'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Center(
-                      child: TextButton(
-                        onPressed: () {
-                          if (Get.isDialogOpen ?? false) {
-                            Get.back();
-                          }
-                        },
-                        child: const Text('CLOSE'),
-                      ),
-                    ),
-                  ],
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: Get.height * 0.72),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: normalizedProfiles.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      return _buildAbhaProfileCard(
+                        normalizedProfiles[index],
+                        index: index,
+                        response: d,
+                        returnToCaller: returnToCaller,
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
@@ -1388,6 +1361,157 @@ class NurseTriageController extends GetxController {
         ),
       ),
     );
+
+    return dialogResult is Map<String, dynamic> ? dialogResult : null;
+  }
+
+  Widget _buildAbhaProfileCard(
+    AbhaVerifiedProfile profile, {
+    required int index,
+    required Map<String, dynamic> response,
+    required bool returnToCaller,
+  }) {
+    ImageProvider? photoProvider;
+    if (profile.profilePhoto.isNotEmpty) {
+      try {
+        photoProvider = MemoryImage(base64Decode(profile.profilePhoto));
+      } catch (_) {}
+    }
+
+    final selectedProfileId = profile.profileId;
+    final result = _selectedProfilePayload(profile, selectedProfileId);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 92,
+              height: 92,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey[200],
+                image: photoProvider == null
+                    ? null
+                    : DecorationImage(image: photoProvider, fit: BoxFit.cover),
+              ),
+              child: photoProvider == null
+                  ? Icon(Icons.person, size: 46, color: Colors.grey[600])
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildDialogInfoRow('Name', profile.name),
+          _buildDialogInfoRow('ABHA Number', profile.abhaNumber),
+          _buildDialogInfoRow('ABHA Address', profile.abhaAddress),
+          _buildDialogInfoRow('Date of Birth', profile.dateOfBirth),
+          _buildDialogInfoRow('Age', profile.age),
+          _buildDialogInfoRow('Gender', profile.gender),
+          _buildDialogInfoRow('Mobile', profile.mobile),
+          _buildDialogInfoRow('Verification Status', profile.verificationStatus),
+          _buildDialogInfoRow('Verification Method', profile.verificationType),
+          _buildDialogInfoRow('Account Status', profile.status),
+          const SizedBox(height: 8),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final downloadButton = Expanded(
+                child: Obx(() {
+                  downloadingAbhaProfileIds.length;
+                  final isDownloading = selectedProfileId != null &&
+                      downloadingAbhaProfileIds.contains(selectedProfileId);
+                  return OutlinedButton.icon(
+                    onPressed: isDownloading
+                        ? null
+                        : () {
+                            downloadAbhaCardForProfile(profile);
+                          },
+                    icon: isDownloading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download_rounded),
+                    label: Text(isDownloading
+                        ? 'Downloading...'
+                        : 'DOWNLOAD ABHA CARD'),
+                  );
+                }),
+              );
+              final useButton = Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    _applyAadhaarResponseData(response);
+                    selectedAbhaProfile.value = result;
+                    log('[ABHA][PROFILE-SELECT] Selected index: $index');
+                    log('[ABHA][PROFILE-SELECT] Selected profileId: ${selectedProfileId ?? 'missing'}');
+                    log('[ABHA][PROFILE-SELECT] Selected ABHA Number: ${profile.abhaNumber}');
+                    log('[ABHA][PROFILE-SELECT] Returning selected profile to add_accident.dart');
+                    Get.back(result: result);
+                  },
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('USE THIS PROFILE'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                ),
+              );
+
+              if (constraints.maxWidth < 420) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    downloadButton,
+                    const SizedBox(height: 8),
+                    useButton,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  downloadButton,
+                  const SizedBox(width: 8),
+                  useButton,
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Map<String, dynamic> _selectedProfilePayload(
+      AbhaVerifiedProfile profile, int? profileId) {
+    return {
+      if (profileId != null) 'profileId': profileId,
+      'fullName': profile.name,
+      'name': profile.name,
+      'abhaNumber': profile.abhaNumber,
+      'ABHANumber': profile.abhaNumber,
+      'abhaAddress': profile.abhaAddress,
+      'preferredAbhaAddress': profile.abhaAddress,
+      'dateOfBirth': profile.dateOfBirth,
+      'dob': profile.dateOfBirth,
+      'age': profile.age,
+      'gender': profile.gender,
+      'mobile': profile.mobile,
+      'state': profile.state,
+      'district': profile.district,
+      'pincode': profile.pincode,
+      'address': profile.address,
+      'profilePhoto': profile.profilePhoto,
+      'photo': profile.profilePhoto,
+      'verificationStatus': profile.verificationStatus,
+      'verificationType': profile.verificationType,
+      'accountStatus': profile.status,
+    };
   }
 
   Widget _buildDialogInfoRow(String label, String value) {

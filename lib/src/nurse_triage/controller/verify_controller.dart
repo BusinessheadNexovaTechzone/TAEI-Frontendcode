@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:taei_gov/src/nurse_triage/controller/nurse_triage_controller.dart';
+import 'package:taei_gov/src/nurse_triage/models/abha_verified_profile.dart';
 import 'package:taei_gov/src/nurse_triage/utils/abha_otp_utils.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
 import '../services/verify_service.dart';
@@ -78,71 +79,67 @@ String _buildResidentialAddress(
 
 Map<String, dynamic> buildProfileCardPayloadFromVerifyResponse(
     Map<String, dynamic> response) {
-  final accounts = response['accounts'];
-  final firstAccount =
-      accounts is List && accounts.isNotEmpty ? accounts.first : null;
-  final accountData = firstAccount is Map
-      ? Map<String, dynamic>.from(firstAccount)
-      : <String, dynamic>{};
+  final normalizedProfiles = AbhaVerifiedProfile.fromResponseList(response);
+  final profilePayloads = normalizedProfiles.map((normalized) {
+    final fullName = normalized.name;
+    final nameParts = fullName == 'Not Available'
+        ? <String>[]
+        : fullName.split(RegExp(r'\s+'));
+    final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+    final middleName = nameParts.length > 2 ? nameParts[1] : '';
+    final lastName = nameParts.length > 1
+        ? nameParts.length > 2
+            ? nameParts.sublist(2).join(' ')
+            : nameParts.last
+        : '';
 
-  final fullName =
-      accountData['name']?.toString() ?? response['name']?.toString() ?? '';
-  final nameParts = fullName.trim().split(RegExp(r'\s+'));
-  final firstName = nameParts.isNotEmpty ? nameParts.first : '';
-  final middleName = nameParts.length > 2 ? nameParts[1] : '';
-  final lastName = nameParts.length > 1
-      ? nameParts.length > 2
-          ? nameParts.sublist(2).join(' ')
-          : nameParts.last
-      : '';
+    final abhaNumber = normalized.abhaNumber == 'Not Available'
+        ? ''
+        : normalized.abhaNumber;
+    final preferredAbhaAddress = normalized.abhaAddress == 'Not Available'
+        ? ''
+        : normalized.abhaAddress;
+    final residentialAddress = normalized.address == 'Not Available'
+        ? preferredAbhaAddress
+        : normalized.address;
 
-  final preferredAbhaAddress =
-      accountData['preferredAbhaAddress']?.toString() ??
-          response['preferredAbhaAddress']?.toString() ??
-          '';
-  final residentialAddress = _buildResidentialAddress(response, accountData);
-
-  final profilePayload = <String, dynamic>{
-    'ABHANumber': accountData['ABHANumber']?.toString() ??
-        accountData['abhaNumber']?.toString() ??
-        response['ABHANumber']?.toString() ??
-        response['abhaNumber']?.toString() ??
-        '',
-    'firstName': firstName,
-    'middleName': middleName,
-    'lastName': lastName,
-    'mobile': accountData['mobile']?.toString() ??
-        response['mobile']?.toString() ??
-        '',
-    'address': residentialAddress,
-    'residentialAddress': residentialAddress,
-    'preferredAbhaAddress': preferredAbhaAddress,
-    'stateName': accountData['stateName']?.toString() ??
-        response['stateName']?.toString() ??
-        '',
-    'districtName': accountData['districtName']?.toString() ??
-        response['districtName']?.toString() ??
-        '',
-    'photo': accountData['profilePhoto']?.toString() ??
-        response['profilePhoto']?.toString() ??
-        '',
-    'status': accountData['status']?.toString() ??
-        response['status']?.toString() ??
-        '',
-    'mobileVerified': accountData['mobileVerified']?.toString() ??
-        response['mobileVerified']?.toString() ??
-        '',
-    if (response['profileId'] != null) 'profileId': response['profileId'],
-    if (response['id'] != null) 'id': response['id'],
-    if (response['gender'] != null) 'gender': response['gender'],
-    if (response['dob'] != null) 'dob': response['dob'],
-    if (response['pinCode'] != null) 'pinCode': response['pinCode'],
-    if (response['pincode'] != null) 'pincode': response['pincode'],
-  };
+    return <String, dynamic>{
+      if (normalized.profileId != null) 'profileId': normalized.profileId,
+      'ABHANumber': abhaNumber,
+      'abhaNumber': abhaNumber,
+      'firstName': firstName,
+      'middleName': middleName,
+      'lastName': lastName,
+      'name': normalized.name,
+      'mobile': normalized.mobile == 'Not Available' ? '' : normalized.mobile,
+      'mobileNumber': normalized.mobile == 'Not Available' ? '' : normalized.mobile,
+      'address': residentialAddress,
+      'residentialAddress': residentialAddress,
+      'preferredAbhaAddress': preferredAbhaAddress,
+      'abhaAddress': preferredAbhaAddress,
+      'stateName': normalized.state == 'Not Available' ? '' : normalized.state,
+      'districtName': normalized.district == 'Not Available' ? '' : normalized.district,
+      'pinCode': normalized.pincode == 'Not Available' ? '' : normalized.pincode,
+      'photo': normalized.profilePhoto,
+      'profilePhoto': normalized.profilePhoto,
+      'status': normalized.status,
+      'accountStatus': normalized.status,
+      'verificationStatus': normalized.verificationStatus,
+      'verifiedStatus': normalized.verificationStatus,
+      'verificationType': normalized.verificationType,
+      'verificationMethod': normalized.verificationType,
+      'gender': normalized.gender == 'Not Available' ? '' : normalized.gender,
+      'dob': normalized.dateOfBirth == 'Not Available' ? '' : normalized.dateOfBirth,
+      'dateOfBirth': normalized.dateOfBirth == 'Not Available' ? '' : normalized.dateOfBirth,
+      'age': normalized.age,
+    };
+  }).toList(growable: false);
 
   return {
     'result': {
-      'ABHAProfile': profilePayload,
+      'ABHAProfile': profilePayloads.length == 1
+          ? profilePayloads.first
+          : profilePayloads,
     },
   };
 }
@@ -380,7 +377,7 @@ class VerifyAbhaController extends GetxController {
     return buildProfileCardPayloadFromVerifyResponse(response);
   }
 
-  void _syncVerifiedResponse(Map<String, dynamic> response) {
+  Future<void> _syncVerifiedResponse(Map<String, dynamic> response) async {
     debugPrint('===== VERIFY OTP RESPONSE =====');
     debugPrint(response.toString());
 
@@ -410,7 +407,10 @@ class VerifyAbhaController extends GetxController {
     }
 
     debugPrint('Opening shared profile card from verify flow');
-    nurseController.showLastAadhaarProfileCard();
+    await nurseController.showAadhaarSuccessDialog(
+      payload,
+      returnToCaller: true,
+    );
   }
 
   Future<bool> verifyOtp({required String otp}) async {
@@ -467,7 +467,7 @@ class VerifyAbhaController extends GetxController {
         return false;
       }
 
-      _syncVerifiedResponse(response);
+      await _syncVerifiedResponse(response);
       return true;
     } catch (e) {
       log('Verify ABHA verify OTP exception: $e');

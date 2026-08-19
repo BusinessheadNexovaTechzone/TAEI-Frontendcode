@@ -248,6 +248,8 @@ class Urls {
       '${local}api/abha/fingerprint/capture';
   static const String biometricFingerprintEnroll =
       '${local}api/abha/aadhaar/biometric-fingerprint-enroll';
+  static const String demoAuthEnrollByAadhaar =
+      '${local}api/abha/aadhaar/enrol-by-aadhaar';
   static const String downloadAbhaCard =
       '${local}api/abha/card'; // Append /{profileId}
 

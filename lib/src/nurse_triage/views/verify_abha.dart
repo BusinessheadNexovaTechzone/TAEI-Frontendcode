@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:taei_gov/src/nurse_triage/controller/nurse_triage_controller.dart';
 import 'package:taei_gov/src/nurse_triage/controller/verify_controller.dart';
 import 'verify_mobile_abha.dart';
 import 'verify_aadhaar_abha.dart';
@@ -25,6 +26,7 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late final VerifyAbhaController _controller;
+  late final NurseTriageController _nurseController;
   int _selectedIndex = 0;
 
   final List<_TabItem> _tabs = const [
@@ -40,6 +42,9 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
     _controller = Get.isRegistered<VerifyAbhaController>()
         ? Get.find<VerifyAbhaController>()
         : Get.put(VerifyAbhaController());
+    _nurseController = Get.isRegistered<NurseTriageController>()
+      ? Get.find<NurseTriageController>()
+      : Get.put(NurseTriageController());
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
@@ -70,6 +75,13 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
         ),
       ),
     );
+
+    final selectedProfile = _nurseController.selectedAbhaProfile.value;
+    if (!mounted || selectedProfile == null) return;
+
+    _nurseController.selectedAbhaProfile.value = null;
+    debugPrint('[ABHA PROFILE] Profile data passed successfully');
+    Navigator.of(context).pop(selectedProfile);
   }
 
   @override

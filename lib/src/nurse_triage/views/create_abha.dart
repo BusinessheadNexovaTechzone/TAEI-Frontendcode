@@ -10,6 +10,7 @@ import 'package:taei_gov/src/nurse_triage/utils/abha_otp_utils.dart';
 import 'package:taei_gov/src/nurse_triage/views/abha_address_creation.dart';
 import 'package:taei_gov/src/nurse_triage/views/aadhaar_authentication.dart';
 import 'package:taei_gov/src/nurse_triage/views/consent_collection.dart';
+import 'package:taei_gov/src/nurse_triage/views/demo_authentication.dart';
 import 'package:taei_gov/src/nurse_triage/views/face_authentication.dart';
 import 'package:taei_gov/src/nurse_triage/views/fingerprint_authentication.dart';
 import 'package:taei_gov/src/nurse_triage/views/update_mobile_otp_dialog.dart';
@@ -368,12 +369,33 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       case 'Fingerprint Authentication':
         await _authenticateWithFingerprint();
         break;
+      case 'Demo Authentication':
+        await _authenticateWithDemo();
+        break;
       default:
         await CommonErrorDialog.show(
           context,
           message: 'Please select a method.',
         );
     }
+  }
+
+  Future<void> _authenticateWithDemo() async {
+    final aadhaar = (controller.createTriageModel.value?.triage?.aadhaar ?? '')
+        .replaceAll(RegExp(r'\D'), '');
+    if (aadhaar.isEmpty) {
+      await CommonErrorDialog.show(
+        context,
+        message: 'Aadhaar information is unavailable. Please restart the ABHA enrollment process.',
+      );
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const DemoAuthenticationScreen(),
+      ),
+    );
   }
 
   Future<void> _authenticateWithFace() async {

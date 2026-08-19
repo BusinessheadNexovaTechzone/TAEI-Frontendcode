@@ -361,30 +361,63 @@ class _AddAccidentState extends State<AddAccident> {
 
     if (result == null || !mounted) return;
 
-    final abhaNumber = result['abhaNumber']?.toString() ?? '';
-    final abhaAddress = result['abhaAddress']?.toString() ?? '';
-    final fullName = result['fullName']?.toString() ?? '';
-    final mobile = result['mobile']?.toString() ?? '';
-
-    final triage = controller.createTriageModel.value?.triage;
-    if (triage != null) {
-      if (abhaNumber.isNotEmpty) {
-        triage.abhaCard = abhaNumber;
-      }
-      if (abhaAddress.isNotEmpty) {
-        triage.addressLine = abhaAddress;
-      }
-      if (fullName.isNotEmpty) {
-        triage.nameOfPatient = fullName;
-      }
-      if (mobile.isNotEmpty) {
-        triage.patientMobileNumber = mobile;
-      }
-      controller.createTriageModel.refresh();
-    }
+    _applySelectedAbhaProfile(result);
 
     controller.showCreateAbha.value = false;
     setState(() {});
+  }
+
+  void _applySelectedAbhaProfile(Map<String, dynamic> profile) {
+    final triage = controller.createTriageModel.value?.triage;
+    if (triage == null) return;
+
+    String value(String key) => profile[key]?.toString().trim() ?? '';
+    final profileId = int.tryParse(value('profileId'));
+    final name = value('fullName');
+    final abhaNumber = value('abhaNumber');
+    final abhaAddress = value('abhaAddress');
+    final mobile = value('mobile');
+    final pincode = value('pincode');
+    final address = value('address');
+    final ageText = value('age').split(' ').first;
+    final age = int.tryParse(ageText);
+
+    debugPrint('[ACCIDENT] ABHA profile received');
+    debugPrint('[ACCIDENT] Profile ID available: ${profileId != null}');
+    debugPrint('[ACCIDENT] Profile ID: ${profileId ?? 'Not Available'}');
+    debugPrint('[ACCIDENT] Name available: ${name.isNotEmpty}');
+    debugPrint('[ACCIDENT] ABHA Number available: ${abhaNumber.isNotEmpty}');
+
+    if (profileId != null && profileId > 0) {
+      triage.abhaProfileId = profileId;
+      controller.currentProfileId.value = profileId.toString();
+    }
+    if (name.isNotEmpty && name != 'Not Available') triage.nameOfPatient = name;
+    if (abhaNumber.isNotEmpty && abhaNumber != 'Not Available') triage.abhaCard = abhaNumber;
+    if (abhaAddress.isNotEmpty && abhaAddress != 'Not Available') triage.addressLine = abhaAddress;
+    if (address.isNotEmpty && address != 'Not Available') triage.addressLine = address;
+    if (mobile.isNotEmpty && mobile != 'Not Available') triage.patientMobileNumber = mobile;
+    if (pincode.isNotEmpty && pincode != 'Not Available') triage.pincode = pincode;
+    if (age != null) triage.ageYear = age;
+
+    final gender = value('gender').toLowerCase();
+    if (gender.isNotEmpty && gender != 'not available') {
+      final genders = controller.lookupList.value?.genders ?? const [];
+      for (final item in genders) {
+        final label = (item.name ?? '').toLowerCase();
+        if (label == gender || label.startsWith(gender.substring(0, 1))) {
+          triage.gender = item.id;
+          break;
+        }
+      }
+    }
+
+    controller.aadhaarProfileData.value = {
+      'result': {'ABHAProfile': profile},
+    };
+    controller.aadhaarProfileImported.value = true;
+    controller.createTriageModel.refresh();
+    debugPrint('[ACCIDENT] Accident form populated successfully');
   }
 
   Widget _buildCreateAbhaLauncher() {
@@ -1821,15 +1854,15 @@ class _AddAccidentState extends State<AddAccident> {
                                                                         width:
                                                                             8),
                                                                     TextButton(
-                                                                      onPressed:
-                                                                          () {
-                                                                        Navigator.of(context)
-                                                                            .push(
+                                                                      onPressed: () async {
+                                                                        final result = await Navigator.of(context).push<Map<String, dynamic>>(
                                                                           MaterialPageRoute(
-                                                                            builder: (_) =>
-                                                                                const VerifyAbhaScreen(),
+                                                                            builder: (_) => const VerifyAbhaScreen(),
                                                                           ),
                                                                         );
+                                                                        if (!mounted || result == null) return;
+                                                                        _applySelectedAbhaProfile(result);
+                                                                        setState(() {});
                                                                       },
                                                                       child:
                                                                           Text(
