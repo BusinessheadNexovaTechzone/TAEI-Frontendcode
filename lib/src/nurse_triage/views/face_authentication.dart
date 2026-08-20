@@ -5,6 +5,7 @@ import 'package:taei_gov/src/nurse_triage/controller/face_auth_controller.dart';
 import 'package:taei_gov/src/nurse_triage/controller/nurse_triage_controller.dart';
 import 'package:taei_gov/src/nurse_triage/services/face_rd_service.dart';
 import 'package:taei_gov/src/nurse_triage/services/triage_service.dart';
+import 'package:taei_gov/src/nurse_triage/services/abha_error_message_service.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
 
 class FaceAuthenticationScreen extends StatefulWidget {
@@ -123,7 +124,10 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
             'ABHA app has been launched. Please complete the face scan and return here.';
       });
     } catch (e) {
-      await CommonErrorDialog.show(context, message: e.toString());
+      await CommonErrorDialog.show(
+        context,
+        message: AbhaErrorMessageService.map(e),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -243,16 +247,18 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
       if (enrollResponse == null) {
         await CommonErrorDialog.show(
           context,
-          message: 'Enroll API returned no response.',
+          message: AbhaErrorMessageService.map(null, context: 'createProfile'),
         );
         return;
       }
 
-      if (enrollResponse['success'] == false) {
+      if (AbhaErrorMessageService.isFailure(enrollResponse)) {
         await CommonErrorDialog.show(
           context,
-          message:
-              enrollResponse['message']?.toString() ?? 'Enroll API failed.',
+          message: AbhaErrorMessageService.map(
+            enrollResponse,
+            context: 'createProfile',
+          ),
         );
         return;
       }
@@ -260,8 +266,10 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
       if (enrollResponse['result'] == null) {
         await CommonErrorDialog.show(
           context,
-          message:
-              enrollResponse['message']?.toString() ?? 'Enroll API failed.',
+          message: AbhaErrorMessageService.map(
+            enrollResponse,
+            context: 'createProfile',
+          ),
         );
         return;
       }

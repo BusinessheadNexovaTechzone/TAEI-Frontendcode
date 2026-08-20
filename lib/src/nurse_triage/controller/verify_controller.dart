@@ -6,6 +6,7 @@ import 'package:taei_gov/src/nurse_triage/models/abha_verified_profile.dart';
 import 'package:taei_gov/src/nurse_triage/utils/abha_otp_utils.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
 import '../services/verify_service.dart';
+import '../services/abha_error_message_service.dart';
 
 String _coalesceString(List<String?> values) {
   for (final value in values) {
@@ -268,13 +269,16 @@ class VerifyAbhaController extends GetxController {
         'Current selected login type before send: ${selectedLoginType.value}');
 
     if (!validateInput(method: method, value: normalizedLoginId)) {
-      final message = method == 'mobile'
-          ? 'Mobile number must contain exactly 10 digits.'
-          : method == 'aadhaar'
-              ? 'Aadhaar must contain exactly 12 digits.'
-              : method == 'abha-address-mobile' || method == 'abha-address-aadhaar'
-                  ? 'Please enter a valid ABHA Address.'
-                  : 'Please enter a valid 14-digit ABHA number.';
+      final message = normalizedLoginId.isEmpty
+        ? AbhaErrorMessageService.required(
+          method == 'mobile' ? 'mobile' : method == 'aadhaar'
+            ? 'aadhaar'
+            : method.startsWith('abha-address') ? 'abhaAddress' : 'abhaNumber')
+        : AbhaErrorMessageService.invalid(
+          method == 'mobile' ? 'mobile' : method == 'aadhaar'
+            ? 'aadhaar'
+            : method.startsWith('abha-address') ? 'abhaAddress' : 'abhaNumber',
+          incomplete: method == 'aadhaar' || method == 'mobile');
 
       if (Get.context != null) {
         await CommonErrorDialog.show(Get.context!, message: message);
@@ -318,11 +322,23 @@ class VerifyAbhaController extends GetxController {
       debugPrint('sendOtp service response: $response');
 
       if (response == null) {
-        lastApiError.value = {'message': 'Unable to send OTP right now.'};
+        final message = AbhaErrorMessageService.map(null, context: 'generateOtp');
+        lastApiError.value = {'message': message};
         if (Get.context != null) {
           await CommonErrorDialog.show(
             Get.context!,
-            message: 'Unable to send OTP right now.',
+            message: message,
+          );
+        }
+        return false;
+      }
+
+      if (AbhaErrorMessageService.isFailure(response)) {
+        lastApiError.value = response;
+        if (Get.context != null) {
+          await CommonErrorDialog.showFromResponse(
+            Get.context!,
+            response: response,
           );
         }
         return false;
@@ -334,14 +350,16 @@ class VerifyAbhaController extends GetxController {
         selectedTxnId.value = txnId;
       }
       if (message.isNotEmpty) {
-        otpMessage.value = message;
+        otpMessage.value = 'A verification OTP has been sent to your registered mobile number.';
       }
 
       if (txnId == null || txnId.isEmpty) {
         lastApiError.value = response;
         if (Get.context != null) {
-          await CommonErrorDialog.showFromResponse(Get.context!,
-              response: response);
+          await CommonErrorDialog.showFromResponse(
+            Get.context!,
+            response: response,
+          );
         }
         return false;
       }
@@ -349,7 +367,7 @@ class VerifyAbhaController extends GetxController {
       return true;
     } catch (e) {
       log('Verify ABHA send OTP exception: $e');
-      final friendlyMessage = CommonErrorDialog.extractFriendlyErrorMessage(e);
+      final friendlyMessage = AbhaErrorMessageService.map(e, context: 'generateOtp');
       lastApiError.value = {'message': friendlyMessage};
       if (Get.context != null) {
         await CommonErrorDialog.show(
@@ -418,7 +436,9 @@ class VerifyAbhaController extends GetxController {
       if (Get.context != null) {
         await CommonErrorDialog.show(
           Get.context!,
-          message: 'OTP must contain exactly 6 digits.',
+            message: otp.trim().isEmpty
+              ? AbhaErrorMessageService.required('otp')
+              : AbhaErrorMessageService.invalid('otp', incomplete: true),
         );
       }
       return false;
@@ -440,11 +460,23 @@ class VerifyAbhaController extends GetxController {
             );
 
       if (response == null) {
-        lastApiError.value = {'message': 'Unable to verify OTP right now.'};
+        final message = AbhaErrorMessageService.map(null, context: 'otp');
+        lastApiError.value = {'message': message};
         if (Get.context != null) {
           await CommonErrorDialog.show(
             Get.context!,
-            message: 'Unable to verify OTP right now.',
+            message: message,
+          );
+        }
+        return false;
+      }
+
+      if (AbhaErrorMessageService.isFailure(response)) {
+        lastApiError.value = response;
+        if (Get.context != null) {
+          await CommonErrorDialog.showFromResponse(
+            Get.context!,
+            response: response,
           );
         }
         return false;
@@ -462,7 +494,10 @@ class VerifyAbhaController extends GetxController {
         lastApiError.value = response;
         if (Get.context != null) {
           await CommonErrorDialog.showFromResponse(Get.context!,
-              response: response);
+              response: {
+                ...response,
+                'message': AbhaErrorMessageService.map(response, context: 'otp'),
+              });
         }
         return false;
       }
@@ -471,7 +506,7 @@ class VerifyAbhaController extends GetxController {
       return true;
     } catch (e) {
       log('Verify ABHA verify OTP exception: $e');
-      final friendlyMessage = CommonErrorDialog.extractFriendlyErrorMessage(e);
+      final friendlyMessage = AbhaErrorMessageService.map(e, context: 'otp');
       lastApiError.value = {'message': friendlyMessage};
       if (Get.context != null) {
         await CommonErrorDialog.show(

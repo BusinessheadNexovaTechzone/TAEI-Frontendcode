@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:taei_gov/src/nurse_triage/services/abha_error_message_service.dart';
 
 class CommonErrorDialog {
   static String extractErrorMessage(dynamic payload) {
@@ -71,6 +72,8 @@ class CommonErrorDialog {
   }
 
   static String extractFriendlyErrorMessage(dynamic payload) {
+    return AbhaErrorMessageService.map(payload);
+    /*
     final rawMessage = _extractRawErrorText(payload);
     if (rawMessage.isEmpty) {
       return _defaultFriendlyMessage();
@@ -198,7 +201,7 @@ class CommonErrorDialog {
       return _serverFriendlyMessage();
     }
 
-    return _defaultFriendlyMessage();
+    return _defaultFriendlyMessage(); */
   }
 
   static String _extractRawErrorText(dynamic payload) {

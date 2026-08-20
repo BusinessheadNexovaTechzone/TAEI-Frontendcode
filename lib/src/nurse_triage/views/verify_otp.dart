@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:taei_gov/src/nurse_triage/controller/verify_controller.dart';
+import 'package:taei_gov/src/nurse_triage/services/abha_error_message_service.dart';
 
 class VerifyOtpScreen extends StatefulWidget {
   final String message;
@@ -98,7 +99,13 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   Future<void> _handleVerify() async {
     final otp = _otpControllers.map((c) => c.text).join();
     if (otp.length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter the complete 6-digit OTP.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(otp.isEmpty
+              ? AbhaErrorMessageService.required('otp')
+              : AbhaErrorMessageService.invalid('otp', incomplete: true)),
+        ),
+      );
       return;
     }
 

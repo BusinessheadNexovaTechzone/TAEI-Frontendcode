@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:taei_gov/constants/urls.dart';
 import 'package:taei_gov/src/nurse_triage/controller/nurse_triage_controller.dart';
+import 'package:taei_gov/src/nurse_triage/services/abha_error_message_service.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
 import 'package:taei_gov/utils/helpers/http_helper.dart';
 
@@ -49,6 +51,7 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
 
   bool _isLoadingSuggestions = true;
   bool _createCustomAddress = false;
+  bool _isCreatingAddress = false;
   String? _selectedSuggestion;
   List<String> _suggestions = <String>[];
   String _errorMessage = '';
@@ -102,7 +105,10 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
 
       setState(() {
         _isLoadingSuggestions = false;
-        _errorMessage = 'Unable to load ABHA address suggestions.';
+        _errorMessage = AbhaErrorMessageService.map(
+          {'statusCode': response.statusCode},
+          context: 'abhaAddress',
+        );
       });
     } catch (_) {
       if (!mounted) return;
@@ -114,28 +120,40 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
   }
 
   Future<void> _createAbhaAddress() async {
+    if (_isCreatingAddress || widget.isSubmitting) return;
+
     final txnId = _controller.aadhaarTxnId.value;
     if (txnId.trim().isEmpty) {
       await CommonErrorDialog.show(
         context,
-        message: 'Unable to create ABHA address.',
+        message: AbhaErrorMessageService.map(
+          {'message': 'Invalid Transaction Id'},
+          context: 'abhaAddressCreate',
+        ),
       );
       return;
     }
 
     final address = _createCustomAddress
-        ? widget.healthIdController.text.trim()
-        : (_selectedSuggestion ?? '').trim();
+      ? widget.healthIdController.text
+      : (_selectedSuggestion ?? '');
 
     if (address.isEmpty) {
       await CommonErrorDialog.show(
         context,
-        message: 'Please select a suggestion or enter a custom address.',
+        message: 'Please enter an ABHA Address.',
       );
       return;
     }
 
+    final validationMessage = _validateAddressUsername(address);
+    if (validationMessage != null) {
+      await CommonErrorDialog.show(context, message: validationMessage);
+      return;
+    }
+
     try {
+      setState(() => _isCreatingAddress = true);
       final response = await _client.post(
         Uri.parse(Urls.abhaAddressCreate),
         headers: {
@@ -153,6 +171,14 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        decoded['statusCode'] = response.statusCode;
+        if (AbhaErrorMessageService.isFailure(decoded)) {
+          await CommonErrorDialog.showFromResponse(
+            context,
+            response: decoded,
+          );
+          return;
+        }
         final payload = decoded['result'] ?? decoded['data'] ?? decoded;
         if (payload is Map<String, dynamic>) {
           _controller.aadhaarProfileData.value = payload;
@@ -167,7 +193,12 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
         return;
       }
 
-      final payload = jsonDecode(response.body);
+      final decoded = response.body.trim().isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(response.body);
+        final payload = decoded is Map<String, dynamic>
+          ? {...decoded, 'statusCode': response.statusCode}
+          : {'message': decoded, 'statusCode': response.statusCode};
       await CommonErrorDialog.showFromResponse(
         context,
         response: payload,
@@ -175,9 +206,46 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
     } catch (_) {
       await CommonErrorDialog.show(
         context,
-        message: 'Unable to create ABHA address now.',
+        message: AbhaErrorMessageService.map(
+          const {'message': 'network error'},
+          context: 'abhaAddressCreate',
+        ),
       );
+    } finally {
+      if (mounted) setState(() => _isCreatingAddress = false);
     }
+  }
+
+  String? _validateAddressUsername(String value) {
+    if (value.trim().isEmpty) return 'Please enter an ABHA Address.';
+    final username = value;
+    if (username.length < 8) {
+      return 'ABHA Address must be at least 8 characters.';
+    }
+    if (username.length > 18) {
+      return 'ABHA Address can contain a maximum of 18 characters.';
+    }
+    if (username.contains(' ')) {
+      return 'Spaces are not allowed in an ABHA Address.';
+    }
+    if (!RegExp(r'^[A-Za-z0-9._]+$').hasMatch(username)) {
+      return 'Only English letters, numbers, one dot (.) or one underscore (_) are allowed.';
+    }
+    if (username.startsWith('.')) return 'Dot (.) cannot be the first character.';
+    if (username.startsWith('_')) {
+      return 'Underscore (_) cannot be the first character.';
+    }
+    if (username.endsWith('.')) return 'Dot (.) cannot be the last character.';
+    if (username.endsWith('_')) {
+      return 'Underscore (_) cannot be the last character.';
+    }
+    if ('.'.allMatches(username).length > 1) {
+      return 'Only one dot (.) is allowed in an ABHA Address.';
+    }
+    if ('_'.allMatches(username).length > 1) {
+      return 'Only one underscore (_) is allowed in an ABHA Address.';
+    }
+    return null;
   }
 
   @override
@@ -299,16 +367,25 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
                 labelText: 'Custom ABHA Address',
                 hintText: 'create_custom_address',
               ),
-              validator:
-                  _createCustomAddress ? widget.validateHealthId : (_) => null,
+              maxLength: 18,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(18),
+              ],
+              validator: _createCustomAddress
+                  ? (value) => _validateAddressUsername(value ?? '')
+                  : (_) => null,
             ),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: widget.isSubmitting ? null : _createAbhaAddress,
+                onPressed: widget.isSubmitting || _isCreatingAddress
+                    ? null
+                    : _createAbhaAddress,
                 icon: const Icon(Icons.check_circle_outline),
-                label: const Text('Create ABHA Address'),
+                label: Text(
+                  _isCreatingAddress ? 'Please wait...' : 'Create ABHA Address',
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: widget.primaryColor,
                   padding: const EdgeInsets.symmetric(vertical: 14),

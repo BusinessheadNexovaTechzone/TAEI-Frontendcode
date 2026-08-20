@@ -45,9 +45,9 @@ class VerifyAbhaService {
           ? <String, dynamic>{}
           : jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) {
-        return decoded;
+        return {...decoded, 'statusCode': response.statusCode};
       }
-      return {'message': decoded.toString()};
+      return {'message': decoded.toString(), 'statusCode': response.statusCode};
     } catch (e) {
       log('Verify ABHA $debugLabel service error: $e');
       return null;
@@ -163,9 +163,9 @@ class VerifyAbhaService {
           ? <String, dynamic>{}
           : jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) {
-        return decoded;
+        return {...decoded, 'statusCode': response.statusCode};
       }
-      return {'message': decoded.toString()};
+      return {'message': decoded.toString(), 'statusCode': response.statusCode};
     } catch (e) {
       log('Verify ABHA verify OTP service error: $e');
       return null;

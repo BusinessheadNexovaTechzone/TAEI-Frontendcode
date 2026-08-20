@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:taei_gov/src/nurse_triage/controller/verify_controller.dart';
+import 'package:taei_gov/src/nurse_triage/services/abha_error_message_service.dart';
 
 class VerifyAadhaarAbhaScreen extends StatefulWidget {
   final Future<void> Function(String message)? onNext;
@@ -93,7 +94,13 @@ class _VerifyAadhaarAbhaScreenState extends State<VerifyAadhaarAbhaScreen> {
     final aadhaar = _aadhaarControllers.map((controller) => controller.text.trim()).join();
     final normalizedAadhaar = aadhaar.replaceAll(RegExp(r'\D'), '');
     if (normalizedAadhaar.length != 12) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Aadhaar must contain exactly 12 digits.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(normalizedAadhaar.isEmpty
+              ? AbhaErrorMessageService.required('aadhaar')
+              : AbhaErrorMessageService.invalid('aadhaar', incomplete: true)),
+        ),
+      );
       return;
     }
 

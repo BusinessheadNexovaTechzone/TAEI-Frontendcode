@@ -13,6 +13,7 @@ import 'package:taei_gov/src/nurse_triage/models/create_triage_model.dart';
 import 'package:taei_gov/src/nurse_triage/models/triage_list_model.dart';
 import 'package:taei_gov/src/nurse_triage/models/triage_lookup_model.dart';
 import 'package:taei_gov/src/nurse_triage/utils/abha_debug_logger.dart';
+import 'package:taei_gov/src/nurse_triage/services/abha_error_message_service.dart';
 import 'package:taei_gov/utils/helpers/http_helper.dart';
 import 'package:http/http.dart' as http;
 import '../../../constants/urls.dart';
@@ -230,6 +231,7 @@ class TriageService {
       final responseBody = response.body.isNotEmpty
           ? _parseResponseBody(response.body)
           : <String, dynamic>{};
+        responseBody['statusCode'] = response.statusCode;
       AbhaDebugLogger.http('← ${response.statusCode} $url', flowId: flowId);
       AbhaDebugLogger.response(
         api: 'aadhaar/generate-otp',
@@ -279,6 +281,7 @@ class TriageService {
           },
           body: jsonEncode(requestBody));
       final responseBody = _parseResponseBody(response.body);
+      responseBody['statusCode'] = response.statusCode;
       AbhaDebugLogger.http('← ${response.statusCode} $url', flowId: flowId);
       AbhaDebugLogger.response(
         api: 'aadhaar/verify-otp',
@@ -332,6 +335,7 @@ class TriageService {
         body: jsonEncode(requestBody),
       );
       final responseBody = _parseResponseBody(response.body);
+      responseBody['statusCode'] = response.statusCode;
       AbhaDebugLogger.http('← ${response.statusCode} $url', flowId: flowId);
       AbhaDebugLogger.response(
         api: 'updatemobile/send-otp',
@@ -407,6 +411,7 @@ class TriageService {
         body: jsonEncode(requestBody),
       );
       final responseBody = _parseResponseBody(response.body);
+      responseBody['statusCode'] = response.statusCode;
 
       debugPrint('============================================================');
       debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp RESPONSE');
@@ -727,6 +732,7 @@ class TriageService {
       final decoded = decodedBody is Map<String, dynamic>
           ? decodedBody
           : <String, dynamic>{'data': decodedBody};
+        decoded['statusCode'] = response.statusCode;
 
       print("======================================");
       print("ENROLL RESPONSE");
@@ -904,7 +910,7 @@ class TriageService {
         'error': errorMessage,
       };
     } catch (e, stackTrace) {
-      final errorMessage = 'Error downloading ABHA card: ${e.toString()}';
+      final errorMessage = AbhaErrorMessageService.map(e, context: 'card');
       log('[ABHA CARD][DOWNLOAD][ERROR] $errorMessage');
       log('[ABHA CARD][DOWNLOAD][STACK] $stackTrace');
       AbhaDebugLogger.error('API FAILED: downloadAbhaCard', flowId: flowId);

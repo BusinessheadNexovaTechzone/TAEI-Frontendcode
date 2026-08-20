@@ -15,6 +15,7 @@ import 'package:taei_gov/src/nurse_triage/views/face_authentication.dart';
 import 'package:taei_gov/src/nurse_triage/views/fingerprint_authentication.dart';
 import 'package:taei_gov/src/nurse_triage/views/update_mobile_otp_dialog.dart';
 import 'package:taei_gov/src/nurse_triage/services/triage_service.dart';
+import 'package:taei_gov/src/nurse_triage/services/abha_error_message_service.dart';
 import 'package:taei_gov/src/nurse_triage/utils/abha_debug_logger.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
 
@@ -584,6 +585,17 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
           context,
           message:
               'We couldn\'t read the verification response. Please try again.',
+        );
+        setState(() {
+          _workflowState = _AbhaWorkflowState.error;
+        });
+        return;
+      }
+
+      if (AbhaErrorMessageService.isFailure(response)) {
+        await CommonErrorDialog.showFromResponse(
+          context,
+          response: response,
         );
         setState(() {
           _workflowState = _AbhaWorkflowState.error;

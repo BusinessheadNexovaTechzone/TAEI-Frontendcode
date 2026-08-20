@@ -32,6 +32,7 @@ import '../models/abha_verified_profile.dart';
 import '../models/create_triage_model.dart';
 import '../models/update_mobile_verify_otp_response.dart';
 import '../services/triage_service.dart';
+import '../services/abha_error_message_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/face_rd_service.dart';
 import '../utils/abha_debug_logger.dart';
@@ -143,6 +144,17 @@ class NurseTriageController extends GetxController {
       if (d != null) {
         _logFlow('[AADHAAR] Generate OTP response received');
         _logFlow('[AADHAAR] Response: $d');
+
+        if (AbhaErrorMessageService.isFailure(d)) {
+          lastApiError.value = d;
+          if (Get.context != null) {
+            await CommonErrorDialog.showFromResponse(
+              Get.context!,
+              response: d,
+            );
+          }
+          return false;
+        }
 
         final responseMessage = CommonErrorDialog.extractErrorMessage(d);
         final txnId = d['txnId'] ?? d['data']?['txnId'];
@@ -403,7 +415,8 @@ class NurseTriageController extends GetxController {
         _logFlow('[MOBILE UPDATE] mobileUpdateTxnId extracted: true');
         _logFlow('[MOBILE UPDATE] Transaction ID received successfully');
         if (deliveryMessage.toString().trim().isNotEmpty) {
-          mobileUpdateOtpDeliveryMessage.value = deliveryMessage.toString().trim();
+          mobileUpdateOtpDeliveryMessage.value =
+              'A verification OTP has been sent to your mobile number.';
         }
         mobileUpdateOtpSent.value = true;
         return true;
@@ -504,6 +517,18 @@ class NurseTriageController extends GetxController {
           await CommonErrorDialog.show(
             Get.context!,
             message: 'We couldn\'t verify your mobile number. Please try again.',
+          );
+        }
+        return false;
+      }
+
+      if (AbhaErrorMessageService.isFailure(d)) {
+        mobileUpdateVerified.value = false;
+        lastApiError.value = d;
+        if (Get.context != null) {
+          await CommonErrorDialog.showFromResponse(
+            Get.context!,
+            response: d,
           );
         }
         return false;
@@ -830,8 +855,10 @@ class NurseTriageController extends GetxController {
       );
 
       if (result['success'] != true) {
-        final errorMessage = result['error']?.toString() ??
-            'Unable to download the ABHA card. Please try again.';
+        final errorMessage = AbhaErrorMessageService.map(
+          result,
+          context: 'card',
+        );
         log('[ABHA CARD][DOWNLOAD][ERROR] ${result["error"]}');
 
         Fluttertoast.showToast(msg: errorMessage);
@@ -852,7 +879,9 @@ class NurseTriageController extends GetxController {
 
       if (bytes == null || bytes.isEmpty) {
         log('[ABHA CARD][DOWNLOAD][ERROR] Downloaded bytes are empty');
-        Fluttertoast.showToast(msg: 'ABHA card download returned empty file.');
+        Fluttertoast.showToast(
+          msg: AbhaErrorMessageService.map(null, context: 'card'),
+        );
         return;
       }
 
@@ -2360,7 +2389,7 @@ class NurseTriageController extends GetxController {
       print(stack);
 
       Fluttertoast.showToast(
-        msg: e.toString(),
+        msg: AbhaErrorMessageService.map(e),
       );
     } finally {
       faceService.dispose();
@@ -2434,23 +2463,41 @@ class NurseTriageController extends GetxController {
         );
 
         if (enrollResponse == null) {
-          Fluttertoast.showToast(
-            msg: "Enroll API returned NULL",
-          );
+          if (Get.context != null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: AbhaErrorMessageService.map(
+                null,
+                context: 'createProfile',
+              ),
+            );
+          }
           return;
         }
 
-        if (enrollResponse["success"] == false) {
-          Fluttertoast.showToast(
-            msg: enrollResponse["message"] ?? "Enroll API Failed",
-          );
+        if (AbhaErrorMessageService.isFailure(enrollResponse)) {
+          if (Get.context != null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: AbhaErrorMessageService.map(
+                enrollResponse,
+                context: 'createProfile',
+              ),
+            );
+          }
           return;
         }
 
         if (enrollResponse["result"] == null) {
-          Fluttertoast.showToast(
-            msg: enrollResponse["message"] ?? "Enroll API Failed",
-          );
+          if (Get.context != null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: AbhaErrorMessageService.map(
+                enrollResponse,
+                context: 'createProfile',
+              ),
+            );
+          }
           return;
         }
 
@@ -2466,9 +2513,15 @@ class NurseTriageController extends GetxController {
       //------------------------------------------------
 
       if (status == "FAILED") {
-        Fluttertoast.showToast(
-          msg: "Face Verification Failed",
-        );
+        if (Get.context != null) {
+          await CommonErrorDialog.show(
+            Get.context!,
+            message: AbhaErrorMessageService.map(
+              captureResponse,
+              context: 'createProfile',
+            ),
+          );
+        }
 
         return;
       }
@@ -2498,13 +2551,26 @@ class NurseTriageController extends GetxController {
       final status = response["status"]?.toString().toUpperCase();
 
       if (status == "PENDING") {
-        Fluttertoast.showToast(msg: "Face Scan not completed");
+        if (Get.context != null) {
+          await CommonErrorDialog.show(
+            Get.context!,
+            message: 'Face verification is still in progress. Please try again.',
+          );
+        }
 
         return;
       }
 
       if (status == "FAILED") {
-        Fluttertoast.showToast(msg: "Face Verification Failed");
+        if (Get.context != null) {
+          await CommonErrorDialog.show(
+            Get.context!,
+            message: AbhaErrorMessageService.map(
+              response,
+              context: 'createProfile',
+            ),
+          );
+        }
 
         return;
       }
@@ -2522,23 +2588,41 @@ class NurseTriageController extends GetxController {
         print("======================================");
 
         if (enrollResponse == null) {
-          Fluttertoast.showToast(
-            msg: "Enroll API returned NULL",
-          );
+          if (Get.context != null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: AbhaErrorMessageService.map(
+                null,
+                context: 'createProfile',
+              ),
+            );
+          }
           return;
         }
 
-        if (enrollResponse["success"] == false) {
-          Fluttertoast.showToast(
-            msg: enrollResponse["message"] ?? "Enroll API Failed",
-          );
+        if (AbhaErrorMessageService.isFailure(enrollResponse)) {
+          if (Get.context != null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: AbhaErrorMessageService.map(
+                enrollResponse,
+                context: 'createProfile',
+              ),
+            );
+          }
           return;
         }
 
         if (enrollResponse["result"] == null) {
-          Fluttertoast.showToast(
-            msg: enrollResponse["message"] ?? "Enroll API Failed",
-          );
+          if (Get.context != null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: AbhaErrorMessageService.map(
+                enrollResponse,
+                context: 'createProfile',
+              ),
+            );
+          }
 
           return;
         }
@@ -2547,7 +2631,7 @@ class NurseTriageController extends GetxController {
       }
     } catch (e) {
       Fluttertoast.showToast(
-        msg: e.toString(),
+        msg: AbhaErrorMessageService.map(e, context: 'createProfile'),
       );
     } finally {
       isFaceLoading.value = false;
