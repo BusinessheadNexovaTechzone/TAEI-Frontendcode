@@ -96,6 +96,8 @@ class CommonErrorDialog {
 
     if (_containsAny(normalized, [
       'invalid mobile number',
+      'mobile number is invalid',
+      'invalid mobile no',
       'mobile invalid',
       'mobile validation failed',
       'mobile required',
@@ -106,20 +108,24 @@ class CommonErrorDialog {
     }
 
     if (_containsAny(normalized, [
-      'otp validation failed',
-      'invalid otp',
-      'otp incorrect',
-      'otp expired',
-      'uidai otp failed',
-      'otp mismatch',
-      'otp invalid',
-      'otp is expired',
-    ]) || (normalized.contains('otp') &&
-        (normalized.contains('expired') ||
-            normalized.contains('incorrect') ||
-            normalized.contains('mismatch') ||
-            normalized.contains('invalid') ||
-            normalized.contains('failed')))) {
+          'otp validation failed',
+          'invalid otp',
+          'otp incorrect',
+          'incorrect otp',
+          'wrong otp',
+          'otp expired',
+          'uidai otp failed',
+          'otp mismatch',
+          'otp invalid',
+          'otp is expired',
+        ]) ||
+        (normalized.contains('otp') &&
+            (normalized.contains('expired') ||
+                normalized.contains('incorrect') ||
+                normalized.contains('wrong') ||
+                normalized.contains('mismatch') ||
+                normalized.contains('invalid') ||
+                normalized.contains('failed')))) {
       return _otpFriendlyMessage();
     }
 
@@ -155,7 +161,6 @@ class CommonErrorDialog {
       'face authentication failed',
       'face scan failed',
       'face verification failed',
-      'capture failed',
       'face verification',
     ])) {
       return _faceFriendlyMessage();
@@ -226,7 +231,14 @@ class CommonErrorDialog {
         }
       }
 
-      for (final key in ['message', 'loginId', 'loginid', 'mobile', 'detail', 'error']) {
+      for (final key in [
+        'message',
+        'loginId',
+        'loginid',
+        'mobile',
+        'detail',
+        'error'
+      ]) {
         final value = _stringFrom(map[key]);
         if (value.isNotEmpty) {
           return value;

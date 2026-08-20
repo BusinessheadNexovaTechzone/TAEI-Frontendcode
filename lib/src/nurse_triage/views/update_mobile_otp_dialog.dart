@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -31,6 +33,13 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
   bool _isVerifying = false;
   bool _isResending = false;
   bool _completed = false;
+  int _verificationAttempts = 0;
+  Duration _lockoutRemaining = Duration.zero;
+  Timer? _lockoutTimer;
+  String? _errorMessage;
+
+  static const int _maxVerificationAttempts = 3;
+  static const Duration _lockoutDuration = Duration(minutes: 30);
 
   String get otp => _controllers.map((c) => c.text).join();
 
@@ -41,18 +50,22 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
   @override
   void initState() {
     super.initState();
-    debugPrint('[ABHA][UI][FLOW:${widget.flowId}] [OTP] update-mobile OTP dialog opened');
-    debugPrint('[ABHA][UI][FLOW:${widget.flowId}] [OTP] OTP fields initialized');
+    debugPrint(
+        '[ABHA][UI][FLOW:${widget.flowId}] [OTP] update-mobile OTP dialog opened');
+    debugPrint(
+        '[ABHA][UI][FLOW:${widget.flowId}] [OTP] OTP fields initialized');
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      debugPrint('[ABHA][UI][FLOW:${widget.flowId}] [OTP] focusing first field');
+      debugPrint(
+          '[ABHA][UI][FLOW:${widget.flowId}] [OTP] focusing first field');
       _focusNodes[0].requestFocus();
     });
   }
 
   @override
   void dispose() {
+    _lockoutTimer?.cancel();
     for (final controller in _controllers) {
       controller.dispose();
     }
@@ -81,11 +94,14 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
     final valueLength = otp.length;
     final otpComplete = valueLength == 6;
 
-    debugPrint('[ABHA][UI][FLOW:${widget.flowId}] [OTP] OTP length: $valueLength');
-    debugPrint('[ABHA][UI][FLOW:${widget.flowId}] [OTP] OTP complete: $otpComplete');
+    debugPrint(
+        '[ABHA][UI][FLOW:${widget.flowId}] [OTP] OTP length: $valueLength');
+    debugPrint(
+        '[ABHA][UI][FLOW:${widget.flowId}] [OTP] OTP complete: $otpComplete');
 
     if (otpComplete) {
-      debugPrint('[ABHA][UI][FLOW:${widget.flowId}] [OTP] Verify button enabled');
+      debugPrint(
+          '[ABHA][UI][FLOW:${widget.flowId}] [OTP] Verify button enabled');
     }
   }
 
@@ -93,9 +109,8 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
     if (!mounted) return;
 
     final rawDigit = value.replaceAll(RegExp(r'\D'), '');
-    final digit = rawDigit.isNotEmpty
-        ? rawDigit.substring(rawDigit.length - 1)
-        : '';
+    final digit =
+        rawDigit.isNotEmpty ? rawDigit.substring(rawDigit.length - 1) : '';
 
     if (_controllers[index].text != digit) {
       _controllers[index].value = TextEditingValue(
@@ -104,7 +119,8 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
       );
     }
 
-    debugPrint('[ABHA][UI][FLOW:${widget.flowId}] [OTP] entered digit at index $index');
+    debugPrint(
+        '[ABHA][UI][FLOW:${widget.flowId}] [OTP] entered digit at index $index');
     _updateOtpState();
 
     if (digit.isNotEmpty && index < 5) {
@@ -151,6 +167,10 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
 
   Future<void> _resend() async {
     if (_isResending || _isVerifying || !mounted) return;
+    if (_lockoutRemaining > Duration.zero) {
+      setState(() => _errorMessage = _lockoutMessage());
+      return;
+    }
 
     _isResending = true;
     setState(() {});
@@ -163,7 +183,8 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
         final sent = await widget.onResend!();
         if (!mounted) return;
         if (sent) {
-          debugPrint('[ABHA][UI][FLOW:${widget.flowId}] [OTP] OTP resent successfully');
+          debugPrint(
+              '[ABHA][UI][FLOW:${widget.flowId}] [OTP] OTP resent successfully');
         }
       }
     } finally {
@@ -176,6 +197,11 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
 
   Future<void> _verifyOtp() async {
     if (!mounted) return;
+
+    if (_lockoutRemaining > Duration.zero) {
+      setState(() => _errorMessage = _lockoutMessage());
+      return;
+    }
 
     if (_isVerifying) {
       debugPrint(
@@ -191,33 +217,54 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
     }
 
     _isVerifying = true;
+    _verificationAttempts++;
     setState(() {});
 
     try {
       debugPrint('[ABHA][UI][FLOW:${widget.flowId}] [OTP] Verify pressed');
-      debugPrint('[ABHA][WORKFLOW][FLOW:${widget.flowId}] MOBILE OTP VERIFICATION STARTED');
-      debugPrint('[ABHA][WORKFLOW][FLOW:${widget.flowId}] Calling update-mobile/verify-otp');
+      debugPrint(
+          '[ABHA][WORKFLOW][FLOW:${widget.flowId}] MOBILE OTP VERIFICATION STARTED');
+      debugPrint(
+          '[ABHA][WORKFLOW][FLOW:${widget.flowId}] Calling update-mobile/verify-otp');
 
       final success = await widget.onVerify(enteredOtp);
 
       if (!mounted) return;
 
       if (success) {
-        debugPrint('[ABHA][API][FLOW:${widget.flowId}] update-mobile/verify-otp SUCCESS');
-        debugPrint('[ABHA][WORKFLOW][FLOW:${widget.flowId}] MOBILE UPDATE SUCCESS');
-        debugPrint('[ABHA][UI][FLOW:${widget.flowId}] [OTP] Closing OTP dialog');
-        debugPrint('[ABHA][NAVIGATION][FLOW:${widget.flowId}] Opening abha_address_creation.dart');
+        debugPrint(
+            '[ABHA][API][FLOW:${widget.flowId}] update-mobile/verify-otp SUCCESS');
+        debugPrint(
+            '[ABHA][WORKFLOW][FLOW:${widget.flowId}] MOBILE UPDATE SUCCESS');
+        debugPrint(
+            '[ABHA][UI][FLOW:${widget.flowId}] [OTP] Closing OTP dialog');
+        debugPrint(
+            '[ABHA][NAVIGATION][FLOW:${widget.flowId}] Opening abha_address_creation.dart');
 
         if (!_completed) {
           _completed = true;
           Navigator.of(context).pop(true);
         }
       } else {
-        debugPrint('[ABHA][UI][FLOW:${widget.flowId}] [OTP] verification failed; dialog remains open');
+        debugPrint(
+            '[ABHA][UI][FLOW:${widget.flowId}] [OTP] verification failed; dialog remains open');
+        if (_verificationAttempts >= _maxVerificationAttempts) {
+          _startLockout();
+        } else {
+          setState(() => _errorMessage =
+              'The OTP you entered is invalid. Please check the OTP and try again.');
+        }
         _clearOtp();
       }
     } catch (e) {
-      debugPrint('[ABHA][UI][FLOW:${widget.flowId}] [OTP] verification exception: $e');
+      debugPrint(
+          '[ABHA][UI][FLOW:${widget.flowId}] [OTP] verification exception: $e');
+      if (_verificationAttempts >= _maxVerificationAttempts) {
+        _startLockout();
+      } else {
+        setState(() => _errorMessage =
+            'The OTP you entered is invalid. Please check the OTP and try again.');
+      }
       _clearOtp();
     } finally {
       if (mounted) {
@@ -225,6 +272,43 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
         setState(() {});
       }
     }
+  }
+
+  void _startLockout() {
+    _lockoutTimer?.cancel();
+    setState(() {
+      _lockoutRemaining = _lockoutDuration;
+      _errorMessage = _lockoutMessage();
+    });
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final remaining = _lockoutRemaining - const Duration(seconds: 1);
+      if (remaining <= Duration.zero) {
+        timer.cancel();
+        setState(() {
+          _lockoutRemaining = Duration.zero;
+          _verificationAttempts = 0;
+          _errorMessage = null;
+        });
+      } else {
+        setState(() {
+          _lockoutRemaining = remaining;
+          _errorMessage = _lockoutMessage();
+        });
+      }
+    });
+  }
+
+  String _lockoutMessage() {
+    final minutes = _lockoutRemaining.inMinutes;
+    final seconds = _lockoutRemaining.inSeconds % 60;
+    final remaining = minutes > 0
+        ? '$minutes minute${minutes == 1 ? '' : 's'}'
+        : '$seconds seconds';
+    return 'You have entered an invalid OTP $_maxVerificationAttempts times. Please try again after 30 minutes.\n\nTime remaining: $remaining.';
   }
 
   @override
@@ -316,6 +400,14 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
                 }),
               ),
               const SizedBox(height: 24),
+              if (_errorMessage != null) ...[
+                Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red, height: 1.3),
+                ),
+                const SizedBox(height: 16),
+              ],
               Align(
                 alignment: Alignment.center,
                 child: ElevatedButton(
@@ -323,7 +415,8 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE53935),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

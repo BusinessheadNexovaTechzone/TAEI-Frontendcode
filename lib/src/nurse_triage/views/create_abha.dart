@@ -91,6 +91,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   bool _otpSent = false;
   int _resendSeconds = 60;
   Timer? _resendTimer;
+  Timer? _otpLockoutTimer;
   bool _showSuccess = false;
   bool _isProcessingMobileUpdate = false;
   bool _showMobileUpdateOtp = false;
@@ -107,6 +108,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   bool _mobileFieldTouched = false;
   int _resendAttempts = 0;
   static const int _maxResendAttempts = 3;
+  int _otpVerificationAttempts = 0;
+  Duration _otpLockoutRemaining = Duration.zero;
+  static const int _maxOtpVerificationAttempts = 3;
+  static const Duration _otpLockoutDuration = Duration(minutes: 30);
 
   String? _abhaNumber;
   String? _abhaAddress;
@@ -131,6 +136,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   @override
   void dispose() {
     _resendTimer?.cancel();
+    _otpLockoutTimer?.cancel();
     _aadhaarController.dispose();
     _mobileController.dispose();
     _otpController.dispose();
@@ -198,11 +204,11 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     }
   }
 
-  void _startResendTimer() {
+  void _startResendTimer({bool resetAttempts = false}) {
     _resendTimer?.cancel();
     setState(() {
       _resendSeconds = 60;
-      _resendAttempts = 0;
+      if (resetAttempts) _resendAttempts = 0;
     });
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_resendSeconds <= 1) {
@@ -231,7 +237,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   String _maskValue(String? value, {int visibleChars = 4}) {
     if (value == null || value.isEmpty) return 'n/a';
     final digits = value.toString();
-    if (digits.length <= visibleChars) return '*${digits.substring(0, digits.length)}';
+    if (digits.length <= visibleChars)
+      return '*${digits.substring(0, digits.length)}';
     final suffix = digits.substring(digits.length - visibleChars);
     return '${'*' * (digits.length - visibleChars)}$suffix';
   }
@@ -247,6 +254,14 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   }
 
   Future<bool> _sendOtp() async {
+    if (_otpLockoutRemaining > Duration.zero) {
+      await CommonErrorDialog.show(
+        context,
+        message: _otpLockoutMessage(),
+      );
+      return false;
+    }
+
     if (!_consentAccepted) {
       await CommonErrorDialog.show(
         context,
@@ -267,9 +282,13 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
 
     final wasPreviouslyOtpSent = _otpSent;
     _clearOtpFields();
-    AbhaDebugLogger.workflow('AADHAAR VERIFICATION STARTED', flowId: _abhaFlowId);
-    AbhaDebugLogger.workflow('Aadhaar OTP request started', flowId: _abhaFlowId);
-    AbhaDebugLogger.workflow('Masked Aadhaar value: ${AbhaDebugLogger.maskMobile(aadhaar)}', flowId: _abhaFlowId);
+    AbhaDebugLogger.workflow('AADHAAR VERIFICATION STARTED',
+        flowId: _abhaFlowId);
+    AbhaDebugLogger.workflow('Aadhaar OTP request started',
+        flowId: _abhaFlowId);
+    AbhaDebugLogger.workflow(
+        'Masked Aadhaar value: ${AbhaDebugLogger.maskMobile(aadhaar)}',
+        flowId: _abhaFlowId);
 
     setState(() => _isSubmitting = true);
     try {
@@ -277,8 +296,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       controller.currentProfileId.value = '';
       controller.mobileUpdateTxnId.value = '';
 
-      AbhaDebugLogger.ui('Verify Aadhaar OTP button pressed', flowId: _abhaFlowId);
-      AbhaDebugLogger.controller('sendAadhaarOtp() called', flowId: _abhaFlowId);
+      AbhaDebugLogger.ui('Verify Aadhaar OTP button pressed',
+          flowId: _abhaFlowId);
+      AbhaDebugLogger.controller('sendAadhaarOtp() called',
+          flowId: _abhaFlowId);
       final otpSent = await controller.sendAadhaarOtp(flowId: _abhaFlowId);
       if (!otpSent) {
         AbhaDebugLogger.error('sendAadhaarOtp() failed', flowId: _abhaFlowId);
@@ -289,7 +310,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         _otpSent = true;
         _isSubmitting = false;
         if (!wasPreviouslyOtpSent) {
-          _resendAttempts = 0;
+          // The initial OTP request is attempt 1. A first resend must show 2/3.
+          _resendAttempts = 1;
+          _otpVerificationAttempts = 0;
+          _otpLockoutRemaining = Duration.zero;
         }
       });
       log('[OTP RESEND] Initial resend attempt count: $_resendAttempts');
@@ -386,7 +410,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     if (aadhaar.isEmpty) {
       await CommonErrorDialog.show(
         context,
-        message: 'Aadhaar information is unavailable. Please restart the ABHA enrollment process.',
+        message:
+            'Aadhaar information is unavailable. Please restart the ABHA enrollment process.',
       );
       return;
     }
@@ -445,6 +470,14 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   Future<void> _resendOtp() async {
     if (_resendSeconds > 0) return;
 
+    if (_otpLockoutRemaining > Duration.zero) {
+      await CommonErrorDialog.show(
+        context,
+        message: _otpLockoutMessage(),
+      );
+      return;
+    }
+
     if (_currentOtpMode == 'mobileUpdate') {
       final profileIdText = controller.currentProfileId.value;
       final profileId = int.tryParse(profileIdText);
@@ -473,7 +506,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   }
 
   Future<void> _verifyOtpAndContinue() async {
-    AbhaDebugLogger.workflow('OTP VERIFICATION FLOW STARTED', flowId: _abhaFlowId);
+    AbhaDebugLogger.workflow('OTP VERIFICATION FLOW STARTED',
+        flowId: _abhaFlowId);
     setState(() {
       _otpFieldTouched = true;
       _mobileFieldTouched = true;
@@ -506,16 +540,31 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       return;
     }
 
+    if (_otpLockoutRemaining > Duration.zero) {
+      await CommonErrorDialog.show(
+        context,
+        message: _otpLockoutMessage(),
+      );
+      return;
+    }
+
+    _otpVerificationAttempts++;
+
     if (_currentOtpMode == 'mobileUpdate') {
-      AbhaDebugLogger.workflow('MOBILE OTP VERIFICATION STARTED', flowId: _abhaFlowId);
-      AbhaDebugLogger.workflow('Calling updatemobile/verify-otp', flowId: _abhaFlowId);
+      AbhaDebugLogger.workflow('MOBILE OTP VERIFICATION STARTED',
+          flowId: _abhaFlowId);
+      AbhaDebugLogger.workflow('Calling updatemobile/verify-otp',
+          flowId: _abhaFlowId);
       await _verifyMobileUpdateOtp(otp);
       return;
     }
 
-    AbhaDebugLogger.workflow('AADHAAR OTP VERIFICATION STARTED', flowId: _abhaFlowId);
-    AbhaDebugLogger.ui('Verify Aadhaar OTP button pressed', flowId: _abhaFlowId);
-    AbhaDebugLogger.controller('verifyAadhaarOtp() started', flowId: _abhaFlowId);
+    AbhaDebugLogger.workflow('AADHAAR OTP VERIFICATION STARTED',
+        flowId: _abhaFlowId);
+    AbhaDebugLogger.ui('Verify Aadhaar OTP button pressed',
+        flowId: _abhaFlowId);
+    AbhaDebugLogger.controller('verifyAadhaarOtp() started',
+        flowId: _abhaFlowId);
     setState(() {
       _isSubmitting = true;
       _workflowState = _AbhaWorkflowState.aadhaarVerifying;
@@ -533,7 +582,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       if (response == null) {
         await CommonErrorDialog.show(
           context,
-          message: 'We couldn\'t read the verification response. Please try again.',
+          message:
+              'We couldn\'t read the verification response. Please try again.',
         );
         setState(() {
           _workflowState = _AbhaWorkflowState.error;
@@ -546,6 +596,22 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
           : (response['message']?.toString() ?? '');
       final messageLower = message.trim().toLowerCase();
 
+      final verificationFailed = response['success'] == false ||
+          response['status']?.toString().toLowerCase() == 'failed' ||
+          response['status']?.toString().toLowerCase() == 'error' ||
+          messageLower.contains('invalid otp') ||
+          messageLower.contains('otp invalid') ||
+          messageLower.contains('otp incorrect') ||
+          messageLower.contains('otp validation failed') ||
+          messageLower.contains('otp verification failed') ||
+          messageLower.contains('otp mismatch') ||
+          messageLower.contains('otp expired');
+
+      if (verificationFailed) {
+        await _handleOtpVerificationFailure(response);
+        return;
+      }
+
       final rawIsNew = response['result']?['isNew'];
       final isNew = rawIsNew is bool
           ? rawIsNew
@@ -554,7 +620,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       final profileMobileRaw = _extractAbhaProfileMobile(response);
       final abhaMobile = profileMobileRaw?.trim();
       final hasAbhaMobile = abhaMobile != null && abhaMobile.isNotEmpty;
-      final maskedProfileMobile = hasAbhaMobile ? _maskValue(abhaMobile) : 'NULL';
+      final maskedProfileMobile =
+          hasAbhaMobile ? _maskValue(abhaMobile) : 'NULL';
 
       AbhaDebugLogger.section('API RESPONSE', flowId: _abhaFlowId);
       AbhaDebugLogger.response(
@@ -563,23 +630,32 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         data: {
           'message': message,
           'isNew': isNew,
-          'profileId': response['profileId'] ?? controller.currentProfileId.value,
+          'profileId':
+              response['profileId'] ?? controller.currentProfileId.value,
           'profileMobile': maskedProfileMobile,
-          'mobileVerified': response['result']?['ABHAProfile']?['mobileVerified'] ?? 'n/a',
+          'mobileVerified':
+              response['result']?['ABHAProfile']?['mobileVerified'] ?? 'n/a',
           'ABHANumber': '[REDACTED]',
-          'abhaStatus': response['result']?['ABHAProfile']?['abhaStatus'] ?? 'n/a',
+          'abhaStatus':
+              response['result']?['ABHAProfile']?['abhaStatus'] ?? 'n/a',
         },
         flowId: _abhaFlowId,
       );
 
       if (messageLower == 'this account already exist' || isNew == false) {
-        AbhaDebugLogger.workflow('EXISTING ACCOUNT DETECTED', flowId: _abhaFlowId);
+        AbhaDebugLogger.workflow('EXISTING ACCOUNT DETECTED',
+            flowId: _abhaFlowId);
         AbhaDebugLogger.workflow('Message: $message', flowId: _abhaFlowId);
-        AbhaDebugLogger.workflow('No mobile comparison required', flowId: _abhaFlowId);
-        AbhaDebugLogger.skip('updatemobile/send-otp NOT CALLED', flowId: _abhaFlowId);
-        AbhaDebugLogger.skip('updatemobile/verify-otp NOT CALLED', flowId: _abhaFlowId);
-        AbhaDebugLogger.skip('abha_address_creation NOT CALLED', flowId: _abhaFlowId);
-        AbhaDebugLogger.workflow('Showing existing ABHA profile', flowId: _abhaFlowId);
+        AbhaDebugLogger.workflow('No mobile comparison required',
+            flowId: _abhaFlowId);
+        AbhaDebugLogger.skip('updatemobile/send-otp NOT CALLED',
+            flowId: _abhaFlowId);
+        AbhaDebugLogger.skip('updatemobile/verify-otp NOT CALLED',
+            flowId: _abhaFlowId);
+        AbhaDebugLogger.skip('abha_address_creation NOT CALLED',
+            flowId: _abhaFlowId);
+        AbhaDebugLogger.workflow('Showing existing ABHA profile',
+            flowId: _abhaFlowId);
 
         try {
           final result = await controller.showAadhaarSuccessDialog(
@@ -590,12 +666,15 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
             Navigator.of(context).pop(result);
           }
         } catch (e, stackTrace) {
-          AbhaDebugLogger.error('Failed to show existing ABHA profile: $e', flowId: _abhaFlowId);
+          AbhaDebugLogger.error('Failed to show existing ABHA profile: $e',
+              flowId: _abhaFlowId);
           AbhaDebugLogger.error('StackTrace: $stackTrace', flowId: _abhaFlowId);
           controller.showLastAadhaarProfileCard();
         }
-        AbhaDebugLogger.workflow('CREATE ABHA FLOW TERMINATED', flowId: _abhaFlowId);
-        AbhaDebugLogger.navigation('Existing profile displayed', flowId: _abhaFlowId);
+        AbhaDebugLogger.workflow('CREATE ABHA FLOW TERMINATED',
+            flowId: _abhaFlowId);
+        AbhaDebugLogger.navigation('Existing profile displayed',
+            flowId: _abhaFlowId);
         return;
       }
 
@@ -603,14 +682,16 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         final profileIdText = controller.currentProfileId.value;
         final profileIdFromController = int.tryParse(profileIdText);
         final responseProfileId = extractAbhaProfileId(response);
-        final profileId = profileIdFromController != null && profileIdFromController > 0
-            ? profileIdFromController
-            : responseProfileId;
+        final profileId =
+            profileIdFromController != null && profileIdFromController > 0
+                ? profileIdFromController
+                : responseProfileId;
 
         if (profileId == null || profileId <= 0) {
           await CommonErrorDialog.show(
             context,
-            message: 'We couldn\'t continue with the mobile verification step. Please try again.',
+            message:
+                'We couldn\'t continue with the mobile verification step. Please try again.',
           );
           setState(() {
             _workflowState = _AbhaWorkflowState.error;
@@ -619,22 +700,38 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         }
 
         AbhaDebugLogger.workflow('NEW ACCOUNT CREATED', flowId: _abhaFlowId);
-        AbhaDebugLogger.workflow('Message: Account created successfully', flowId: _abhaFlowId);
+        AbhaDebugLogger.workflow('Message: Account created successfully',
+            flowId: _abhaFlowId);
         AbhaDebugLogger.workflow('isNew: true', flowId: _abhaFlowId);
-        AbhaDebugLogger.workflow('User entered mobile: ${AbhaDebugLogger.maskMobile(mobile)}', flowId: _abhaFlowId);
-        AbhaDebugLogger.workflow('ABHA profile mobile: ${hasAbhaMobile ? AbhaDebugLogger.maskMobile(abhaMobile) : 'NULL'}', flowId: _abhaFlowId);
-        AbhaDebugLogger.workflow('Comparing mobile numbers...', flowId: _abhaFlowId);
+        AbhaDebugLogger.workflow(
+            'User entered mobile: ${AbhaDebugLogger.maskMobile(mobile)}',
+            flowId: _abhaFlowId);
+        AbhaDebugLogger.workflow(
+            'ABHA profile mobile: ${hasAbhaMobile ? AbhaDebugLogger.maskMobile(abhaMobile) : 'NULL'}',
+            flowId: _abhaFlowId);
+        AbhaDebugLogger.workflow('Comparing mobile numbers...',
+            flowId: _abhaFlowId);
 
         if (!hasAbhaMobile) {
-          AbhaDebugLogger.workflow('ABHAProfile.mobile is NULL/EMPTY', flowId: _abhaFlowId);
-          AbhaDebugLogger.workflow('MOBILE UPDATE REQUIRED', flowId: _abhaFlowId);
-          AbhaDebugLogger.workflow('Treating NULL mobile as MOBILE UPDATE REQUIRED', flowId: _abhaFlowId);
-          AbhaDebugLogger.workflow('New account mobile is missing', flowId: _abhaFlowId);
-          AbhaDebugLogger.workflow('Using user-entered mobile for update', flowId: _abhaFlowId);
-          AbhaDebugLogger.workflow('User mobile: ${AbhaDebugLogger.maskMobile(mobile)}', flowId: _abhaFlowId);
-          AbhaDebugLogger.workflow('Calling updatemobile/send-otp', flowId: _abhaFlowId);
+          AbhaDebugLogger.workflow('ABHAProfile.mobile is NULL/EMPTY',
+              flowId: _abhaFlowId);
+          AbhaDebugLogger.workflow('MOBILE UPDATE REQUIRED',
+              flowId: _abhaFlowId);
+          AbhaDebugLogger.workflow(
+              'Treating NULL mobile as MOBILE UPDATE REQUIRED',
+              flowId: _abhaFlowId);
+          AbhaDebugLogger.workflow('New account mobile is missing',
+              flowId: _abhaFlowId);
+          AbhaDebugLogger.workflow('Using user-entered mobile for update',
+              flowId: _abhaFlowId);
+          AbhaDebugLogger.workflow(
+              'User mobile: ${AbhaDebugLogger.maskMobile(mobile)}',
+              flowId: _abhaFlowId);
+          AbhaDebugLogger.workflow('Calling updatemobile/send-otp',
+              flowId: _abhaFlowId);
 
-          final startedMobileUpdate = await _requestMobileUpdateOtp(profileId, mobile);
+          final startedMobileUpdate =
+              await _requestMobileUpdateOtp(profileId, mobile);
           if (!startedMobileUpdate) {
             setState(() {
               _workflowState = _AbhaWorkflowState.error;
@@ -660,11 +757,16 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
             _workflowState = _AbhaWorkflowState.mobileMatched;
           });
           AbhaDebugLogger.workflow('MOBILE MATCH', flowId: _abhaFlowId);
-          AbhaDebugLogger.workflow('User mobile matches ABHA profile mobile', flowId: _abhaFlowId);
-          AbhaDebugLogger.skip('updatemobile/send-otp NOT CALLED', flowId: _abhaFlowId);
-          AbhaDebugLogger.skip('updatemobile/verify-otp NOT CALLED', flowId: _abhaFlowId);
-          AbhaDebugLogger.workflow('Proceeding to ABHA address creation', flowId: _abhaFlowId);
-          AbhaDebugLogger.navigation('Opening abha_address_creation.dart', flowId: _abhaFlowId);
+          AbhaDebugLogger.workflow('User mobile matches ABHA profile mobile',
+              flowId: _abhaFlowId);
+          AbhaDebugLogger.skip('updatemobile/send-otp NOT CALLED',
+              flowId: _abhaFlowId);
+          AbhaDebugLogger.skip('updatemobile/verify-otp NOT CALLED',
+              flowId: _abhaFlowId);
+          AbhaDebugLogger.workflow('Proceeding to ABHA address creation',
+              flowId: _abhaFlowId);
+          AbhaDebugLogger.navigation('Opening abha_address_creation.dart',
+              flowId: _abhaFlowId);
           _goToStep(2);
           return;
         }
@@ -673,10 +775,13 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
           _workflowState = _AbhaWorkflowState.mobileUpdateRequired;
         });
         AbhaDebugLogger.workflow('MOBILE MISMATCH', flowId: _abhaFlowId);
-        AbhaDebugLogger.workflow('Mobile update workflow is required', flowId: _abhaFlowId);
-        AbhaDebugLogger.workflow('Calling updatemobile/send-otp', flowId: _abhaFlowId);
+        AbhaDebugLogger.workflow('Mobile update workflow is required',
+            flowId: _abhaFlowId);
+        AbhaDebugLogger.workflow('Calling updatemobile/send-otp',
+            flowId: _abhaFlowId);
 
-        final startedMobileUpdate = await _requestMobileUpdateOtp(profileId, mobile);
+        final startedMobileUpdate =
+            await _requestMobileUpdateOtp(profileId, mobile);
         if (!startedMobileUpdate) {
           setState(() {
             _workflowState = _AbhaWorkflowState.error;
@@ -694,7 +799,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         return;
       }
 
-      AbhaDebugLogger.error('Unrecognized response message: $message', flowId: _abhaFlowId);
+      AbhaDebugLogger.error('Unrecognized response message: $message',
+          flowId: _abhaFlowId);
       await CommonErrorDialog.show(
         context,
         message: 'Unexpected response from server. Please contact support.',
@@ -705,16 +811,58 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       return;
     } catch (e) {
       AbhaDebugLogger.error('ABHA verify otp error: $e', flowId: _abhaFlowId);
-      final friendlyMessage = CommonErrorDialog.extractFriendlyErrorMessage(e);
-      await CommonErrorDialog.show(
-        context,
-        message: friendlyMessage.isNotEmpty
-            ? friendlyMessage
-            : 'Unable to complete your request.\n\nPlease try again or contact your system administrator if the problem continues.',
-      );
+      await _handleOtpVerificationFailure(e);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<void> _handleOtpVerificationFailure(dynamic payload) async {
+    final isLocked = _otpVerificationAttempts >= _maxOtpVerificationAttempts;
+    if (isLocked) {
+      _startOtpLockout();
+      await CommonErrorDialog.show(context, message: _otpLockoutMessage());
+      return;
+    }
+
+    final friendlyMessage =
+        CommonErrorDialog.extractFriendlyErrorMessage(payload);
+    await CommonErrorDialog.show(
+      context,
+      message: friendlyMessage.isNotEmpty
+          ? friendlyMessage
+          : 'The OTP you entered is invalid. Please check the OTP and try again.',
+    );
+  }
+
+  void _startOtpLockout() {
+    _otpLockoutTimer?.cancel();
+    setState(() => _otpLockoutRemaining = _otpLockoutDuration);
+    _otpLockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final remaining = _otpLockoutRemaining - const Duration(seconds: 1);
+      if (remaining <= Duration.zero) {
+        timer.cancel();
+        setState(() {
+          _otpLockoutRemaining = Duration.zero;
+          _otpVerificationAttempts = 0;
+        });
+      } else {
+        setState(() => _otpLockoutRemaining = remaining);
+      }
+    });
+  }
+
+  String _otpLockoutMessage() {
+    final minutes = _otpLockoutRemaining.inMinutes;
+    final seconds = _otpLockoutRemaining.inSeconds % 60;
+    final remaining = minutes > 0
+        ? '$minutes minute${minutes == 1 ? '' : 's'}'
+        : '$seconds seconds';
+    return 'You have entered an invalid OTP $_maxOtpVerificationAttempts times. Please try again after 30 minutes.\n\nTime remaining: $remaining.';
   }
 
   Future<bool> _requestMobileUpdateOtp(int profileId, String mobile) async {
@@ -731,7 +879,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       log('[MOBILE UPDATE] Calling updatemobile/send-otp');
       // Ensure controller knows current profileId so verify can use it
       controller.currentProfileId.value = profileId.toString();
-      debugPrint('[ABHA][TRACE][FLOW:$_abhaFlowId] controller.currentProfileId set: ${controller.currentProfileId.value}');
+      debugPrint(
+          '[ABHA][TRACE][FLOW:$_abhaFlowId] controller.currentProfileId set: ${controller.currentProfileId.value}');
 
       final sent = await controller.sendMobileUpdateOtp(
         profileId: profileId,
@@ -739,7 +888,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         flowId: _abhaFlowId,
       );
       if (!sent) {
-        AbhaDebugLogger.error('updatemobile/send-otp failed', flowId: _abhaFlowId);
+        AbhaDebugLogger.error('updatemobile/send-otp failed',
+            flowId: _abhaFlowId);
         setState(() {
           _showMobileUpdateOtp = false;
           _workflowState = _AbhaWorkflowState.error;
@@ -753,8 +903,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         data: {'message': 'Mobile OTP sent successfully'},
         flowId: _abhaFlowId,
       );
-      AbhaDebugLogger.workflow('Mobile OTP sent successfully', flowId: _abhaFlowId);
-      AbhaDebugLogger.workflow('Waiting for user to enter mobile OTP', flowId: _abhaFlowId);
+      AbhaDebugLogger.workflow('Mobile OTP sent successfully',
+          flowId: _abhaFlowId);
+      AbhaDebugLogger.workflow('Waiting for user to enter mobile OTP',
+          flowId: _abhaFlowId);
       setState(() {
         _showMobileUpdateOtp = true;
         _currentOtpMode = 'mobileUpdate';
@@ -773,7 +925,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
 
   Future<bool> _verifyMobileUpdateOtp(String otp) async {
     if (_isProcessingMobileUpdate) {
-      debugPrint('[ABHA][UI][FLOW:${_abhaFlowId ?? 'unknown'}] [OTP] Duplicate verification ignored');
+      debugPrint(
+          '[ABHA][UI][FLOW:${_abhaFlowId ?? 'unknown'}] [OTP] Duplicate verification ignored');
       return false;
     }
 
@@ -789,7 +942,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       if (profileId == null || profileId <= 0) {
         await CommonErrorDialog.show(
           context,
-          message: 'We could not continue with the mobile verification step. Please try again.',
+          message:
+              'We could not continue with the mobile verification step. Please try again.',
         );
         setState(() {
           _workflowState = _AbhaWorkflowState.error;
@@ -797,9 +951,12 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         return false;
       }
 
-      AbhaDebugLogger.ui('Verify mobile OTP button pressed', flowId: _abhaFlowId);
-      AbhaDebugLogger.workflow('MOBILE OTP VERIFICATION STARTED', flowId: _abhaFlowId);
-      AbhaDebugLogger.workflow('Calling updatemobile/verify-otp', flowId: _abhaFlowId);
+      AbhaDebugLogger.ui('Verify mobile OTP button pressed',
+          flowId: _abhaFlowId);
+      AbhaDebugLogger.workflow('MOBILE OTP VERIFICATION STARTED',
+          flowId: _abhaFlowId);
+      AbhaDebugLogger.workflow('Calling updatemobile/verify-otp',
+          flowId: _abhaFlowId);
       final success = await controller.verifyMobileUpdateOtp(
         profileId: profileId,
         txnId: controller.mobileUpdateTxnId.value,
@@ -815,7 +972,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       }
 
       AbhaDebugLogger.workflow('MOBILE UPDATE SUCCESS', flowId: _abhaFlowId);
-      AbhaDebugLogger.workflow('New mobile verified successfully', flowId: _abhaFlowId);
+      AbhaDebugLogger.workflow('New mobile verified successfully',
+          flowId: _abhaFlowId);
       setState(() {
         _showMobileUpdateOtp = false;
         _currentOtpMode = 'aadhaar';
@@ -832,8 +990,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       );
       if (mounted) {
         AbhaDebugLogger.workflow('MOBILE UPDATE SUCCESS', flowId: _abhaFlowId);
-        AbhaDebugLogger.workflow('Proceeding to ABHA address creation', flowId: _abhaFlowId);
-        AbhaDebugLogger.navigation('Opening abha_address_creation.dart', flowId: _abhaFlowId);
+        AbhaDebugLogger.workflow('Proceeding to ABHA address creation',
+            flowId: _abhaFlowId);
+        AbhaDebugLogger.navigation('Opening abha_address_creation.dart',
+            flowId: _abhaFlowId);
         _goToStep(2);
       }
       return true;
@@ -900,8 +1060,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         setState(() => _isMobileOtpDialogVisible = false);
       }
       if (verified == true) {
-        debugPrint('[ABHA][WORKFLOW][FLOW:${_abhaFlowId ?? 'unknown'}] MOBILE UPDATE SUCCESS');
-        debugPrint('[ABHA][NAVIGATION][FLOW:${_abhaFlowId ?? 'unknown'}] Opening abha_address_creation.dart');
+        debugPrint(
+            '[ABHA][WORKFLOW][FLOW:${_abhaFlowId ?? 'unknown'}] MOBILE UPDATE SUCCESS');
+        debugPrint(
+            '[ABHA][NAVIGATION][FLOW:${_abhaFlowId ?? 'unknown'}] Opening abha_address_creation.dart');
       }
     });
   }
@@ -1199,8 +1361,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   bool _hasExistingAbhaResponse(Map<String, dynamic>? response) {
     if (response == null) return false;
 
-    final message = CommonErrorDialog
-        .extractErrorMessage(response)
+    final message = CommonErrorDialog.extractErrorMessage(response)
         .toString()
         .toLowerCase();
     if (message.contains('abha already exists') ||
@@ -1261,11 +1422,13 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
             _otpDigitControllers[nextIndex].text = digit;
             _otpDigitCache[nextIndex] = digit;
             if (nextIndex + 1 < _otpFocusNodes.length) {
-              FocusScope.of(context).requestFocus(_otpFocusNodes[nextIndex + 1]);
+              FocusScope.of(context)
+                  .requestFocus(_otpFocusNodes[nextIndex + 1]);
             } else {
               FocusScope.of(context).unfocus();
             }
-            _debugOtpState('shifted digit from index ${index + 1} to ${nextIndex + 1}');
+            _debugOtpState(
+                'shifted digit from index ${index + 1} to ${nextIndex + 1}');
           } else {
             _otpDigitControllers[index].text = digit;
             _otpDigitCache[index] = digit;
@@ -1299,7 +1462,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       }
 
       final otpValue = _otpDigitCache.join();
-      final otpComplete = RegExp(r'^\d{6} *? *?').hasMatch(otpValue); // placeholder
+      final otpComplete =
+          RegExp(r'^\d{6} *? *?').hasMatch(otpValue); // placeholder
       _debugOtpState('OTP length: ${otpValue.length}');
       _debugOtpState('OTP complete: ${otpValue.length == 6}');
     } finally {
