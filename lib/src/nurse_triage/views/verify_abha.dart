@@ -45,6 +45,7 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
     _nurseController = Get.isRegistered<NurseTriageController>()
       ? Get.find<NurseTriageController>()
       : Get.put(NurseTriageController());
+    _nurseController.verifiedAbhaProfileData.value = null;
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
@@ -67,7 +68,7 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
         builder: (_) => VerifyOtpScreen(
           message: message,
           onResendOtp: () async {
-            await _controller.resendOtp();
+            return _controller.resendOtp();
           },
           onVerify: (otp) async {
             return _controller.verifyOtp(otp: otp);
@@ -81,6 +82,20 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
 
     _nurseController.selectedAbhaProfile.value = null;
     debugPrint('[ABHA PROFILE] Profile data passed successfully');
+    Navigator.of(context).pop(selectedProfile);
+  }
+
+  Future<void> _viewVerifiedAbha() async {
+    final payload = _nurseController.verifiedAbhaProfileData.value;
+    if (payload == null) return;
+
+    final selectedProfile = await _nurseController.showAadhaarSuccessDialog(
+      payload,
+      returnToCaller: true,
+    );
+    if (!mounted || selectedProfile == null) return;
+
+    _nurseController.selectedAbhaProfile.value = null;
     Navigator.of(context).pop(selectedProfile);
   }
 
@@ -192,6 +207,23 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
                     ),
                   ),
                   const SizedBox(height: 18),
+                  Obx(() {
+                    final hasVerifiedProfile =
+                        _nurseController.verifiedAbhaProfileData.value != null;
+                    if (!hasVerifiedProfile) return const SizedBox.shrink();
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton.icon(
+                          onPressed: _viewVerifiedAbha,
+                          icon: const Icon(Icons.badge_outlined),
+                          label: const Text('VIEW ABHA'),
+                        ),
+                      ),
+                    );
+                  }),
                   Expanded(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 220),

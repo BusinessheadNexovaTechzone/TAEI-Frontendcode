@@ -350,7 +350,7 @@ class VerifyAbhaController extends GetxController {
         selectedTxnId.value = txnId;
       }
       if (message.isNotEmpty) {
-        otpMessage.value = 'A verification OTP has been sent to your registered mobile number.';
+        otpMessage.value = message;
       }
 
       if (txnId == null || txnId.isEmpty) {
@@ -413,6 +413,7 @@ class VerifyAbhaController extends GetxController {
     debugPrint('===== PROFILE PAYLOAD =====');
     debugPrint(payload.toString());
     nurseController.aadhaarProfileData.value = payload;
+    nurseController.verifiedAbhaProfileData.value = payload;
     nurseController.aadhaarProfileImported.value = true;
 
     // Extract and store profileId from verify response

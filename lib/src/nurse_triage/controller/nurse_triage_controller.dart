@@ -1159,6 +1159,8 @@ class NurseTriageController extends GetxController {
   RxBool showCreateAbha = false.obs;
   RxBool aadhaarProfileImported = false.obs;
   Rxn<Map<String, dynamic>> aadhaarProfileData = Rxn<Map<String, dynamic>>();
+  Rxn<Map<String, dynamic>> verifiedAbhaProfileData =
+      Rxn<Map<String, dynamic>>();
   Rxn<Map<String, dynamic>> selectedAbhaProfile = Rxn<Map<String, dynamic>>();
   RxString aadhaar = ''.obs;
   RxString aadhaarOtp = ''.obs;

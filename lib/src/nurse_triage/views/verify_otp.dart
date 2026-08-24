@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -8,7 +7,7 @@ import 'package:taei_gov/src/nurse_triage/services/abha_error_message_service.da
 
 class VerifyOtpScreen extends StatefulWidget {
   final String message;
-  final Future<void> Function()? onResendOtp;
+  final Future<bool> Function()? onResendOtp;
   final Future<bool> Function(String otp)? onVerify;
 
   const VerifyOtpScreen({super.key, required this.message, this.onResendOtp, this.onVerify});
@@ -23,6 +22,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
   Timer? _timer;
   int _remainingSeconds = 60;
+  int _otpRequestCount = 1;
 
   @override
   void initState() {
@@ -90,8 +90,13 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   }
 
   Future<void> _handleResendOtp() async {
-    await widget.onResendOtp?.call();
-    if (mounted) {
+    if (_otpRequestCount >= 3) return;
+
+    final resent = await widget.onResendOtp?.call() ?? false;
+    if (mounted && resent) {
+      setState(() {
+        _otpRequestCount++;
+      });
       _startTimer();
     }
   }
@@ -185,6 +190,14 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                         height: 1.4,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'OTP attempt $_otpRequestCount/3',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF6B7280),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 22),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -245,8 +258,11 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         TextButton(
-                          onPressed: _handleResendOtp,
-                          child: const Text('Resend OTP', style: TextStyle(color: Color(0xFFEF4444))),
+                          onPressed: _otpRequestCount < 3 ? _handleResendOtp : null,
+                          child: const Text(
+                            'Resend OTP',
+                            style: TextStyle(color: Color(0xFFEF4444)),
+                          ),
                         ),
                         Text(
                           _remainingSeconds > 0 ? '$_remainingSeconds s' : 'Resend available',

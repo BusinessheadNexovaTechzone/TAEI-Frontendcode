@@ -1,8 +1,8 @@
 class Urls {
   /// Triage API
   static const String baseUrl = 'https://dev.taei.co.in/';
-//   static const String local = 'https://taei.nexovatechzone.com/';
-  static const String local = 'http://localhost:5000/';
+  static const String local = 'https://taei.nexovatechzone.com/';
+//   static const String local = 'http://localhost:5000/';
   static const String phone = 'http://192.168.1.5:5000/';
   //  ABHA Face API
   //  static const String baseUrl = "http://192.168.1.6:5000";

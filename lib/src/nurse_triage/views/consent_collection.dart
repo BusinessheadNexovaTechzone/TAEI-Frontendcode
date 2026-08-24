@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-class ConsentCollectionStep extends StatelessWidget {
+class ConsentCollectionStep extends StatefulWidget {
   const ConsentCollectionStep({
     super.key,
     required this.formKey,
@@ -79,11 +79,36 @@ class ConsentCollectionStep extends StatelessWidget {
   final String? otpHintText;
 
   @override
+  State<ConsentCollectionStep> createState() => _ConsentCollectionStepState();
+}
+
+class _ConsentCollectionStepState extends State<ConsentCollectionStep> {
+  // Manual checkboxes for the first 4 declarations.
+  // Index 3 ("anonymization") also drives the two auto-selected sub-items.
+  late List<bool> _checks;
+
+  @override
+  void initState() {
+    super.initState();
+    _checks = List<bool>.filled(4, false);
+  }
+
+  void _setCheck(int index, bool? value) {
+    setState(() {
+      _checks[index] = value ?? false;
+    });
+    final allChecked = _checks.every((c) => c);
+    widget.onConsentChanged(allChecked);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final aadhaarValue =
-        aadhaarPartControllers.map((controller) => controller.text).join();
+    final theme = widget.theme;
+    final aadhaarValue = widget.aadhaarPartControllers
+        .map((controller) => controller.text)
+        .join();
     final aadhaarDigits = aadhaarValue.replaceAll(RegExp(r'\D'), '');
-    final captchaSum = captchaQuestion
+    final captchaSum = widget.captchaQuestion
         .split(' = ?')[0]
         .split(' + ')
         .fold<int>(0, (value, item) {
@@ -92,9 +117,9 @@ class ConsentCollectionStep extends StatelessWidget {
     }).toString();
 
     final canContinue = aadhaarDigits.length == 12 &&
-        consentAccepted &&
-        selectedAuthMethod != null &&
-        (captchaController.text.trim() == captchaSum);
+        widget.consentAccepted &&
+        widget.selectedAuthMethod != null &&
+        (widget.captchaController.text.trim() == captchaSum);
 
     return Center(
       child: ConstrainedBox(
@@ -102,9 +127,9 @@ class ConsentCollectionStep extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: surfaceColor,
+            color: widget.surfaceColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor, width: 1),
+            border: Border.all(color: widget.borderColor, width: 1),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.04),
@@ -114,7 +139,7 @@ class ConsentCollectionStep extends StatelessWidget {
             ],
           ),
           child: Form(
-            key: formKey,
+            key: widget.formKey,
             autovalidateMode: AutovalidateMode.disabled,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,14 +148,14 @@ class ConsentCollectionStep extends StatelessWidget {
                   'Aadhaar Number *',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: primaryTextColor,
+                    color: widget.primaryTextColor,
                   ),
                 ),
                 const SizedBox(height: 10),
                 FormField<String>(
                   validator: (value) {
-                    if (!shouldShowAadhaarError) return null;
-                    if (!isValidAadhaar(aadhaarPartControllers
+                    if (!widget.shouldShowAadhaarError) return null;
+                    if (!widget.isValidAadhaar(widget.aadhaarPartControllers
                         .map((controller) => controller.text)
                         .join())) {
                       return 'Aadhaar Number must contain exactly 12 digits.';
@@ -145,83 +170,83 @@ class ConsentCollectionStep extends StatelessWidget {
                           children: [
                             Expanded(
                               child: TextFormField(
-                                controller: aadhaarPartControllers[0],
-                                focusNode: aadhaarFocusNodes[0],
+                                controller: widget.aadhaarPartControllers[0],
+                                focusNode: widget.aadhaarFocusNodes[0],
                                 keyboardType: TextInputType.number,
                                 textAlign: TextAlign.center,
-                                obscureText: !aadhaarVisible,
+                                obscureText: !widget.aadhaarVisible,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(4),
                                 ],
                                 onChanged: (value) {
-                                  onAadhaarPartChanged(0, value);
-                                  onAadhaarFieldChanged();
+                                  widget.onAadhaarPartChanged(0, value);
+                                  widget.onAadhaarFieldChanged();
                                 },
-                                decoration:
-                                    buildInputDecoration(hintText: '0000'),
+                                decoration: widget.buildInputDecoration(
+                                    hintText: '0000'),
                               ),
                             ),
                             Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 6),
-                              child:
-                                  Text('-', style: theme.textTheme.titleMedium),
+                              child: Text('-',
+                                  style: theme.textTheme.titleMedium),
                             ),
                             Expanded(
                               child: TextFormField(
-                                controller: aadhaarPartControllers[1],
-                                focusNode: aadhaarFocusNodes[1],
+                                controller: widget.aadhaarPartControllers[1],
+                                focusNode: widget.aadhaarFocusNodes[1],
                                 keyboardType: TextInputType.number,
                                 textAlign: TextAlign.center,
-                                obscureText: !aadhaarVisible,
+                                obscureText: !widget.aadhaarVisible,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(4),
                                 ],
                                 onChanged: (value) {
-                                  onAadhaarPartChanged(1, value);
-                                  onAadhaarFieldChanged();
+                                  widget.onAadhaarPartChanged(1, value);
+                                  widget.onAadhaarFieldChanged();
                                 },
-                                decoration:
-                                    buildInputDecoration(hintText: '0000'),
+                                decoration: widget.buildInputDecoration(
+                                    hintText: '0000'),
                               ),
                             ),
                             Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 6),
-                              child:
-                                  Text('-', style: theme.textTheme.titleMedium),
+                              child: Text('-',
+                                  style: theme.textTheme.titleMedium),
                             ),
                             Expanded(
                               child: TextFormField(
-                                controller: aadhaarPartControllers[2],
-                                focusNode: aadhaarFocusNodes[2],
+                                controller: widget.aadhaarPartControllers[2],
+                                focusNode: widget.aadhaarFocusNodes[2],
                                 keyboardType: TextInputType.number,
                                 textAlign: TextAlign.center,
-                                obscureText: !aadhaarVisible,
+                                obscureText: !widget.aadhaarVisible,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(4),
                                 ],
                                 onChanged: (value) {
-                                  onAadhaarPartChanged(2, value);
-                                  onAadhaarFieldChanged();
+                                  widget.onAadhaarPartChanged(2, value);
+                                  widget.onAadhaarFieldChanged();
                                 },
-                                decoration:
-                                    buildInputDecoration(hintText: '0000'),
+                                decoration: widget.buildInputDecoration(
+                                    hintText: '0000'),
                               ),
                             ),
                             const SizedBox(width: 4),
                             IconButton(
-                              onPressed: onToggleAadhaarVisibility,
+                              onPressed: widget.onToggleAadhaarVisibility,
                               icon: Icon(
-                                aadhaarVisible
+                                widget.aadhaarVisible
                                     ? Icons.visibility_off_outlined
                                     : Icons.visibility_outlined,
-                                color: primaryColor,
+                                color: widget.primaryColor,
                               ),
-                              tooltip: aadhaarVisible
+                              tooltip: widget.aadhaarVisible
                                   ? 'Hide Aadhaar'
                                   : 'Show Aadhaar',
                             ),
@@ -237,19 +262,20 @@ class ConsentCollectionStep extends StatelessWidget {
                             ),
                           ),
                         const SizedBox(height: 8),
-                        if (otpHintText != null && otpHintText!.isNotEmpty)
+                        if (widget.otpHintText != null &&
+                            widget.otpHintText!.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Row(
                               children: [
                                 Icon(Icons.info_outline,
-                                    color: secondaryColor, size: 18),
+                                    color: widget.secondaryColor, size: 18),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    otpHintText!,
+                                    widget.otpHintText!,
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      color: secondaryTextColor,
+                                      color: widget.secondaryTextColor,
                                     ),
                                   ),
                                 ),
@@ -259,13 +285,13 @@ class ConsentCollectionStep extends StatelessWidget {
                         Row(
                           children: [
                             Icon(Icons.info_outline,
-                                color: secondaryColor, size: 18),
+                                color: widget.secondaryColor, size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'Please ensure your Aadhaar-linked mobile number is active because OTP verification will be sent to the registered mobile number.',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: secondaryTextColor,
+                                  color: widget.secondaryTextColor,
                                 ),
                               ),
                             ),
@@ -280,7 +306,7 @@ class ConsentCollectionStep extends StatelessWidget {
                   'Terms and Conditions *',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: primaryTextColor,
+                    color: widget.primaryTextColor,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -289,12 +315,12 @@ class ConsentCollectionStep extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: borderColor),
+                    border: Border.all(color: widget.borderColor),
                   ),
                   child: FormField<bool>(
                     validator: (value) {
-                      if (!shouldShowConsentError) return null;
-                      if (!consentAccepted) {
+                      if (!widget.shouldShowConsentError) return null;
+                      if (!_checks.every((c) => c)) {
                         return 'Please accept all consent declarations.';
                       }
                       return null;
@@ -306,55 +332,68 @@ class ConsentCollectionStep extends StatelessWidget {
                           Text(
                             'I hereby declare that:',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: primaryTextColor,
+                              color: widget.primaryTextColor,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 8),
+                          // 1. Aadhaar sharing - manual
                           _declaration(
                             theme,
-                            primaryColor,
+                            widget.primaryColor,
                             'I am voluntarily sharing my Aadhaar Number / Virtual ID issued by the Unique Identification Authority of India ("UIDAI"), and my demographic information for the purpose of creating an Ayushman Bharat Health Account number ("ABHA number") and Ayushman Bharat Health Account address ("ABHA Address"). I authorize NHA to use my Aadhaar number / Virtual ID for performing Aadhaar based authentication with UIDAI as per the provisions of the Aadhaar (Targeted Delivery of Financial and other Subsidies, Benefits and Services) Act, 2016 for the aforesaid purpose. I understand that UIDAI will share my e-KYC details, or response of "Yes" with NHA upon successful authentication.',
-                            checked: true,
-                            onChanged: (_) {},
+                            checked: _checks[0],
+                            onChanged: (v) => _setCheck(0, v),
                           ),
+                          // 2. Legacy record linking - manual
                           _declaration(
                             theme,
-                            primaryColor,
+                            widget.primaryColor,
                             'I consent to usage of my ABHA address and ABHA number for linking of my legacy (past) government health records and those which will be generated during this encounter.',
-                            checked: true,
-                            onChanged: (_) {},
+                            checked: _checks[1],
+                            onChanged: (v) => _setCheck(1, v),
                           ),
+                          // 3. Sharing health records - manual
                           _declaration(
                             theme,
-                            primaryColor,
+                            widget.primaryColor,
                             'I authorize the sharing of all my health records with healthcare provider(s) for the purpose of providing healthcare services to me during this encounter.',
-                            checked: true,
-                            onChanged: (_) {},
+                            checked: _checks[2],
+                            onChanged: (v) => _setCheck(2, v),
                           ),
+                          // 4. Anonymization - manual, parent of the two auto sub-items
                           _declaration(
                             theme,
-                            primaryColor,
+                            widget.primaryColor,
                             'I consent to the anonymization and subsequent use of my government health records for public health purposes.',
-                            checked: true,
-                            onChanged: (_) {},
+                            checked: _checks[3],
+                            onChanged: (v) => _setCheck(3, v),
                           ),
-                          _declaration(
-                            theme,
-                            primaryColor,
-                            'I, (name of healthcare worker- depending on the username used for logging into the system), confirm that I have duly informed and explained the beneficiary of the contents of consent for aforementioned purposes.',
-                            checked: consentAccepted,
-                            onChanged: onConsentChanged,
-                            italicText:
-                                'name of healthcare worker- depending on the username used for logging into the system',
-                          ),
-                          _declaration(
-                            theme,
-                            primaryColor,
-                            'I, (beneficiary name), have been explained about the consent as stated above and hereby provide my consent for the aforementioned purposes.',
-                            checked: consentAccepted,
-                            onChanged: onConsentChanged,
-                            italicText: 'beneficiary name',
+                          // Nested / auto-selected sub-declarations under item 4
+                          Padding(
+                            padding: const EdgeInsets.only(left: 32),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _declaration(
+                                  theme,
+                                  widget.primaryColor,
+                                  'I, (name of healthcare worker- depending on the username used for logging into the system), confirm that I have duly informed and explained the beneficiary of the contents of consent for aforementioned purposes.',
+                                  checked: _checks[3],
+                                  onChanged: null, // auto-selected, not manual
+                                  italicText:
+                                      'name of healthcare worker- depending on the username used for logging into the system',
+                                ),
+                                _declaration(
+                                  theme,
+                                  widget.primaryColor,
+                                  'I, (beneficiary name), have been explained about the consent as stated above and hereby provide my consent for the aforementioned purposes.',
+                                  checked: _checks[3],
+                                  onChanged: null, // auto-selected, not manual
+                                  italicText: 'beneficiary name',
+                                ),
+                              ],
+                            ),
                           ),
                           if (field.hasError)
                             Padding(
@@ -376,13 +415,13 @@ class ConsentCollectionStep extends StatelessWidget {
                   'Authentication Type *',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: primaryTextColor,
+                    color: widget.primaryTextColor,
                   ),
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  value: selectedAuthMethod,
-                  decoration: buildInputDecoration(
+                  value: widget.selectedAuthMethod,
+                  decoration: widget.buildInputDecoration(
                       labelText: 'Select Authentication Type'),
                   items: const [
                     DropdownMenuItem(
@@ -397,9 +436,9 @@ class ConsentCollectionStep extends StatelessWidget {
                         value: 'Demo Authentication',
                         child: Text('Demo Authentication')),
                   ],
-                  onChanged: onAuthMethodChanged,
+                  onChanged: widget.onAuthMethodChanged,
                   validator: (value) {
-                    if (!shouldShowAuthMethodError) return null;
+                    if (!widget.shouldShowAuthMethodError) return null;
                     if (value == null || value.isEmpty) {
                       return 'Please select an authentication method.';
                     }
@@ -411,7 +450,7 @@ class ConsentCollectionStep extends StatelessWidget {
                   'Human Verification *',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: primaryTextColor,
+                    color: widget.primaryTextColor,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -420,7 +459,7 @@ class ConsentCollectionStep extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF7F2),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: borderColor),
+                    border: Border.all(color: widget.borderColor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -431,13 +470,13 @@ class ConsentCollectionStep extends StatelessWidget {
                             child: Text(
                               'Solve the captcha below to continue.',
                               style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: secondaryTextColor),
+                                  ?.copyWith(color: widget.secondaryTextColor),
                             ),
                           ),
                           IconButton(
-                            onPressed: onRefreshCaptcha,
+                            onPressed: widget.onRefreshCaptcha,
                             icon: Icon(Icons.refresh_rounded,
-                                color: primaryColor),
+                                color: widget.primaryColor),
                           ),
                         ],
                       ),
@@ -448,14 +487,15 @@ class ConsentCollectionStep extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: borderColor),
+                          border: Border.all(color: widget.borderColor),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.security_rounded, color: primaryColor),
+                            Icon(Icons.security_rounded,
+                                color: widget.primaryColor),
                             const SizedBox(width: 10),
                             Text(
-                              '$captchaQuestion = ?',
+                              '${widget.captchaQuestion} = ?',
                               style: theme.textTheme.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             ),
@@ -464,17 +504,17 @@ class ConsentCollectionStep extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
-                        controller: captchaController,
+                        controller: widget.captchaController,
                         keyboardType: TextInputType.number,
-                        decoration:
-                            buildInputDecoration(labelText: 'Enter Answer'),
-                        onChanged: (_) => onCaptchaChanged(),
+                        decoration: widget.buildInputDecoration(
+                            labelText: 'Enter Answer'),
+                        onChanged: (_) => widget.onCaptchaChanged(),
                         validator: (value) {
-                          if (!shouldShowCaptchaError) return null;
+                          if (!widget.shouldShowCaptchaError) return null;
                           if ((value ?? '').trim().isEmpty) {
                             return 'Answer is required.';
                           }
-                          if ((value ?? '').trim() != captchaAnswer) {
+                          if ((value ?? '').trim() != widget.captchaAnswer) {
                             return 'Please enter the correct captcha answer.';
                           }
                           return null;
@@ -488,10 +528,10 @@ class ConsentCollectionStep extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OutlinedButton(
-                      onPressed: isSubmitting ? null : onCancel,
+                      onPressed: widget.isSubmitting ? null : widget.onCancel,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: primaryTextColor,
-                        side: BorderSide(color: borderColor),
+                        foregroundColor: widget.primaryTextColor,
+                        side: BorderSide(color: widget.borderColor),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                         padding: const EdgeInsets.symmetric(
@@ -501,15 +541,16 @@ class ConsentCollectionStep extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
-                      onPressed: isSubmitting || !canProceed
+                      onPressed: widget.isSubmitting || !widget.canProceed
                           ? null
                           : () async {
-                              await onNext();
+                              await widget.onNext();
                             },
                       icon: const Icon(Icons.arrow_forward_rounded),
-                      label: Text(isSubmitting ? 'Please wait...' : 'Next'),
+                      label:
+                          Text(widget.isSubmitting ? 'Please wait...' : 'Next'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
+                        backgroundColor: widget.primaryColor,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
@@ -539,11 +580,11 @@ class ConsentCollectionStep extends StatelessWidget {
         ? Text.rich(
             TextSpan(
               style: theme.textTheme.bodySmall?.copyWith(
-                color: secondaryTextColor,
+                color: widget.secondaryTextColor,
                 height: 1.45,
               ),
               children: [
-                TextSpan(text: text.split(italicText!).first),
+                TextSpan(text: text.split(italicText).first),
                 TextSpan(
                   text: italicText,
                   style: const TextStyle(fontStyle: FontStyle.italic),
@@ -555,7 +596,7 @@ class ConsentCollectionStep extends StatelessWidget {
         : Text(
             text,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: secondaryTextColor,
+              color: widget.secondaryTextColor,
               height: 1.45,
             ),
           );
@@ -564,7 +605,7 @@ class ConsentCollectionStep extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       dense: true,
       value: checked,
-      onChanged: onChanged,
+      onChanged: onChanged, // null => disabled/auto, non-null => manual
       activeColor: activeColor,
       controlAffinity: ListTileControlAffinity.leading,
       title: declarationText,
