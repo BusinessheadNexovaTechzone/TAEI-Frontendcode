@@ -390,16 +390,90 @@ class VerifyAbhaController extends GetxController {
     );
   }
 
+  Map<String, dynamic> normalizeVerifyResponsePayload(
+      Map<String, dynamic> response) {
+    if (response.isEmpty) return response;
+
+    final wrappedResult = response['result'];
+    if (wrappedResult is Map &&
+        (wrappedResult['ABHAProfile'] is Map || wrappedResult['profile'] is Map)) {
+      return response;
+    }
+
+    final wrappedData = response['data'];
+    if (wrappedData is Map &&
+        (wrappedData['ABHAProfile'] is Map || wrappedData['profile'] is Map)) {
+      return response;
+    }
+
+    if (response.containsKey('ABHAProfile') && response['ABHAProfile'] is Map) {
+      return response;
+    }
+
+    final hasProfileLikeFields = response.containsKey('ABHANumber') ||
+        response.containsKey('abhaNumber') ||
+        response.containsKey('name') ||
+        response.containsKey('mobile') ||
+        response.containsKey('profileId') ||
+        response.containsKey('id');
+
+    if (!hasProfileLikeFields) {
+      return response;
+    }
+
+    final profilePayload = <String, dynamic>{};
+    for (final entry in response.entries) {
+      profilePayload[entry.key] = entry.value;
+    }
+
+    return {
+      'result': {
+        'ABHAProfile': profilePayload,
+      },
+    };
+  }
+
   Map<String, dynamic> _buildAadhaarProfileCardPayload(
       Map<String, dynamic> response) {
-    return buildProfileCardPayloadFromVerifyResponse(response);
+    final normalizedResponse = normalizeVerifyResponsePayload(response);
+    return buildProfileCardPayloadFromVerifyResponse(normalizedResponse);
+  }
+
+  Map<String, dynamic> _injectProfileIdIntoPayload(
+    Map<String, dynamic> payload,
+    int? profileId,
+  ) {
+    if (profileId == null || profileId <= 0) return payload;
+
+    final enriched = <String, dynamic>{...payload};
+    enriched['profileId'] = profileId;
+
+    final result = enriched['result'];
+    if (result is Map) {
+      final abhaProfile = result['ABHAProfile'];
+      if (abhaProfile is Map) {
+        abhaProfile['profileId'] = profileId;
+      }
+      if (result['profile'] is Map) {
+        result['profile']['profileId'] = profileId;
+      }
+    }
+
+    final profile = enriched['ABHAProfile'];
+    if (profile is Map) {
+      profile['profileId'] = profileId;
+    }
+
+    return enriched;
   }
 
   Future<void> _syncVerifiedResponse(Map<String, dynamic> response) async {
-    debugPrint('===== VERIFY OTP RESPONSE =====');
-    debugPrint(response.toString());
+    final normalizedResponse = normalizeVerifyResponsePayload(response);
 
-    verifiedAuthResponse.value = response;
+    debugPrint('===== VERIFY OTP RESPONSE =====');
+    debugPrint(normalizedResponse.toString());
+
+    verifiedAuthResponse.value = normalizedResponse;
 
     final nurseController = Get.isRegistered<NurseTriageController>()
         ? Get.find<NurseTriageController>()
@@ -409,25 +483,37 @@ class VerifyAbhaController extends GetxController {
       return;
     }
 
-    final payload = _buildAadhaarProfileCardPayload(response);
+    final profileId = extractAbhaProfileId(normalizedResponse) ??
+        extractAbhaProfileId(_buildAadhaarProfileCardPayload(normalizedResponse));
+    final payload = _buildAadhaarProfileCardPayload(normalizedResponse);
+    final enrichedPayload = _injectProfileIdIntoPayload(payload, profileId);
+
     debugPrint('===== PROFILE PAYLOAD =====');
-    debugPrint(payload.toString());
-    nurseController.aadhaarProfileData.value = payload;
-    nurseController.verifiedAbhaProfileData.value = payload;
+    debugPrint(enrichedPayload.toString());
+    nurseController.aadhaarProfileData.value = enrichedPayload;
+    nurseController.verifiedAbhaProfileData.value = enrichedPayload;
     nurseController.aadhaarProfileImported.value = true;
 
-    // Extract and store profileId from verify response
-    final profileId = extractAbhaProfileId(response);
     if (profileId != null && profileId > 0) {
       nurseController.currentProfileId.value = profileId.toString();
+      if (nurseController.createTriageModel.value?.triage != null) {
+        nurseController.createTriageModel.value!.triage!.abhaProfileId = profileId;
+      }
       log('[VERIFY ABHA] profileId extracted: $profileId');
     } else {
+      final fallbackProfileId = extractAbhaProfileId(enrichedPayload);
+      if (fallbackProfileId != null && fallbackProfileId > 0) {
+        nurseController.currentProfileId.value = fallbackProfileId.toString();
+        if (nurseController.createTriageModel.value?.triage != null) {
+          nurseController.createTriageModel.value!.triage!.abhaProfileId = fallbackProfileId;
+        }
+      }
       log('[VERIFY ABHA] WARNING: profileId not found in verify response');
     }
 
     debugPrint('Opening shared profile card from verify flow');
     await nurseController.showAadhaarSuccessDialog(
-      payload,
+      enrichedPayload,
       returnToCaller: true,
     );
   }

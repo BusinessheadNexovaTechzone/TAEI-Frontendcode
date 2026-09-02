@@ -13,6 +13,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
+import 'package:printing/printing.dart';
 import 'package:universal_html/html.dart' as html;
 
 import 'package:taei_gov/constants/urls.dart';
@@ -765,21 +766,21 @@ class NurseTriageController extends GetxController {
     log('[ABHA][CARD-DOWNLOAD] Download button clicked');
     debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD ABHA CARD PRESSED');
 
-    final selectedProfileId = selectedProfileOnly
-      ? profileId
-      : profileId ?? extractAbhaProfileId(aadhaarProfileData.value);
-    if (selectedProfileId != null && selectedProfileId > 0) {
-      profileIdStr = selectedProfileId.toString();
+    final currentProfileIdValue = int.tryParse(currentProfileId.value);
+    final directProfileId = profileId ??
+        currentProfileIdValue ??
+        extractAbhaProfileId(aadhaarProfileData.value) ??
+        extractAbhaProfileId(verifiedAbhaProfileData.value);
+    if (directProfileId != null && directProfileId > 0) {
+      profileIdStr = directProfileId.toString();
       currentProfileId.value = profileIdStr;
     }
 
-    if (!selectedProfileOnly) {
-      if (profileIdStr.isEmpty) {
-        profileIdStr = currentProfileId.value.trim();
-      }
+    if (profileIdStr.isEmpty) {
+      profileIdStr = currentProfileId.value.trim();
     }
 
-    if (!selectedProfileOnly && profileIdStr.isEmpty) {
+    if (profileIdStr.isEmpty) {
       final triageProfileId = createTriageModel.value?.triage?.abhaProfileId;
       if (triageProfileId != null && triageProfileId > 0) {
         profileIdStr = triageProfileId.toString();
@@ -787,12 +788,33 @@ class NurseTriageController extends GetxController {
       }
     }
 
-    if (!selectedProfileOnly && profileIdStr.isEmpty && aadhaarProfileData.value != null) {
+    if (profileIdStr.isEmpty && aadhaarProfileData.value != null) {
       final cachedProfileId = extractAbhaProfileId(aadhaarProfileData.value);
       if (cachedProfileId != null && cachedProfileId > 0) {
         profileIdStr = cachedProfileId.toString();
         currentProfileId.value = profileIdStr;
       }
+    }
+
+    if (profileIdStr.isEmpty && verifiedAbhaProfileData.value != null) {
+      final verifiedProfileId = extractAbhaProfileId(verifiedAbhaProfileData.value);
+      if (verifiedProfileId != null && verifiedProfileId > 0) {
+        profileIdStr = verifiedProfileId.toString();
+        currentProfileId.value = profileIdStr;
+      }
+    }
+
+    if (profileIdStr.isEmpty && !selectedProfileOnly && aadhaarProfileData.value != null) {
+      final cachedProfileId = extractAbhaProfileId(aadhaarProfileData.value);
+      if (cachedProfileId != null && cachedProfileId > 0) {
+        profileIdStr = cachedProfileId.toString();
+        currentProfileId.value = profileIdStr;
+      }
+    }
+
+    if (profileIdStr.isEmpty && profileId != null && profileId > 0) {
+      profileIdStr = profileId.toString();
+      currentProfileId.value = profileIdStr;
     }
 
     log('[ABHA][CARD-DOWNLOAD] Profile ID: ${profileIdStr.isNotEmpty ? 'available' : 'missing'}');
@@ -929,10 +951,21 @@ class NurseTriageController extends GetxController {
     log('[ABHA][CARD] PROFILE NAME: ${profile.name}');
     log('[ABHA][CARD] ABHA NUMBER: ${profile.abhaNumber}');
     log('[ABHA][CARD] PROFILE ID: ${profile.profileId ?? 'missing'}');
+
+    final fallbackProfileId = profile.profileId ??
+        extractAbhaProfileId(verifiedAbhaProfileData.value) ??
+        extractAbhaProfileId(aadhaarProfileData.value) ??
+        int.tryParse(currentProfileId.value);
+
+    if (fallbackProfileId != null && fallbackProfileId > 0) {
+      currentProfileId.value = fallbackProfileId.toString();
+    }
+
+    log('[ABHA][CARD] RESOLVED PROFILE ID: ${fallbackProfileId ?? 'missing'}');
     log('[ABHA][CARD] CALLING DOWNLOAD API');
 
     await downloadAbhaCard(
-      profileId: profile.profileId,
+      profileId: fallbackProfileId,
       selectedProfileOnly: true,
       flowId: flowId,
     );
@@ -975,6 +1008,12 @@ class NurseTriageController extends GetxController {
     if (triage == null || data == null) return;
 
     log("ABHA Profile data: $data");
+
+    final extractedProfileId = extractAbhaProfileId(d) ?? extractAbhaProfileId(data);
+    if (extractedProfileId != null && extractedProfileId > 0) {
+      currentProfileId.value = extractedProfileId.toString();
+      triage.abhaProfileId = extractedProfileId;
+    }
 
     // ✅ Mark profile as imported
     aadhaarProfileImported.value = true;
@@ -1162,6 +1201,7 @@ class NurseTriageController extends GetxController {
   Rxn<Map<String, dynamic>> verifiedAbhaProfileData =
       Rxn<Map<String, dynamic>>();
   Rxn<Map<String, dynamic>> selectedAbhaProfile = Rxn<Map<String, dynamic>>();
+  final Map<int, Future<Map<String, dynamic>>> _abhaCardPreviewCache = {};
   RxString aadhaar = ''.obs;
   RxString aadhaarOtp = ''.obs;
   RxString mobileUpdateTxnId = ''.obs;
@@ -1294,6 +1334,12 @@ class NurseTriageController extends GetxController {
   }) async {
     aadhaarProfileData.value = d; // store payload for later "View Card"
     final profile = _resolveAbhaProfilePayload(d);
+    final extractedProfileId = extractAbhaProfileId(d) ??
+        (profile != null ? extractAbhaProfileId(profile) : null);
+    if (extractedProfileId != null && extractedProfileId > 0) {
+      currentProfileId.value = extractedProfileId.toString();
+      createTriageModel.value?.triage?.abhaProfileId = extractedProfileId;
+    }
 
     if (profile == null) {
       Fluttertoast.showToast(msg: "No ABHA data found");
@@ -1439,6 +1485,10 @@ class NurseTriageController extends GetxController {
             ),
           ),
           const SizedBox(height: 12),
+          if (selectedProfileId != null) ...[
+            _buildOfficialAbhaCardPreview(selectedProfileId),
+            const SizedBox(height: 12),
+          ],
           _buildDialogInfoRow('Name', profile.name),
           _buildDialogInfoRow('ABHA Number', profile.abhaNumber),
           _buildDialogInfoRow('ABHA Address', profile.abhaAddress),
@@ -1518,6 +1568,59 @@ class NurseTriageController extends GetxController {
     );
   }
 
+  Widget _buildOfficialAbhaCardPreview(int profileId) {
+    final cardFuture = _abhaCardPreviewCache.putIfAbsent(
+      profileId,
+      () => TriageService.downloadAbhaCard(profileId: profileId),
+    );
+
+    return FutureBuilder<Map<String, dynamic>>(
+      future: cardFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 18),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final card = snapshot.data;
+        final bytes = card?['bytes'] as Uint8List?;
+        final contentType = card?['contentType']?.toString() ?? '';
+        if (card?['success'] != true || bytes == null || bytes.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        if (contentType.contains('pdf')) {
+          return SizedBox(
+            height: 360,
+            child: PdfPreview(
+              build: (_) async => bytes,
+              canChangeOrientation: false,
+              canChangePageFormat: false,
+              allowPrinting: false,
+              allowSharing: false,
+              scrollViewDecoration: const BoxDecoration(color: Colors.white),
+              pdfPreviewPageDecoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+            ),
+          );
+        }
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.memory(
+            bytes,
+            fit: BoxFit.contain,
+            width: double.infinity,
+            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          ),
+        );
+      },
+    );
+  }
+
   Map<String, dynamic> _selectedProfilePayload(
       AbhaVerifiedProfile profile, int? profileId) {
     return {
@@ -1546,6 +1649,11 @@ class NurseTriageController extends GetxController {
   }
 
   Widget _buildDialogInfoRow(String label, String value) {
+    final normalizedValue = value.trim().toLowerCase();
+    if (normalizedValue.isEmpty || normalizedValue == 'not available') {
+      return const SizedBox.shrink();
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(

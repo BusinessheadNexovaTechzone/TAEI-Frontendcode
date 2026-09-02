@@ -183,11 +183,54 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
         if (payload is Map<String, dynamic>) {
           _controller.aadhaarProfileData.value = payload;
         }
+
+        final triage = _controller.createTriageModel.value?.triage;
+        final profilePayload = <String, dynamic>{
+          'result': {
+            'ABHAProfile': {
+              'ABHANumber': triage?.abhaCard ??
+                  _controller.aadhaarProfileData.value?['ABHAProfile']?['ABHANumber'] ??
+                  _controller.aadhaarProfileData.value?['result']?['ABHAProfile']?['ABHANumber'] ??
+                  '',
+              'abhaNumber': triage?.abhaCard ??
+                  _controller.aadhaarProfileData.value?['ABHAProfile']?['abhaNumber'] ??
+                  _controller.aadhaarProfileData.value?['result']?['ABHAProfile']?['abhaNumber'] ??
+                  '',
+              'profileId': int.tryParse(_controller.currentProfileId.value) ??
+                  _controller.aadhaarProfileData.value?['ABHAProfile']?['profileId'] ??
+                  _controller.aadhaarProfileData.value?['result']?['ABHAProfile']?['profileId'],
+              'firstName': (triage?.nameOfPatient ?? '').split(RegExp(r'\s+')).first,
+              'middleName': '',
+              'lastName': (triage?.nameOfPatient ?? '').split(RegExp(r'\s+')).length > 1
+                  ? (triage?.nameOfPatient ?? '').split(RegExp(r'\s+')).sublist(1).join(' ')
+                  : '',
+              'fullName': triage?.nameOfPatient ?? '',
+              'name': triage?.nameOfPatient ?? '',
+              'mobile': triage?.patientMobileNumber ?? '',
+              'address': triage?.addressLine ?? payload['address'] ?? '',
+              'abhaAddress': payload['abhaAddress'] ??
+                  payload['preferredAbhaAddress'] ??
+                  triage?.addressLine ??
+                  '',
+              'preferredAbhaAddress': payload['abhaAddress'] ??
+                  payload['preferredAbhaAddress'] ??
+                  triage?.addressLine ??
+                  '',
+              'verificationStatus': 'VERIFIED',
+              'verificationType': 'AADHAAR',
+              'status': 'ACTIVE',
+              'stateName': triage?.state ?? '',
+              'districtName': triage?.district ?? '',
+              'pincode': triage?.pincode ?? '',
+            }
+          }
+        };
+
         final result = await _controller.showAadhaarSuccessDialog(
-          payload,
+          profilePayload,
           returnToCaller: true,
         );
-        if (mounted && Navigator.of(context).canPop()) {
+        if (mounted && result != null && Navigator.of(context).canPop()) {
           Navigator.of(context).pop(result);
         }
         return;

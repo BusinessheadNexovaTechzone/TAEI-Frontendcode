@@ -152,6 +152,27 @@ void main() {
       expect(profiles[2].abhaAddress, 'third@sbx');
     });
 
+    test('normalizes direct mobile verification responses into the ABHA profile card shape', () {
+      final controller = VerifyAbhaController();
+
+      final response = {
+        'profileId': 120,
+        'ABHANumber': '91-1234-5678-9012',
+        'preferredAbhaAddress': 'demo@sbx',
+        'name': 'Demo User',
+        'dob': '01-01-2000',
+        'gender': 'M',
+        'mobile': '9876543210',
+        'status': 'ACTIVE',
+      };
+
+      final normalized = controller.normalizeVerifyResponsePayload(response);
+
+      expect(normalized['result']?['ABHAProfile']?['profileId'], 120);
+      expect(normalized['result']?['ABHAProfile']?['mobile'], '9876543210');
+      expect(extractAbhaProfileId(normalized), 120);
+    });
+
     test('extracts profileId from nested ABHA verification payloads', () {
       expect(
         extractAbhaProfileId({

@@ -1117,10 +1117,47 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     if (!_healthIdFormKey.currentState!.validate()) return;
 
     final healthId = _healthIdController.text.trim();
+    final fullName = _fullNameController.text.trim();
+    final mobile = _mobileController.text.replaceAll(RegExp(r'\D'), '');
+    final profilePayload = <String, dynamic>{
+      'result': {
+        'ABHAProfile': {
+          'ABHANumber': _abhaNumber ?? '',
+          'abhaNumber': _abhaNumber ?? '',
+          'profileId': _abhaProfileId,
+          'firstName': fullName,
+          'middleName': '',
+          'lastName': '',
+          'fullName': fullName,
+          'name': fullName,
+          'mobile': mobile,
+          'address': _abhaAddress ?? '',
+          'abhaAddress': _abhaAddress ?? '',
+          'preferredAbhaAddress': _abhaAddress ?? '',
+          'stateName': '',
+          'districtName': '',
+          'pincode': '',
+          'verificationStatus': 'VERIFIED',
+          'verificationType': 'AADHAAR',
+          'status': 'ACTIVE',
+        }
+      }
+    };
+
     setState(() {
       _healthId = healthId;
-      _showSuccess = true;
+      _showSuccess = false;
     });
+
+    final selectedProfile = await controller.showAadhaarSuccessDialog(
+      profilePayload,
+      returnToCaller: true,
+    );
+
+    if (!mounted) return;
+    if (selectedProfile != null) {
+      Navigator.of(context).pop(selectedProfile);
+    }
   }
 
   void _returnToForm() {
