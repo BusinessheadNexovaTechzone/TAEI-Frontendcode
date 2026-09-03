@@ -135,8 +135,8 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
     }
 
     final address = _createCustomAddress
-      ? widget.healthIdController.text
-      : (_selectedSuggestion ?? '');
+        ? widget.healthIdController.text
+        : (_selectedSuggestion ?? '');
 
     if (address.isEmpty) {
       await CommonErrorDialog.show(
@@ -180,51 +180,75 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
           return;
         }
         final payload = decoded['result'] ?? decoded['data'] ?? decoded;
-        if (payload is Map<String, dynamic>) {
-          _controller.aadhaarProfileData.value = payload;
-        }
+        final cachedProfile = _extractCachedProfile(
+          _controller.aadhaarProfileData.value,
+        );
 
         final triage = _controller.createTriageModel.value?.triage;
         final profilePayload = <String, dynamic>{
           'result': {
             'ABHAProfile': {
-              'ABHANumber': triage?.abhaCard ??
-                  _controller.aadhaarProfileData.value?['ABHAProfile']?['ABHANumber'] ??
-                  _controller.aadhaarProfileData.value?['result']?['ABHAProfile']?['ABHANumber'] ??
-                  '',
-              'abhaNumber': triage?.abhaCard ??
-                  _controller.aadhaarProfileData.value?['ABHAProfile']?['abhaNumber'] ??
-                  _controller.aadhaarProfileData.value?['result']?['ABHAProfile']?['abhaNumber'] ??
-                  '',
+              ...cachedProfile,
+              'ABHANumber': _firstNonEmpty([
+                triage?.abhaCard,
+                cachedProfile['ABHANumber'],
+                cachedProfile['abhaNumber'],
+              ]),
+              'abhaNumber': _firstNonEmpty([
+                triage?.abhaCard,
+                cachedProfile['abhaNumber'],
+                cachedProfile['ABHANumber'],
+              ]),
               'profileId': int.tryParse(_controller.currentProfileId.value) ??
-                  _controller.aadhaarProfileData.value?['ABHAProfile']?['profileId'] ??
-                  _controller.aadhaarProfileData.value?['result']?['ABHAProfile']?['profileId'],
-              'firstName': (triage?.nameOfPatient ?? '').split(RegExp(r'\s+')).first,
-              'middleName': '',
-              'lastName': (triage?.nameOfPatient ?? '').split(RegExp(r'\s+')).length > 1
-                  ? (triage?.nameOfPatient ?? '').split(RegExp(r'\s+')).sublist(1).join(' ')
-                  : '',
-              'fullName': triage?.nameOfPatient ?? '',
-              'name': triage?.nameOfPatient ?? '',
-              'mobile': triage?.patientMobileNumber ?? '',
-              'address': triage?.addressLine ?? payload['address'] ?? '',
+                  cachedProfile['profileId'],
+              'firstName': _firstNonEmpty([
+                cachedProfile['firstName'],
+                (triage?.nameOfPatient ?? '').split(RegExp(r'\s+')).first,
+              ]),
+              'middleName': cachedProfile['middleName'] ?? '',
+              'lastName': cachedProfile['lastName'] ?? '',
+              'fullName': _firstNonEmpty([
+                cachedProfile['fullName'],
+                cachedProfile['name'],
+                triage?.nameOfPatient,
+              ]),
+              'name': _firstNonEmpty([
+                cachedProfile['name'],
+                cachedProfile['fullName'],
+                triage?.nameOfPatient,
+              ]),
+              'mobile': _firstNonEmpty([
+                triage?.patientMobileNumber,
+                cachedProfile['mobile'],
+                cachedProfile['mobileNumber'],
+              ]),
+              'address': _firstNonEmpty([
+                payload is Map ? payload['address'] : null,
+                triage?.addressLine,
+                cachedProfile['address'],
+              ]),
               'abhaAddress': payload['abhaAddress'] ??
                   payload['preferredAbhaAddress'] ??
-                  triage?.addressLine ??
+                  cachedProfile['abhaAddress'] ??
                   '',
               'preferredAbhaAddress': payload['abhaAddress'] ??
                   payload['preferredAbhaAddress'] ??
-                  triage?.addressLine ??
+                  cachedProfile['preferredAbhaAddress'] ??
                   '',
               'verificationStatus': 'VERIFIED',
               'verificationType': 'AADHAAR',
               'status': 'ACTIVE',
-              'stateName': triage?.state ?? '',
-              'districtName': triage?.district ?? '',
-              'pincode': triage?.pincode ?? '',
+              'stateName': cachedProfile['stateName'] ?? '',
+              'districtName': cachedProfile['districtName'] ?? '',
+              'pincode': cachedProfile['pincode'] ?? '',
             }
           }
         };
+
+        // Keep the complete profile (DOB, age, gender, photo, etc.) available
+        // for the preview and for the parent screen after address creation.
+        _controller.aadhaarProfileData.value = profilePayload;
+        _controller.verifiedAbhaProfileData.value = profilePayload;
 
         final result = await _controller.showAadhaarSuccessDialog(
           profilePayload,
@@ -239,7 +263,7 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
       final decoded = response.body.trim().isEmpty
           ? <String, dynamic>{}
           : jsonDecode(response.body);
-        final payload = decoded is Map<String, dynamic>
+      final payload = decoded is Map<String, dynamic>
           ? {...decoded, 'statusCode': response.statusCode}
           : {'message': decoded, 'statusCode': response.statusCode};
       await CommonErrorDialog.showFromResponse(
@@ -259,6 +283,33 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
     }
   }
 
+  String _firstNonEmpty(List<Object?> values) {
+    for (final value in values) {
+      final text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty && text.toLowerCase() != 'null') return text;
+    }
+    return '';
+  }
+
+  Map<String, dynamic> _extractCachedProfile(Map<String, dynamic>? response) {
+    if (response == null) return <String, dynamic>{};
+
+    final result = response['result'];
+    final resultProfile = result is Map ? result['ABHAProfile'] : null;
+    final directProfile = response['ABHAProfile'];
+    final profile = resultProfile is Map
+        ? resultProfile
+        : directProfile is Map
+            ? directProfile
+            : result is Map
+                ? result
+                : response;
+
+    return profile is Map
+        ? Map<String, dynamic>.from(profile)
+        : <String, dynamic>{};
+  }
+
   String? _validateAddressUsername(String value) {
     if (value.trim().isEmpty) return 'Please enter an ABHA Address.';
     final username = value;
@@ -274,7 +325,8 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
     if (!RegExp(r'^[A-Za-z0-9._]+$').hasMatch(username)) {
       return 'Only English letters, numbers, one dot (.) or one underscore (_) are allowed.';
     }
-    if (username.startsWith('.')) return 'Dot (.) cannot be the first character.';
+    if (username.startsWith('.'))
+      return 'Dot (.) cannot be the first character.';
     if (username.startsWith('_')) {
       return 'Underscore (_) cannot be the first character.';
     }

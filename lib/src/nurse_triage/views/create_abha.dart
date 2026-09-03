@@ -624,6 +624,14 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         return;
       }
 
+      // Keep the complete Aadhaar verification payload until the address step
+      // finishes. The address-create response contains only address details,
+      // so rebuilding the profile from triage fields would lose DOB, age,
+      // gender, photo and any other demographic fields returned here.
+      _verificationResponse = Map<String, dynamic>.from(response);
+      controller.aadhaarProfileData.value = _verificationResponse;
+      controller.verifiedAbhaProfileData.value = _verificationResponse;
+
       final rawIsNew = response['result']?['isNew'];
       final isNew = rawIsNew is bool
           ? rawIsNew
@@ -710,6 +718,9 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
           });
           return;
         }
+
+        controller.currentProfileId.value = profileId.toString();
+        controller.createTriageModel.value?.triage?.abhaProfileId = profileId;
 
         AbhaDebugLogger.workflow('NEW ACCOUNT CREATED', flowId: _abhaFlowId);
         AbhaDebugLogger.workflow('Message: Account created successfully',
@@ -1119,24 +1130,27 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     final healthId = _healthIdController.text.trim();
     final fullName = _fullNameController.text.trim();
     final mobile = _mobileController.text.replaceAll(RegExp(r'\D'), '');
+    final verifiedProfile = _extractVerifiedProfile(_verificationResponse);
+    final enteredMobile = _normalizeMobile(mobile);
     final profilePayload = <String, dynamic>{
       'result': {
         'ABHAProfile': {
+          ...verifiedProfile,
           'ABHANumber': _abhaNumber ?? '',
-          'abhaNumber': _abhaNumber ?? '',
+          'abhaNumber': _abhaNumber ?? verifiedProfile['abhaNumber'] ?? '',
           'profileId': _abhaProfileId,
-          'firstName': fullName,
-          'middleName': '',
-          'lastName': '',
-          'fullName': fullName,
-          'name': fullName,
-          'mobile': mobile,
+          'firstName': verifiedProfile['firstName'] ?? fullName,
+          'middleName': verifiedProfile['middleName'] ?? '',
+          'lastName': verifiedProfile['lastName'] ?? '',
+          'fullName': verifiedProfile['fullName'] ?? fullName,
+          'name': verifiedProfile['name'] ?? fullName,
+          'mobile': verifiedProfile['mobile'] ?? enteredMobile,
           'address': _abhaAddress ?? '',
           'abhaAddress': _abhaAddress ?? '',
           'preferredAbhaAddress': _abhaAddress ?? '',
-          'stateName': '',
-          'districtName': '',
-          'pincode': '',
+          'stateName': verifiedProfile['stateName'] ?? '',
+          'districtName': verifiedProfile['districtName'] ?? '',
+          'pincode': verifiedProfile['pincode'] ?? '',
           'verificationStatus': 'VERIFIED',
           'verificationType': 'AADHAAR',
           'status': 'ACTIVE',
@@ -1158,6 +1172,25 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     if (selectedProfile != null) {
       Navigator.of(context).pop(selectedProfile);
     }
+  }
+
+  Map<String, dynamic> _extractVerifiedProfile(Map<String, dynamic>? response) {
+    if (response == null) return <String, dynamic>{};
+
+    final result = response['result'];
+    final resultProfile = result is Map ? result['ABHAProfile'] : null;
+    final directProfile = response['ABHAProfile'];
+    final profile = resultProfile is Map
+        ? resultProfile
+        : directProfile is Map
+            ? directProfile
+            : result is Map
+                ? result
+                : response;
+
+    return profile is Map
+        ? Map<String, dynamic>.from(profile)
+        : <String, dynamic>{};
   }
 
   void _returnToForm() {
