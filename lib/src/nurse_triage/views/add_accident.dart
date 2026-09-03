@@ -1035,14 +1035,15 @@ class _AddAccidentState extends State<AddAccident> {
                                                   ""),
                                           keyboardType: TextInputType.name,
                                           hintText: 'Enter the name',
-                                          onChanged: (v) {
-                                            controller.createTriageModel.value!
-                                                .triage!.nameOfPatient = v;
-                                          },
+                                          readOnly: controller.aadhaarProfileImported.value,
+                                          onChanged: controller.aadhaarProfileImported.value
+                                              ? null
+                                              : (v) {
+                                                  controller.createTriageModel.value!
+                                                      .triage!.nameOfPatient = v;
+                                                },
                                           validator: (value) {
-                                            // print(value);
-                                            if (value == null ||
-                                                value.isEmpty) {
+                                            if (value == null || value.isEmpty) {
                                               return 'Please enter Name of Patient';
                                             } else {
                                               return null;
@@ -1077,7 +1078,9 @@ class _AddAccidentState extends State<AddAccident> {
                                                                 })
                                                             .toList() ??
                                                         [],
+                                                    isEditable: !controller.aadhaarProfileImported.value,
                                                     onChanged: (value) {
+                                                      if (controller.aadhaarProfileImported.value) return;
                                                       controller
                                                           .createTriageModel
                                                           .value!
@@ -1128,21 +1131,22 @@ class _AddAccidentState extends State<AddAccident> {
                                                               TextInputType
                                                                   .number,
                                                           maxLength: 2,
-                                                          onChanged: (value) {
-                                                            if (value
-                                                                .isNotEmpty) {
-                                                              controller
-                                                                      .createTriageModel
-                                                                      .value
-                                                                      ?.triage
-                                                                      ?.ageYear =
-                                                                  int.parse(
-                                                                      value);
-                                                              controller
-                                                                  .createTriageModel
-                                                                  .refresh();
-                                                            }
-                                                          },
+                                                          readOnly: controller.aadhaarProfileImported.value,
+                                                          onChanged: controller.aadhaarProfileImported.value
+                                                              ? null
+                                                              : (value) {
+                                                                  if (value.isNotEmpty) {
+                                                                    controller
+                                                                            .createTriageModel
+                                                                            .value
+                                                                            ?.triage
+                                                                            ?.ageYear =
+                                                                        int.parse(value);
+                                                                    controller
+                                                                        .createTriageModel
+                                                                        .refresh();
+                                                                  }
+                                                                },
                                                           validator: (value) {
                                                             if (value == null ||
                                                                 value.isEmpty) {
@@ -1178,8 +1182,9 @@ class _AddAccidentState extends State<AddAccident> {
                                                                       '11',
                                                                       '12',
                                                                     ],
-                                                                    onChanged:
-                                                                        (value) {
+                                                                    isEditable: !controller.aadhaarProfileImported.value,
+                                                                    onChanged: (value) {
+                                                                      if (controller.aadhaarProfileImported.value) return;
                                                                       controller
                                                                           .createTriageModel
                                                                           .value!

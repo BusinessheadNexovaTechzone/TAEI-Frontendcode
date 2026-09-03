@@ -5,8 +5,9 @@ class TitleDropdown<T> extends StatelessWidget {
   final String? hint;
   final List<T> items;
   final T? selectedItem;
-  final ValueChanged<T?> onChanged;
+  final ValueChanged<T?>? onChanged;
   final InputBorder? border;
+  final bool isEditable;
 
   const TitleDropdown({
     super.key,
@@ -14,8 +15,9 @@ class TitleDropdown<T> extends StatelessWidget {
     this.hint,
     required this.items,
     this.selectedItem,
-    required this.onChanged,
+    this.onChanged,
     this.border,
+    this.isEditable = true,
   });
 
   @override
@@ -60,7 +62,7 @@ class TitleDropdown<T> extends StatelessWidget {
                     ),
                   );
                 }).toList(),
-          onChanged: onChanged,
+          onChanged: isEditable ? onChanged : null,
           validator: (value) {
             if (items.isEmpty) {
               return 'No items available';
@@ -86,6 +88,7 @@ class NewTitleDropdown extends StatelessWidget {
   final bool isValidation;
   final bool isRequired;
   final bool? valid;
+  final bool isEditable;
   const NewTitleDropdown({
     super.key,
     this.title,
@@ -95,7 +98,9 @@ class NewTitleDropdown extends StatelessWidget {
     required this.onChanged,
     this.border,
     this.isRequired = false,
-    this.isValidation = true,this. valid,
+    this.isValidation = true,
+    this.valid,
+    this.isEditable = true,
   });
 
   @override
@@ -177,7 +182,7 @@ class NewTitleDropdown extends StatelessWidget {
               ),
             );
           }).toList(),
-          onChanged: onChanged,
+          onChanged: isEditable ? onChanged : null,
           // validator: valid! ? (!isValidation
           //     ? null
           //     : (value) {
