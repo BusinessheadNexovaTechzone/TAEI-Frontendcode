@@ -439,6 +439,31 @@ class VerifyAbhaController extends GetxController {
     return buildProfileCardPayloadFromVerifyResponse(normalizedResponse);
   }
 
+  int? _resolveProfileIdFromResponse(Map<String, dynamic> response) {
+    final normalizedResponse = normalizeVerifyResponsePayload(response);
+
+    final directProfileId = extractAbhaProfileId(normalizedResponse);
+    if (directProfileId != null && directProfileId > 0) {
+      return directProfileId;
+    }
+
+    final parsedProfiles = AbhaVerifiedProfile.fromResponseList(normalizedResponse);
+    for (final parsedProfile in parsedProfiles) {
+      final parsedProfileId = parsedProfile.profileId;
+      if (parsedProfileId != null && parsedProfileId > 0) {
+        return parsedProfileId;
+      }
+    }
+
+    final payload = _buildAadhaarProfileCardPayload(normalizedResponse);
+    final payloadProfileId = extractAbhaProfileId(payload);
+    if (payloadProfileId != null && payloadProfileId > 0) {
+      return payloadProfileId;
+    }
+
+    return null;
+  }
+
   Map<String, dynamic> _injectProfileIdIntoPayload(
     Map<String, dynamic> payload,
     int? profileId,
@@ -483,8 +508,7 @@ class VerifyAbhaController extends GetxController {
       return;
     }
 
-    final profileId = extractAbhaProfileId(normalizedResponse) ??
-        extractAbhaProfileId(_buildAadhaarProfileCardPayload(normalizedResponse));
+    final profileId = _resolveProfileIdFromResponse(normalizedResponse);
     final payload = _buildAadhaarProfileCardPayload(normalizedResponse);
     final enrichedPayload = _injectProfileIdIntoPayload(payload, profileId);
 

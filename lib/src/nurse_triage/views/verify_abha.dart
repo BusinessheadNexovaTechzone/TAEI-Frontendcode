@@ -6,6 +6,7 @@ import 'verify_mobile_abha.dart';
 import 'verify_aadhaar_abha.dart';
 import 'verify_abha_number.dart';
 import 'verify_abha_address.dart';
+import 'verify_biometric_abha.dart';
 import 'verify_otp.dart';
 
 class _TabItem {
@@ -34,6 +35,8 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
     _TabItem('Aadhaar Number', Icons.verified_user_outlined),
     _TabItem('ABHA Number', Icons.medical_services_outlined),
     _TabItem('ABHA Address', Icons.badge_outlined),
+    _TabItem('Face', Icons.face_retouching_natural_outlined),
+    _TabItem('Fingerprint', Icons.fingerprint_outlined),
   ];
 
   @override
@@ -46,7 +49,7 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
       ? Get.find<NurseTriageController>()
       : Get.put(NurseTriageController());
     _nurseController.verifiedAbhaProfileData.value = null;
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
         setState(() {
@@ -161,13 +164,11 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
                         final tab = _tabs[index];
                         return Expanded(
                           child: GestureDetector(
-                            onTap: () {
-                              _tabController.animateTo(index);
-                            },
+                            onTap: () => _tabController.animateTo(index),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 220),
                               margin: const EdgeInsets.symmetric(horizontal: 2),
-                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
                               decoration: BoxDecoration(
                                 color: isActive ? const Color(0xFFEF4444) : Colors.white,
                                 borderRadius: BorderRadius.circular(14),
@@ -176,24 +177,31 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
                                 ),
                                 boxShadow: isActive
                                     ? [
-                                        BoxShadow(
-                                          color: const Color(0x1Fef4444),
+                                        const BoxShadow(
+                                          color: Color(0x1Fef4444),
                                           blurRadius: 12,
-                                          offset: const Offset(0, 4),
+                                          offset: Offset(0, 4),
                                         ),
                                       ]
                                     : null,
                               ),
                               alignment: Alignment.center,
-                              child: Row(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(tab.icon, size: 18, color: isActive ? Colors.white : const Color(0xFF374151)),
-                                  const SizedBox(width: 8),
+                                  Icon(
+                                    tab.icon,
+                                    size: 18,
+                                    color: isActive ? Colors.white : const Color(0xFF374151),
+                                  ),
+                                  const SizedBox(height: 4),
                                   Text(
                                     tab.label,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.center,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                    style: theme.textTheme.bodySmall?.copyWith(
                                       color: isActive ? Colors.white : const Color(0xFF374151),
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -235,6 +243,8 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
                           VerifyAadhaarAbhaScreen(onNext: (message) => _openOtpScreen(message: message)),
                           VerifyAbhaNumberScreen(onNext: (message) => _openOtpScreen(message: message)),
                           VerifyAbhaAddressScreen(onNext: (message) => _openOtpScreen(message: message)),
+                          const VerifyBiometricAbhaScreen(method: VerifyBiometricMethod.face),
+                          const VerifyBiometricAbhaScreen(method: VerifyBiometricMethod.fingerprint),
                         ],
                       ),
                     ),

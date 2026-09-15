@@ -444,8 +444,13 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
               onChanged: (value) {
                 setState(() {
                   _createCustomAddress = value ?? false;
-                  if (!_createCustomAddress) {
+                  if (_createCustomAddress) {
+                    _selectedSuggestion = null;
+                  } else {
                     widget.healthIdController.clear();
+                    if (_suggestions.isNotEmpty) {
+                      _selectedSuggestion = _suggestions.first;
+                    }
                   }
                 });
               },

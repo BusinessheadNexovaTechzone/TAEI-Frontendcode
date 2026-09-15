@@ -1009,7 +1009,18 @@ class NurseTriageController extends GetxController {
 
     log("ABHA Profile data: $data");
 
-    final extractedProfileId = extractAbhaProfileId(d) ?? extractAbhaProfileId(data);
+    final normalizedProfiles = AbhaVerifiedProfile.fromResponseList(d);
+    int? extractedProfileId = extractAbhaProfileId(d) ?? extractAbhaProfileId(data);
+    if (extractedProfileId == null || extractedProfileId <= 0) {
+      for (final parsedProfile in normalizedProfiles) {
+        final parsedProfileId = parsedProfile.profileId;
+        if (parsedProfileId != null && parsedProfileId > 0) {
+          extractedProfileId = parsedProfileId;
+          break;
+        }
+      }
+    }
+
     if (extractedProfileId != null && extractedProfileId > 0) {
       currentProfileId.value = extractedProfileId.toString();
       triage.abhaProfileId = extractedProfileId;
@@ -1334,8 +1345,20 @@ class NurseTriageController extends GetxController {
   }) async {
     aadhaarProfileData.value = d; // store payload for later "View Card"
     final profile = _resolveAbhaProfilePayload(d);
-    final extractedProfileId = extractAbhaProfileId(d) ??
+    final normalizedProfiles = AbhaVerifiedProfile.fromResponseList(d);
+    int? extractedProfileId = extractAbhaProfileId(d) ??
         (profile != null ? extractAbhaProfileId(profile) : null);
+
+    if (extractedProfileId == null || extractedProfileId <= 0) {
+      for (final parsedProfile in normalizedProfiles) {
+        final parsedProfileId = parsedProfile.profileId;
+        if (parsedProfileId != null && parsedProfileId > 0) {
+          extractedProfileId = parsedProfileId;
+          break;
+        }
+      }
+    }
+
     if (extractedProfileId != null && extractedProfileId > 0) {
       currentProfileId.value = extractedProfileId.toString();
       createTriageModel.value?.triage?.abhaProfileId = extractedProfileId;
@@ -1353,7 +1376,6 @@ class NurseTriageController extends GetxController {
 
     _applyAadhaarResponseData(d);
 
-    final normalizedProfiles = AbhaVerifiedProfile.fromResponseList(d);
     if (normalizedProfiles.isEmpty) {
       Fluttertoast.showToast(msg: 'No ABHA profile data found');
       return null;
