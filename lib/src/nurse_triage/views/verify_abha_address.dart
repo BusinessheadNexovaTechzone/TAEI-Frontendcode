@@ -19,7 +19,7 @@ class _VerifyAbhaAddressScreenState extends State<VerifyAbhaAddressScreen> {
   late final VerifyAbhaController _controller;
   late String _captchaQuestion;
   late String _captchaAnswer;
-  String _selectedMethod = 'Mobile Registered OTP';
+  String _selectedMethod = 'Aadhaar Registered OTP';
 
   @override
   void initState() {
@@ -153,25 +153,6 @@ class _VerifyAbhaAddressScreenState extends State<VerifyAbhaAddressScreen> {
                       children: [
                         InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          onTap: () => setState(() => _selectedMethod = 'Mobile Registered OTP'),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                            child: Row(
-                              children: [
-                                Radio<String>(
-                                  value: 'Mobile Registered OTP',
-                                  groupValue: _selectedMethod,
-                                  onChanged: (value) => setState(() => _selectedMethod = value ?? 'Mobile Registered OTP'),
-                                  activeColor: const Color(0xFFEF4444),
-                                ),
-                                const SizedBox(width: 4),
-                                const Expanded(child: Text('Mobile Registered OTP', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151)))),
-                              ],
-                            ),
-                          ),
-                        ),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(12),
                           onTap: () => setState(() => _selectedMethod = 'Aadhaar Registered OTP'),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
@@ -185,6 +166,25 @@ class _VerifyAbhaAddressScreenState extends State<VerifyAbhaAddressScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 const Expanded(child: Text('Aadhaar Registered OTP', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151)))),
+                              ],
+                            ),
+                          ),
+                        ),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => setState(() => _selectedMethod = 'Mobile Registered OTP'),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            child: Row(
+                              children: [
+                                Radio<String>(
+                                  value: 'Mobile Registered OTP',
+                                  groupValue: _selectedMethod,
+                                  onChanged: (value) => setState(() => _selectedMethod = value ?? 'Mobile Registered OTP'),
+                                  activeColor: const Color(0xFFEF4444),
+                                ),
+                                const SizedBox(width: 4),
+                                const Expanded(child: Text('Mobile Registered OTP', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151)))),
                               ],
                             ),
                           ),

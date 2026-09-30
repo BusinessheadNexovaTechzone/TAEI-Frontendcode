@@ -23,7 +23,7 @@ class _VerifyAbhaNumberScreenState extends State<VerifyAbhaNumberScreen> {
   late final VerifyAbhaController _controller;
   late String _captchaQuestion;
   late String _captchaAnswer;
-  String _selectedMethod = 'Aadhaar OTP';
+  String _selectedMethod = 'Aadhaar Registered OTP';
   String _abhaNumberError = '';
 
   @override
@@ -140,7 +140,7 @@ class _VerifyAbhaNumberScreenState extends State<VerifyAbhaNumberScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final abhaNumber = _buildFormattedAbhaNumber();
-    final method = _selectedMethod == 'Aadhaar OTP' ? 'abha-aadhaar' : 'abha-abha';
+    final method = _selectedMethod == 'Aadhaar Registered OTP' ? 'abha-aadhaar' : 'abha-abha';
 
     debugPrint('========== VERIFY ABHA ==========');
     debugPrint('Selected Method : $method');
@@ -159,7 +159,7 @@ class _VerifyAbhaNumberScreenState extends State<VerifyAbhaNumberScreen> {
         ? _controller.otpMessage.value
         : method == 'abha-aadhaar'
             ? 'OTP sent to your Aadhaar registered mobile number.'
-            : 'OTP sent to your ABHA registered mobile number.';
+            : 'OTP sent to your mobile registered with ABHA.';
 
     await widget.onNext?.call(message);
   }
@@ -247,38 +247,38 @@ class _VerifyAbhaNumberScreenState extends State<VerifyAbhaNumberScreen> {
                       children: [
                         InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          onTap: () => setState(() => _selectedMethod = 'Aadhaar OTP'),
+                          onTap: () => setState(() => _selectedMethod = 'Aadhaar Registered OTP'),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                             child: Row(
                               children: [
                                 Radio<String>(
-                                  value: 'Aadhaar OTP',
+                                  value: 'Aadhaar Registered OTP',
                                   groupValue: _selectedMethod,
-                                  onChanged: (value) => setState(() => _selectedMethod = value ?? 'Aadhaar OTP'),
+                                  onChanged: (value) => setState(() => _selectedMethod = value ?? 'Aadhaar Registered OTP'),
                                   activeColor: const Color(0xFFEF4444),
                                 ),
                                 const SizedBox(width: 4),
-                                const Expanded(child: Text('Aadhaar OTP', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151)))),
+                                const Expanded(child: Text('Aadhaar Registered OTP', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151)))),
                               ],
                             ),
                           ),
                         ),
                         InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          onTap: () => setState(() => _selectedMethod = 'ABHA Number OTP'),
+                          onTap: () => setState(() => _selectedMethod = 'Mobile Registered OTP'),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                             child: Row(
                               children: [
                                 Radio<String>(
-                                  value: 'ABHA Number OTP',
+                                  value: 'Mobile Registered OTP',
                                   groupValue: _selectedMethod,
-                                  onChanged: (value) => setState(() => _selectedMethod = value ?? 'ABHA Number OTP'),
+                                  onChanged: (value) => setState(() => _selectedMethod = value ?? 'Mobile Registered OTP'),
                                   activeColor: const Color(0xFFEF4444),
                                 ),
                                 const SizedBox(width: 4),
-                                const Expanded(child: Text('ABHA Number OTP', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151)))),
+                                const Expanded(child: Text('Mobile Registered OTP', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151)))),
                               ],
                             ),
                           ),
