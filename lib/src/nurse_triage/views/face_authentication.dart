@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:taei_gov/src/nurse_triage/controller/face_auth_controller.dart';
 import 'package:taei_gov/src/nurse_triage/controller/nurse_triage_controller.dart';
 import 'package:taei_gov/src/nurse_triage/services/face_rd_service.dart';
@@ -33,7 +36,9 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
   bool _faceScanCompleted = false;
   bool _showMobileInput = false;
   String? _txnId;
+  String? _faceAuthUrl;
   String? _statusMessage;
+  Timer? _captureTimer;
 
   @override
   void initState() {
@@ -53,6 +58,7 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
 
   @override
   void dispose() {
+    _captureTimer?.cancel();
     _mobileController.dispose();
     _faceService.dispose();
     super.dispose();
@@ -104,13 +110,19 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
       }
 
       _txnId = txnId;
+      _faceAuthUrl = _faceAuthController.faceAuthUrl.value;
       _controller.faceTxnId.value = txnId;
       _controller.createTriageModel.value!.triage!.aadhaar = aadhaar;
       _controller.createTriageModel.value!.triage!.patientMobileNumber =
           _mobileController.text.replaceAll(RegExp(r'\D'), '');
       _controller.createTriageModel.refresh();
       _faceScanCompleted = false;
-      _showMobileInput = false;
+      _showMobileInput = true;
+
+      _captureTimer?.cancel();
+      _captureTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+        _verifyFaceAndEnroll();
+      });
 
       debugPrint('==================================');
       debugPrint('INIT API');
@@ -121,7 +133,7 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
 
       setState(() {
         _statusMessage =
-            'ABHA app has been launched. Please complete the face scan and return here.';
+        'Scan the QR code with the official ABHA app. Status will refresh every 15 seconds.';
       });
     } catch (e) {
       await CommonErrorDialog.show(
@@ -168,15 +180,6 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
       return;
     }
 
-    final mobile = _mobileController.text.replaceAll(RegExp(r'\D'), '');
-    if (!RegExp(r'^\d{10}$').hasMatch(mobile)) {
-      await CommonErrorDialog.show(
-        context,
-        message: 'Please enter a valid 10-digit mobile number.',
-      );
-      return;
-    }
-
     setState(() {
       _isLoading = true;
       _statusMessage = 'Verifying face scan...';
@@ -206,6 +209,7 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
       }
 
       if (status == 'FAILED') {
+        _captureTimer?.cancel();
         await CommonErrorDialog.show(
           context,
           message: 'Face verification failed. Please try again.',
@@ -214,9 +218,20 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
       }
 
       if (status != 'COMPLETE' && (status?.isNotEmpty ?? false)) {
+        _captureTimer?.cancel();
         await CommonErrorDialog.show(
           context,
           message: 'Face verification could not be completed.',
+        );
+        return;
+      }
+
+      final mobile = _mobileController.text.replaceAll(RegExp(r'\D'), '');
+      if (!RegExp(r'^\d{10}$').hasMatch(mobile)) {
+        _captureTimer?.cancel();
+        await CommonErrorDialog.show(
+          context,
+          message: 'Please enter a valid 10-digit mobile number.',
         );
         return;
       }
@@ -275,6 +290,7 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
       }
 
       _controller.aadhaarProfileData.value = enrollResponse;
+      _captureTimer?.cancel();
       _controller.createTriageModel.value!.triage!.aadhaar =
           widget.aadhaar.replaceAll(RegExp(r'\D'), '');
       _controller.createTriageModel.value!.triage!.patientMobileNumber = mobile;
@@ -331,7 +347,7 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
                   border: Border.all(color: const Color(0xFFE0E0E0)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 16,
                       offset: const Offset(0, 6),
                     ),
@@ -443,6 +459,39 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
                           ],
                         ),
                       ),
+                    if (_faceAuthUrl != null && _faceAuthUrl!.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE0E0E0)),
+                        ),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Scan this QR code in the official ABHA app',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 12),
+                            QrImageView(
+                              data: _faceAuthUrl!,
+                              size: 220,
+                              backgroundColor: Colors.white,
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'The verification status refreshes automatically every 15 seconds.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Color(0xFF616161)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     if (_showMobileInput) ...[
                       const SizedBox(height: 16),

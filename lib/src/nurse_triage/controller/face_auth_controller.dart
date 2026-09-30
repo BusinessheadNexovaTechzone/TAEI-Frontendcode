@@ -57,15 +57,19 @@ class FaceAuthController extends GetxController {
 
       debugPrint('faceAuthUrl: ${faceAuthUrl.value}');
 
-      debugPrint('Launching Production ABHA App');
-      await _service.launchAbhaApp(faceAuthUrl.value);
-      debugPrint('Success');
+      if (kIsWeb) {
+        debugPrint('Skipping native ABHA app launch on web. QR flow is active.');
+      } else {
+        debugPrint('Launching Production ABHA App');
+        await _service.launchAbhaApp(faceAuthUrl.value);
+        debugPrint('Success');
 
-      Get.snackbar(
-        'Face Auth',
-        'Production ABHA app has been launched.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+        Get.snackbar(
+          'Face Auth',
+          'Production ABHA app has been launched.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
 
       return true;
     } on TimeoutException {

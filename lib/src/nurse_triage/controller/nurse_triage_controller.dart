@@ -2491,7 +2491,9 @@ class NurseTriageController extends GetxController {
       // STEP 3
       //----------------------------------------------------
 
-      await faceService.launchAbhaApp(faceUrl);
+      if (!kIsWeb) {
+        await faceService.launchAbhaApp(faceUrl);
+      }
 
       //----------------------------------------------------
 // STEP 4

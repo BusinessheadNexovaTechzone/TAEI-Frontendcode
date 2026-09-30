@@ -86,11 +86,45 @@ class _ConsentCollectionStepState extends State<ConsentCollectionStep> {
   // Manual checkboxes for the first 4 declarations.
   // Index 3 ("anonymization") also drives the two auto-selected sub-items.
   late List<bool> _checks;
+  final TextEditingController _healthcareProviderController =
+      TextEditingController();
+  final TextEditingController _beneficiaryNameController =
+      TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _checks = List<bool>.filled(4, false);
+    _healthcareProviderController.addListener(_onNameChanged);
+    _beneficiaryNameController.addListener(_onNameChanged);
+  }
+
+  @override
+  void dispose() {
+    _healthcareProviderController.dispose();
+    _beneficiaryNameController.dispose();
+    super.dispose();
+  }
+
+  void _onNameChanged() {
+    setState(() {});
+  }
+
+  String get _healthcareProviderName =>
+      _healthcareProviderController.text.trim().isEmpty
+          ? 'healthcare provider name'
+          : _healthcareProviderController.text.trim();
+
+  String get _beneficiaryName => _beneficiaryNameController.text.trim().isEmpty
+      ? 'beneficiary name'
+      : _beneficiaryNameController.text.trim();
+
+  InputDecoration _nameInputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      border: const OutlineInputBorder(),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
   }
 
   void _setCheck(int index, bool? value) {
@@ -378,19 +412,35 @@ class _ConsentCollectionStepState extends State<ConsentCollectionStep> {
                                 _declaration(
                                   theme,
                                   widget.primaryColor,
-                                  'I, (name of healthcare worker- depending on the username used for logging into the system), confirm that I have duly informed and explained the beneficiary of the contents of consent for aforementioned purposes.',
+                                  'I, ($_healthcareProviderName), confirm that I have duly informed and explained the beneficiary of the contents of consent for aforementioned purposes.',
                                   checked: _checks[3],
                                   onChanged: null, // auto-selected, not manual
-                                  italicText:
-                                      'name of healthcare worker- depending on the username used for logging into the system',
+                                  italicText: _healthcareProviderName,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 32, top: 4),
+                                  child: TextFormField(
+                                    controller: _healthcareProviderController,
+                                    decoration: _nameInputDecoration(
+                                        'Healthcare provider name'),
+                                    textInputAction: TextInputAction.next,
+                                  ),
                                 ),
                                 _declaration(
                                   theme,
                                   widget.primaryColor,
-                                  'I, (beneficiary name), have been explained about the consent as stated above and hereby provide my consent for the aforementioned purposes.',
+                                  'I, ($_beneficiaryName), have been explained about the consent as stated above and hereby provide my consent for the aforementioned purposes.',
                                   checked: _checks[3],
                                   onChanged: null, // auto-selected, not manual
-                                  italicText: 'beneficiary name',
+                                  italicText: _beneficiaryName,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 32, top: 4),
+                                  child: TextFormField(
+                                    controller: _beneficiaryNameController,
+                                    decoration: _nameInputDecoration('Beneficiary name'),
+                                    textInputAction: TextInputAction.done,
+                                  ),
                                 ),
                               ],
                             ),

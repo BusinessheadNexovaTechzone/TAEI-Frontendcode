@@ -22,23 +22,7 @@ void main() {
     expect(find.text('Continue with Face Verification'), findsOneWidget);
   });
 
-  testWidgets('renders Fingerprint as a standalone verification method',
-      (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: VerifyBiometricAbhaScreen(
-            method: VerifyBiometricMethod.fingerprint,
-          ),
-        ),
-      ),
-    );
-
-    expect(find.text('Fingerprint Verification'), findsOneWidget);
-    expect(find.text('Continue with Fingerprint Verification'), findsOneWidget);
-  });
-
-  testWidgets('Verify ABHA exposes Face and Fingerprint as top-level methods',
+  testWidgets('Verify ABHA exposes Face as the biometric method',
       (tester) async {
     Get.put(LoginController());
     await tester.pumpWidget(const MaterialApp(home: VerifyAbhaScreen()));
@@ -49,6 +33,6 @@ void main() {
     expect(find.text('ABHA Number'), findsAtLeastNWidgets(1));
     expect(find.text('ABHA Address'), findsAtLeastNWidgets(1));
     expect(find.text('Face'), findsOneWidget);
-    expect(find.text('Fingerprint'), findsOneWidget);
+    expect(find.text('Fingerprint'), findsNothing);
   });
 }

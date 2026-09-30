@@ -6,8 +6,7 @@ import 'verify_mobile_abha.dart';
 import 'verify_aadhaar_abha.dart';
 import 'verify_abha_number.dart';
 import 'verify_abha_address.dart';
-// Temporarily hidden for now. Re-enable later when biometric verification is needed again.
-// import 'verify_biometric_abha.dart';
+import 'verify_biometric_abha.dart';
 import 'verify_otp.dart';
 
 class _TabItem {
@@ -36,9 +35,7 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
     _TabItem('Aadhaar Number', Icons.verified_user_outlined),
     _TabItem('ABHA Number', Icons.medical_services_outlined),
     _TabItem('ABHA Address', Icons.badge_outlined),
-    // Temporarily hidden for now. Re-enable later when biometric verification is needed again.
-    // _TabItem('Face', Icons.face_retouching_natural_outlined),
-    // _TabItem('Fingerprint', Icons.fingerprint_outlined),
+    _TabItem('Face', Icons.face_retouching_natural_outlined),
   ];
 
   @override
@@ -245,9 +242,8 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
                           VerifyAadhaarAbhaScreen(onNext: (message) => _openOtpScreen(message: message)),
                           VerifyAbhaNumberScreen(onNext: (message) => _openOtpScreen(message: message)),
                           VerifyAbhaAddressScreen(onNext: (message) => _openOtpScreen(message: message)),
-                          // Temporarily hidden for now. Re-enable later when biometric verification is needed again.
-                          // const VerifyBiometricAbhaScreen(method: VerifyBiometricMethod.face),
-                          // const VerifyBiometricAbhaScreen(method: VerifyBiometricMethod.fingerprint),
+                          const VerifyBiometricAbhaScreen(
+                              method: VerifyBiometricMethod.face),
                         ],
                       ),
                     ),

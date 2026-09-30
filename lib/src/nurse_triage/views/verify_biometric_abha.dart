@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'face_authentication.dart';
-import 'fingerprint_authentication.dart';
 
-enum VerifyBiometricMethod { face, fingerprint }
+enum VerifyBiometricMethod { face }
 
 class VerifyBiometricAbhaScreen extends StatefulWidget {
   const VerifyBiometricAbhaScreen({
@@ -24,15 +23,10 @@ class _VerifyBiometricAbhaScreenState extends State<VerifyBiometricAbhaScreen> {
   final _aadhaarController = TextEditingController();
   final _mobileController = TextEditingController();
 
-  bool get _isFingerprint => widget.method == VerifyBiometricMethod.fingerprint;
+  String get _title => 'Face Verification';
 
-  String get _title => _isFingerprint
-      ? 'Fingerprint Verification'
-      : 'Face Verification';
-
-  String get _description => _isFingerprint
-      ? 'Use your fingerprint device to verify your ABHA identity.'
-      : 'Use face authentication through the official ABHA application.';
+  String get _description =>
+      'Use face authentication through the official ABHA application.';
 
   @override
   void dispose() {
@@ -49,15 +43,10 @@ class _VerifyBiometricAbhaScreenState extends State<VerifyBiometricAbhaScreen> {
 
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _isFingerprint
-            ? FingerprintAuthenticationScreen(
-                aadhaar: aadhaar,
-                mobile: mobile,
-              )
-            : FaceAuthenticationScreen(
-                aadhaar: aadhaar,
-                mobile: mobile,
-              ),
+        builder: (_) => FaceAuthenticationScreen(
+          aadhaar: aadhaar,
+          mobile: mobile,
+        ),
       ),
     );
   }
@@ -65,9 +54,7 @@ class _VerifyBiometricAbhaScreenState extends State<VerifyBiometricAbhaScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final icon = _isFingerprint
-        ? Icons.fingerprint_rounded
-        : Icons.face_retouching_natural_rounded;
+    final icon = Icons.face_retouching_natural_rounded;
 
     return SingleChildScrollView(
       child: Center(

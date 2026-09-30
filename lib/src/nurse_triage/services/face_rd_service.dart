@@ -117,6 +117,13 @@ class FaceRDService {
       throw const FormatException("faceAuthUrl is required");
     }
 
+    if (kIsWeb) {
+      debugPrint(
+        'Skipping native ABHA app launch on web. QR flow remains active for browser-based verification.',
+      );
+      return;
+    }
+
     debugPrint("==========================================");
     debugPrint("LAUNCH ABHA APP");
     debugPrint("Package : $_packageName");
