@@ -36,6 +36,7 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
     _TabItem('ABHA Number', Icons.medical_services_outlined),
     _TabItem('ABHA Address', Icons.badge_outlined),
     _TabItem('Face', Icons.face_retouching_natural_outlined),
+    _TabItem('Fingerprint', Icons.fingerprint_rounded),
   ];
 
   @override
@@ -244,6 +245,8 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
                           VerifyAbhaAddressScreen(onNext: (message) => _openOtpScreen(message: message)),
                           const VerifyBiometricAbhaScreen(
                               method: VerifyBiometricMethod.face),
+                          const VerifyBiometricAbhaScreen(
+                              method: VerifyBiometricMethod.fingerprint),
                         ],
                       ),
                     ),
