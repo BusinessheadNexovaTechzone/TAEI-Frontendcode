@@ -27,6 +27,8 @@ class FaceAuthenticationScreen extends StatefulWidget {
 }
 
 class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
+  static const int _statusRefreshIntervalSeconds = 45;
+
   final TextEditingController _mobileController = TextEditingController();
   late final FaceAuthController _faceAuthController;
   late final NurseTriageController _controller;
@@ -120,7 +122,8 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
       _showMobileInput = true;
 
       _captureTimer?.cancel();
-      _captureTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _captureTimer = Timer.periodic(
+          const Duration(seconds: _statusRefreshIntervalSeconds), (_) {
         _verifyFaceAndEnroll();
       });
 
@@ -133,7 +136,7 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
 
       setState(() {
         _statusMessage =
-        'Scan the QR code with the official ABHA app. Status will refresh every 15 seconds.';
+            'Scan the QR code with the official ABHA app. Status will refresh every $_statusRefreshIntervalSeconds seconds.';
       });
     } catch (e) {
       await CommonErrorDialog.show(
@@ -303,7 +306,12 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
       debugPrint('==================================');
       debugPrint('SHOW PROFILE CARD');
       debugPrint('==================================');
-      _controller.showLastAadhaarProfileCard();
+      final selectedProfile = await _controller.showLastAadhaarProfileCard(
+        returnToCaller: true,
+      );
+      if (mounted && selectedProfile != null) {
+        Navigator.of(context).pop(selectedProfile);
+      }
     } catch (e) {
       final friendlyMessage = CommonErrorDialog.extractFriendlyErrorMessage(e);
       await CommonErrorDialog.show(
@@ -483,8 +491,8 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
                               backgroundColor: Colors.white,
                             ),
                             const SizedBox(height: 8),
-                            const Text(
-                              'The verification status refreshes automatically every 15 seconds.',
+                            Text(
+                              'The verification status refreshes automatically every $_statusRefreshIntervalSeconds seconds.',
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Color(0xFF616161)),
                             ),

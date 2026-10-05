@@ -10,9 +10,11 @@ class VerifyBiometricAbhaScreen extends StatefulWidget {
   const VerifyBiometricAbhaScreen({
     super.key,
     required this.method,
+    this.onProfileSelected,
   });
 
   final VerifyBiometricMethod method;
+  final ValueChanged<Map<String, dynamic>>? onProfileSelected;
 
   @override
   State<VerifyBiometricAbhaScreen> createState() =>
@@ -49,9 +51,12 @@ class _VerifyBiometricAbhaScreenState extends State<VerifyBiometricAbhaScreen> {
         ? FaceAuthenticationScreen(aadhaar: aadhaar, mobile: mobile)
         : FingerprintAuthenticationScreen(aadhaar: aadhaar, mobile: mobile);
 
-    await Navigator.of(context).push(
+    final selectedProfile = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(builder: (_) => screen),
     );
+    if (mounted && selectedProfile != null) {
+      widget.onProfileSelected?.call(selectedProfile);
+    }
   }
 
   @override

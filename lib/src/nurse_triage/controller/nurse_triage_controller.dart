@@ -704,7 +704,9 @@ class NurseTriageController extends GetxController {
     return null;
   }
 
-  void showLastAadhaarProfileCard() {
+  Future<Map<String, dynamic>?> showLastAadhaarProfileCard({
+    bool returnToCaller = false,
+  }) async {
     log('View ABHA button clicked');
 
     final data = aadhaarProfileData.value;
@@ -712,12 +714,11 @@ class NurseTriageController extends GetxController {
       log('ABHA profile payload available in cache: ${data.keys}');
       if (_resolveAbhaProfilePayload(data) == null) {
         Fluttertoast.showToast(msg: 'No ABHA profile data available to view');
-        return;
+        return null;
       }
 
       log('Opening existing ABHA profile popup from cached profile payload');
-      showAadhaarSuccessDialog(data);
-      return;
+      return showAadhaarSuccessDialog(data, returnToCaller: returnToCaller);
     }
 
     final triage = createTriageModel.value?.triage;
@@ -725,7 +726,7 @@ class NurseTriageController extends GetxController {
     if (abhaCard.isEmpty) {
       log('No ABHA profile data available to view');
       Fluttertoast.showToast(msg: 'No imported profile data available');
-      return;
+      return null;
     }
 
     log('Falling back to local triage model data for ABHA profile popup');
@@ -749,7 +750,10 @@ class NurseTriageController extends GetxController {
     };
 
     log('Opening existing ABHA profile popup from fallback payload');
-    showAadhaarSuccessDialog(fallbackPayload);
+    return showAadhaarSuccessDialog(
+      fallbackPayload,
+      returnToCaller: returnToCaller,
+    );
   }
 
   RxBool isDownloadingAbhaCard = false.obs;

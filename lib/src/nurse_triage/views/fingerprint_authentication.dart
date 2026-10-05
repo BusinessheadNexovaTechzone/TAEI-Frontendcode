@@ -188,7 +188,12 @@ class _FingerprintAuthenticationScreenState
       log('========== FINGERPRINT AUTH FLOW COMPLETE ==========');
 
       // Step 4: Display ABHA profile card using existing flow
-      _nurseController.showLastAadhaarProfileCard();
+      final selectedProfile = await _nurseController.showLastAadhaarProfileCard(
+        returnToCaller: true,
+      );
+      if (mounted && selectedProfile != null) {
+        Navigator.of(context).pop(selectedProfile);
+      }
     } catch (e) {
       log('Fingerprint flow exception: $e');
       final friendlyMessage = CommonErrorDialog.extractFriendlyErrorMessage(e);

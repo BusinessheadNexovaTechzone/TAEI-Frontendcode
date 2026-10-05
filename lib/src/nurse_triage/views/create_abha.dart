@@ -447,7 +447,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     if (!mounted) return;
 
     if (authMethod == 'Fingerprint Authentication') {
-      await Navigator.of(context).push(
+      final selectedProfile = await Navigator.of(context).push<Map<String, dynamic>>(
         MaterialPageRoute(
           builder: (_) => FingerprintAuthenticationScreen(
             aadhaar: aadhaar,
@@ -455,10 +455,13 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
           ),
         ),
       );
+      if (mounted && selectedProfile != null) {
+        Navigator.of(context).pop(selectedProfile);
+      }
       return;
     }
 
-    await Navigator.of(context).push(
+    final selectedProfile = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(
         builder: (_) => FaceAuthenticationScreen(
           aadhaar: aadhaar,
@@ -466,6 +469,9 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         ),
       ),
     );
+    if (mounted && selectedProfile != null) {
+      Navigator.of(context).pop(selectedProfile);
+    }
   }
 
   Future<void> _resendOtp() async {

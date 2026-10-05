@@ -102,6 +102,12 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
     Navigator.of(context).pop(selectedProfile);
   }
 
+  void _returnSelectedProfile(Map<String, dynamic> profile) {
+    _nurseController.selectedAbhaProfile.value = null;
+    debugPrint('[ABHA PROFILE] Biometric profile data passed successfully');
+    Navigator.of(context).pop(profile);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -243,10 +249,14 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
                           VerifyAadhaarAbhaScreen(onNext: (message) => _openOtpScreen(message: message)),
                           VerifyAbhaNumberScreen(onNext: (message) => _openOtpScreen(message: message)),
                           VerifyAbhaAddressScreen(onNext: (message) => _openOtpScreen(message: message)),
-                          const VerifyBiometricAbhaScreen(
-                              method: VerifyBiometricMethod.face),
-                          const VerifyBiometricAbhaScreen(
-                              method: VerifyBiometricMethod.fingerprint),
+                          VerifyBiometricAbhaScreen(
+                            method: VerifyBiometricMethod.face,
+                            onProfileSelected: _returnSelectedProfile,
+                          ),
+                          VerifyBiometricAbhaScreen(
+                            method: VerifyBiometricMethod.fingerprint,
+                            onProfileSelected: _returnSelectedProfile,
+                          ),
                         ],
                       ),
                     ),
