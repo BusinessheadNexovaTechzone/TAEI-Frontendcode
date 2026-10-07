@@ -13,10 +13,12 @@ class FingerprintAuthenticationScreen extends StatefulWidget {
     super.key,
     required this.aadhaar,
     this.mobile,
+    this.returnEnrollmentForAddressCreation = false,
   });
 
   final String aadhaar;
   final String? mobile;
+  final bool returnEnrollmentForAddressCreation;
 
   @override
   State<FingerprintAuthenticationScreen> createState() =>
@@ -167,18 +169,30 @@ class _FingerprintAuthenticationScreenState
       final responseTxn = enrollResponse['txnId']?.toString() ??
           enrollResponse['data']?['txnId']?.toString() ??
           _fingerprintController.txnId.value;
-      if (responseTxn.isNotEmpty) {
-        _fingerprintController.txnId.value = responseTxn;
-      }
 
       // Extract and store profileId from enrollment response
       final profileId = extractAbhaProfileId(enrollResponse);
       if (profileId != null && profileId > 0) {
         _nurseController.currentProfileId.value = profileId.toString();
-        _nurseController.createTriageModel.value?.triage?.abhaProfileId = profileId;
+        _nurseController.createTriageModel.value?.triage?.abhaProfileId =
+            profileId;
         log('[FINGERPRINT] profileId extracted: $profileId');
       } else {
         log('[FINGERPRINT] WARNING: profileId not found in enrollment response');
+      }
+
+      final transactionId = responseTxn.trim().isNotEmpty
+          ? responseTxn.trim()
+          : _fingerprintController.txnId.value.trim();
+      if (transactionId.isNotEmpty) {
+        _fingerprintController.txnId.value = transactionId;
+      }
+      if (widget.returnEnrollmentForAddressCreation) {
+        _nurseController.aadhaarTxnId.value = transactionId;
+        if (mounted) {
+          Navigator.of(context).pop(enrollResponse);
+        }
+        return;
       }
 
       setState(() {

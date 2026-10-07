@@ -445,33 +445,59 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     }
 
     if (!mounted) return;
+    controller.aadhaarTxnId.value = '';
+    controller.currentProfileId.value = '';
+    _verificationResponse = null;
 
     if (authMethod == 'Fingerprint Authentication') {
-      final selectedProfile = await Navigator.of(context).push<Map<String, dynamic>>(
+      final enrollmentResponse =
+          await Navigator.of(context).push<Map<String, dynamic>>(
         MaterialPageRoute(
           builder: (_) => FingerprintAuthenticationScreen(
             aadhaar: aadhaar,
             mobile: _mobileController.text,
+            returnEnrollmentForAddressCreation: true,
           ),
         ),
       );
-      if (mounted && selectedProfile != null) {
-        Navigator.of(context).pop(selectedProfile);
-      }
+      await _continueBiometricAddressCreation(enrollmentResponse);
       return;
     }
 
-    final selectedProfile = await Navigator.of(context).push<Map<String, dynamic>>(
+    final enrollmentResponse =
+        await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(
         builder: (_) => FaceAuthenticationScreen(
           aadhaar: aadhaar,
           mobile: _mobileController.text,
+          returnEnrollmentForAddressCreation: true,
         ),
       ),
     );
-    if (mounted && selectedProfile != null) {
-      Navigator.of(context).pop(selectedProfile);
+    await _continueBiometricAddressCreation(enrollmentResponse);
+  }
+
+  Future<void> _continueBiometricAddressCreation(
+    Map<String, dynamic>? enrollmentResponse,
+  ) async {
+    if (!mounted || enrollmentResponse == null) return;
+
+    if (controller.aadhaarTxnId.value.trim().isEmpty) {
+      await CommonErrorDialog.show(
+        context,
+        message:
+            'The biometric enrollment transaction is unavailable. Please try again.',
+      );
+      return;
     }
+
+    _verificationResponse = Map<String, dynamic>.from(enrollmentResponse);
+    controller.aadhaarProfileData.value = _verificationResponse;
+    controller.verifiedAbhaProfileData.value = _verificationResponse;
+    setState(() {
+      _workflowState = _AbhaWorkflowState.aadhaarVerified;
+      _currentStep = 2;
+    });
   }
 
   Future<void> _resendOtp() async {

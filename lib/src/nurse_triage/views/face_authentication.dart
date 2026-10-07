@@ -16,10 +16,12 @@ class FaceAuthenticationScreen extends StatefulWidget {
     super.key,
     required this.aadhaar,
     this.mobile,
+    this.returnEnrollmentForAddressCreation = false,
   });
 
   final String aadhaar;
   final String? mobile;
+  final bool returnEnrollmentForAddressCreation;
 
   @override
   State<FaceAuthenticationScreen> createState() =>
@@ -299,6 +301,20 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
       _controller.createTriageModel.value!.triage!.patientMobileNumber = mobile;
       _controller.createTriageModel.refresh();
       _faceScanCompleted = true;
+      if (widget.returnEnrollmentForAddressCreation) {
+        final responseTxn = (enrollResponse['txnId']?.toString() ??
+                enrollResponse['data']?['txnId']?.toString() ??
+                enrollResponse['result']?['txnId']?.toString() ??
+                '')
+            .trim();
+        _controller.aadhaarTxnId.value =
+            responseTxn.isNotEmpty ? responseTxn : txnId;
+        if (mounted) {
+          Navigator.of(context).pop(enrollResponse);
+        }
+        return;
+      }
+
       setState(() {
         _statusMessage = 'Face scan completed. Showing ABHA profile.';
       });
