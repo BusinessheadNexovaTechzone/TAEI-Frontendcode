@@ -94,15 +94,12 @@ Map<String, dynamic> buildProfileCardPayloadFromVerifyResponse(
             : nameParts.last
         : '';
 
-    final abhaNumber = normalized.abhaNumber == 'Not Available'
-        ? ''
-        : normalized.abhaNumber;
-    final preferredAbhaAddress = normalized.abhaAddress == 'Not Available'
-        ? ''
-        : normalized.abhaAddress;
-    final residentialAddress = normalized.address == 'Not Available'
-        ? preferredAbhaAddress
-        : normalized.address;
+    final abhaNumber =
+        normalized.abhaNumber == 'Not Available' ? '' : normalized.abhaNumber;
+    final preferredAbhaAddress =
+        normalized.abhaAddress == 'Not Available' ? '' : normalized.abhaAddress;
+    final residentialAddress =
+        normalized.address == 'Not Available' ? '' : normalized.address;
 
     return <String, dynamic>{
       if (normalized.profileId != null) 'profileId': normalized.profileId,
@@ -113,14 +110,17 @@ Map<String, dynamic> buildProfileCardPayloadFromVerifyResponse(
       'lastName': lastName,
       'name': normalized.name,
       'mobile': normalized.mobile == 'Not Available' ? '' : normalized.mobile,
-      'mobileNumber': normalized.mobile == 'Not Available' ? '' : normalized.mobile,
+      'mobileNumber':
+          normalized.mobile == 'Not Available' ? '' : normalized.mobile,
       'address': residentialAddress,
       'residentialAddress': residentialAddress,
       'preferredAbhaAddress': preferredAbhaAddress,
       'abhaAddress': preferredAbhaAddress,
       'stateName': normalized.state == 'Not Available' ? '' : normalized.state,
-      'districtName': normalized.district == 'Not Available' ? '' : normalized.district,
-      'pinCode': normalized.pincode == 'Not Available' ? '' : normalized.pincode,
+      'districtName':
+          normalized.district == 'Not Available' ? '' : normalized.district,
+      'pinCode':
+          normalized.pincode == 'Not Available' ? '' : normalized.pincode,
       'photo': normalized.profilePhoto,
       'profilePhoto': normalized.profilePhoto,
       'status': normalized.status,
@@ -130,17 +130,20 @@ Map<String, dynamic> buildProfileCardPayloadFromVerifyResponse(
       'verificationType': normalized.verificationType,
       'verificationMethod': normalized.verificationType,
       'gender': normalized.gender == 'Not Available' ? '' : normalized.gender,
-      'dob': normalized.dateOfBirth == 'Not Available' ? '' : normalized.dateOfBirth,
-      'dateOfBirth': normalized.dateOfBirth == 'Not Available' ? '' : normalized.dateOfBirth,
+      'dob': normalized.dateOfBirth == 'Not Available'
+          ? ''
+          : normalized.dateOfBirth,
+      'dateOfBirth': normalized.dateOfBirth == 'Not Available'
+          ? ''
+          : normalized.dateOfBirth,
       'age': normalized.age,
     };
   }).toList(growable: false);
 
   return {
     'result': {
-      'ABHAProfile': profilePayloads.length == 1
-          ? profilePayloads.first
-          : profilePayloads,
+      'ABHAProfile':
+          profilePayloads.length == 1 ? profilePayloads.first : profilePayloads,
     },
   };
 }
@@ -270,15 +273,22 @@ class VerifyAbhaController extends GetxController {
 
     if (!validateInput(method: method, value: normalizedLoginId)) {
       final message = normalizedLoginId.isEmpty
-        ? AbhaErrorMessageService.required(
-          method == 'mobile' ? 'mobile' : method == 'aadhaar'
-            ? 'aadhaar'
-            : method.startsWith('abha-address') ? 'abhaAddress' : 'abhaNumber')
-        : AbhaErrorMessageService.invalid(
-          method == 'mobile' ? 'mobile' : method == 'aadhaar'
-            ? 'aadhaar'
-            : method.startsWith('abha-address') ? 'abhaAddress' : 'abhaNumber',
-          incomplete: method == 'aadhaar' || method == 'mobile');
+          ? AbhaErrorMessageService.required(method == 'mobile'
+              ? 'mobile'
+              : method == 'aadhaar'
+                  ? 'aadhaar'
+                  : method.startsWith('abha-address')
+                      ? 'abhaAddress'
+                      : 'abhaNumber')
+          : AbhaErrorMessageService.invalid(
+              method == 'mobile'
+                  ? 'mobile'
+                  : method == 'aadhaar'
+                      ? 'aadhaar'
+                      : method.startsWith('abha-address')
+                          ? 'abhaAddress'
+                          : 'abhaNumber',
+              incomplete: method == 'aadhaar' || method == 'mobile');
 
       if (Get.context != null) {
         await CommonErrorDialog.show(Get.context!, message: message);
@@ -287,7 +297,10 @@ class VerifyAbhaController extends GetxController {
     }
 
     final loginType = resolveLoginType(method: method);
-    final requestLoginId = method == 'abha-aadhaar' || method == 'abha-abha' || method == 'abha-address-mobile' || method == 'abha-address-aadhaar'
+    final requestLoginId = method == 'abha-aadhaar' ||
+            method == 'abha-abha' ||
+            method == 'abha-address-mobile' ||
+            method == 'abha-address-aadhaar'
         ? loginId.trim()
         : normalizedLoginId;
 
@@ -310,19 +323,21 @@ class VerifyAbhaController extends GetxController {
 
     isLoading.value = true;
     try {
-      final response = method == 'abha-address-mobile' || method == 'abha-address-aadhaar'
-          ? await _service.sendAbhaAddressOtp(
-              loginType: loginType,
-              loginId: requestLoginId,
-            )
-          : await _service.sendOtp(
-              loginType: loginType,
-              loginId: requestLoginId,
-            );
+      final response =
+          method == 'abha-address-mobile' || method == 'abha-address-aadhaar'
+              ? await _service.sendAbhaAddressOtp(
+                  loginType: loginType,
+                  loginId: requestLoginId,
+                )
+              : await _service.sendOtp(
+                  loginType: loginType,
+                  loginId: requestLoginId,
+                );
       debugPrint('sendOtp service response: $response');
 
       if (response == null) {
-        final message = AbhaErrorMessageService.map(null, context: 'generateOtp');
+        final message =
+            AbhaErrorMessageService.map(null, context: 'generateOtp');
         lastApiError.value = {'message': message};
         if (Get.context != null) {
           await CommonErrorDialog.show(
@@ -367,7 +382,8 @@ class VerifyAbhaController extends GetxController {
       return true;
     } catch (e) {
       log('Verify ABHA send OTP exception: $e');
-      final friendlyMessage = AbhaErrorMessageService.map(e, context: 'generateOtp');
+      final friendlyMessage =
+          AbhaErrorMessageService.map(e, context: 'generateOtp');
       lastApiError.value = {'message': friendlyMessage};
       if (Get.context != null) {
         await CommonErrorDialog.show(
@@ -396,7 +412,8 @@ class VerifyAbhaController extends GetxController {
 
     final wrappedResult = response['result'];
     if (wrappedResult is Map &&
-        (wrappedResult['ABHAProfile'] is Map || wrappedResult['profile'] is Map)) {
+        (wrappedResult['ABHAProfile'] is Map ||
+            wrappedResult['profile'] is Map)) {
       return response;
     }
 
@@ -447,7 +464,8 @@ class VerifyAbhaController extends GetxController {
       return directProfileId;
     }
 
-    final parsedProfiles = AbhaVerifiedProfile.fromResponseList(normalizedResponse);
+    final parsedProfiles =
+        AbhaVerifiedProfile.fromResponseList(normalizedResponse);
     for (final parsedProfile in parsedProfiles) {
       final parsedProfileId = parsedProfile.profileId;
       if (parsedProfileId != null && parsedProfileId > 0) {
@@ -521,7 +539,8 @@ class VerifyAbhaController extends GetxController {
     if (profileId != null && profileId > 0) {
       nurseController.currentProfileId.value = profileId.toString();
       if (nurseController.createTriageModel.value?.triage != null) {
-        nurseController.createTriageModel.value!.triage!.abhaProfileId = profileId;
+        nurseController.createTriageModel.value!.triage!.abhaProfileId =
+            profileId;
       }
       log('[VERIFY ABHA] profileId extracted: $profileId');
     } else {
@@ -529,7 +548,8 @@ class VerifyAbhaController extends GetxController {
       if (fallbackProfileId != null && fallbackProfileId > 0) {
         nurseController.currentProfileId.value = fallbackProfileId.toString();
         if (nurseController.createTriageModel.value?.triage != null) {
-          nurseController.createTriageModel.value!.triage!.abhaProfileId = fallbackProfileId;
+          nurseController.createTriageModel.value!.triage!.abhaProfileId =
+              fallbackProfileId;
         }
       }
       log('[VERIFY ABHA] WARNING: profileId not found in verify response');
@@ -547,7 +567,7 @@ class VerifyAbhaController extends GetxController {
       if (Get.context != null) {
         await CommonErrorDialog.show(
           Get.context!,
-            message: otp.trim().isEmpty
+          message: otp.trim().isEmpty
               ? AbhaErrorMessageService.required('otp')
               : AbhaErrorMessageService.invalid('otp', incomplete: true),
         );
@@ -604,11 +624,10 @@ class VerifyAbhaController extends GetxController {
       if (!success) {
         lastApiError.value = response;
         if (Get.context != null) {
-          await CommonErrorDialog.showFromResponse(Get.context!,
-              response: {
-                ...response,
-                'message': AbhaErrorMessageService.map(response, context: 'otp'),
-              });
+          await CommonErrorDialog.showFromResponse(Get.context!, response: {
+            ...response,
+            'message': AbhaErrorMessageService.map(response, context: 'otp'),
+          });
         }
         return false;
       }

@@ -54,6 +54,7 @@ class AddAccident extends StatefulWidget {
 
 class _AddAccidentState extends State<AddAccident> {
   String rawAadhaar = '';
+  String _selectedAbhaAddress = '';
   late FocusNode aadhaarFocusNode;
   final NurseTriageController controller = Get.put(NurseTriageController());
   final FaceAuthController faceAuthController = Get.put(FaceAuthController());
@@ -372,13 +373,38 @@ class _AddAccidentState extends State<AddAccident> {
     if (triage == null) return;
 
     String value(String key) => profile[key]?.toString().trim() ?? '';
+    String firstNonEmpty(Iterable<String> values) {
+      for (final value in values) {
+        final trimmed = value.trim();
+        if (trimmed.isNotEmpty && trimmed.toLowerCase() != 'not available') {
+          return trimmed;
+        }
+      }
+      return '';
+    }
+
     final profileId = int.tryParse(value('profileId'));
-    final name = value('fullName');
+    final name = firstNonEmpty([
+      value('fullName'),
+      value('name'),
+      [
+        value('firstName'),
+        value('middleName'),
+        value('lastName'),
+      ].where((part) => part.isNotEmpty).join(' '),
+      triage.nameOfPatient ?? '',
+    ]);
     final abhaNumber = value('abhaNumber');
-    final abhaAddress = value('abhaAddress');
+    final abhaAddress = firstNonEmpty([
+      value('abhaAddress'),
+      value('preferredAbhaAddress'),
+    ]);
     final mobile = value('mobile');
     final pincode = value('pincode');
-    final address = value('address');
+    final address = firstNonEmpty([
+      value('residentialAddress'),
+      value('address'),
+    ]);
     final ageText = value('age').split(' ').first;
     final age = int.tryParse(ageText);
 
@@ -393,11 +419,15 @@ class _AddAccidentState extends State<AddAccident> {
       controller.currentProfileId.value = profileId.toString();
     }
     if (name.isNotEmpty && name != 'Not Available') triage.nameOfPatient = name;
-    if (abhaNumber.isNotEmpty && abhaNumber != 'Not Available') triage.abhaCard = abhaNumber;
-    if (abhaAddress.isNotEmpty && abhaAddress != 'Not Available') triage.addressLine = abhaAddress;
-    if (address.isNotEmpty && address != 'Not Available') triage.addressLine = address;
-    if (mobile.isNotEmpty && mobile != 'Not Available') triage.patientMobileNumber = mobile;
-    if (pincode.isNotEmpty && pincode != 'Not Available') triage.pincode = pincode;
+    if (abhaNumber.isNotEmpty && abhaNumber != 'Not Available')
+      triage.abhaCard = abhaNumber;
+    _selectedAbhaAddress = abhaAddress;
+    if (address.isNotEmpty && address != 'Not Available')
+      triage.addressLine = address;
+    if (mobile.isNotEmpty && mobile != 'Not Available')
+      triage.patientMobileNumber = mobile;
+    if (pincode.isNotEmpty && pincode != 'Not Available')
+      triage.pincode = pincode;
     if (age != null) triage.ageYear = age;
 
     final gender = value('gender').toLowerCase();
@@ -1035,15 +1065,21 @@ class _AddAccidentState extends State<AddAccident> {
                                                   ""),
                                           keyboardType: TextInputType.name,
                                           hintText: 'Enter the name',
-                                          readOnly: controller.aadhaarProfileImported.value,
-                                          onChanged: controller.aadhaarProfileImported.value
+                                          readOnly: controller
+                                              .aadhaarProfileImported.value,
+                                          onChanged: controller
+                                                  .aadhaarProfileImported.value
                                               ? null
                                               : (v) {
-                                                  controller.createTriageModel.value!
-                                                      .triage!.nameOfPatient = v;
+                                                  controller
+                                                      .createTriageModel
+                                                      .value!
+                                                      .triage!
+                                                      .nameOfPatient = v;
                                                 },
                                           validator: (value) {
-                                            if (value == null || value.isEmpty) {
+                                            if (value == null ||
+                                                value.isEmpty) {
                                               return 'Please enter Name of Patient';
                                             } else {
                                               return null;
@@ -1078,9 +1114,13 @@ class _AddAccidentState extends State<AddAccident> {
                                                                 })
                                                             .toList() ??
                                                         [],
-                                                    isEditable: !controller.aadhaarProfileImported.value,
+                                                    isEditable: !controller
+                                                        .aadhaarProfileImported
+                                                        .value,
                                                     onChanged: (value) {
-                                                      if (controller.aadhaarProfileImported.value) return;
+                                                      if (controller
+                                                          .aadhaarProfileImported
+                                                          .value) return;
                                                       controller
                                                           .createTriageModel
                                                           .value!
@@ -1131,17 +1171,21 @@ class _AddAccidentState extends State<AddAccident> {
                                                               TextInputType
                                                                   .number,
                                                           maxLength: 2,
-                                                          readOnly: controller.aadhaarProfileImported.value,
-                                                          onChanged: controller.aadhaarProfileImported.value
+                                                          readOnly: controller
+                                                              .aadhaarProfileImported
+                                                              .value,
+                                                          onChanged: controller
+                                                                  .aadhaarProfileImported
+                                                                  .value
                                                               ? null
                                                               : (value) {
-                                                                  if (value.isNotEmpty) {
+                                                                  if (value
+                                                                      .isNotEmpty) {
                                                                     controller
-                                                                            .createTriageModel
-                                                                            .value
-                                                                            ?.triage
-                                                                            ?.ageYear =
-                                                                        int.parse(value);
+                                                                        .createTriageModel
+                                                                        .value
+                                                                        ?.triage
+                                                                        ?.ageYear = int.parse(value);
                                                                     controller
                                                                         .createTriageModel
                                                                         .refresh();
@@ -1182,9 +1226,16 @@ class _AddAccidentState extends State<AddAccident> {
                                                                       '11',
                                                                       '12',
                                                                     ],
-                                                                    isEditable: !controller.aadhaarProfileImported.value,
-                                                                    onChanged: (value) {
-                                                                      if (controller.aadhaarProfileImported.value) return;
+                                                                    isEditable:
+                                                                        !controller
+                                                                            .aadhaarProfileImported
+                                                                            .value,
+                                                                    onChanged:
+                                                                        (value) {
+                                                                      if (controller
+                                                                          .aadhaarProfileImported
+                                                                          .value)
+                                                                        return;
                                                                       controller
                                                                           .createTriageModel
                                                                           .value!
@@ -1859,15 +1910,23 @@ class _AddAccidentState extends State<AddAccident> {
                                                                         width:
                                                                             8),
                                                                     TextButton(
-                                                                      onPressed: () async {
-                                                                        final result = await Navigator.of(context).push<Map<String, dynamic>>(
+                                                                      onPressed:
+                                                                          () async {
+                                                                        final result =
+                                                                            await Navigator.of(context).push<Map<String, dynamic>>(
                                                                           MaterialPageRoute(
-                                                                            builder: (_) => const VerifyAbhaScreen(),
+                                                                            builder: (_) =>
+                                                                                const VerifyAbhaScreen(),
                                                                           ),
                                                                         );
-                                                                        if (!mounted || result == null) return;
-                                                                        _applySelectedAbhaProfile(result);
-                                                                        setState(() {});
+                                                                        if (!mounted ||
+                                                                            result ==
+                                                                                null)
+                                                                          return;
+                                                                        _applySelectedAbhaProfile(
+                                                                            result);
+                                                                        setState(
+                                                                            () {});
                                                                       },
                                                                       child:
                                                                           Text(
@@ -2146,24 +2205,26 @@ class _AddAccidentState extends State<AddAccident> {
                                                   ),
 
                                                 TitleTextFormField(
-                                                  title: "Abha Address",
-                                                  controller: TextEditingController(
-                                                      text: controller
-                                                              .createTriageModel
-                                                              .value!
-                                                              .triage!
-                                                              .addressLine ??
-                                                          ""),
+                                                  title: "ABHA Address",
+                                                  initialValue:
+                                                      _selectedAbhaAddress,
+                                                  readOnly: true,
                                                   keyboardType:
                                                       TextInputType.name,
-                                                  hintText: 'Enter Address',
-                                                  onChanged: (v) {
-                                                    controller
-                                                        .createTriageModel
-                                                        .value!
-                                                        .triage!
-                                                        .addressLine = v;
-                                                  },
+                                                ),
+
+                                                TitleTextFormField(
+                                                  title: "Address",
+                                                  initialValue: controller
+                                                          .createTriageModel
+                                                          .value!
+                                                          .triage!
+                                                          .addressLine ??
+                                                      "",
+                                                  readOnly: true,
+                                                  keyboardType:
+                                                      TextInputType.name,
+                                                  hintText: 'Address',
                                                   validator: (value) {
                                                     if (value == null ||
                                                         value.isEmpty) {

@@ -45,31 +45,28 @@ class AbhaVerifiedProfile {
       Map<String, dynamic> response) {
     final profileMaps = _extractProfileMaps(response);
     final containerProfileIds = _extractContainerProfileIds(response);
-    final profiles = profileMaps
-        .asMap()
-        .entries
-        .map((entry) {
-          final profileMap = Map<String, dynamic>.from(entry.value);
-          final parsedProfile = fromProfileMap(profileMap);
-          if (parsedProfile.profileId != null) return parsedProfile;
+    final profiles = profileMaps.asMap().entries.map((entry) {
+      final profileMap = Map<String, dynamic>.from(entry.value);
+      final parsedProfile = fromProfileMap(profileMap);
+      if (parsedProfile.profileId != null) return parsedProfile;
 
-          final containerId = containerProfileIds.length == profileMaps.length
-              ? containerProfileIds[entry.key]
-              : profileMaps.length == 1 && containerProfileIds.isNotEmpty
-                  ? containerProfileIds.first
-                  : null;
-          if (containerId == null) return parsedProfile;
+      final containerId = containerProfileIds.length == profileMaps.length
+          ? containerProfileIds[entry.key]
+          : profileMaps.length == 1 && containerProfileIds.isNotEmpty
+              ? containerProfileIds.first
+              : null;
+      if (containerId == null) return parsedProfile;
 
-          profileMap['profileId'] = containerId;
-          return fromProfileMap(profileMap);
-        })
-        .toList(growable: false);
+      profileMap['profileId'] = containerId;
+      return fromProfileMap(profileMap);
+    }).toList(growable: false);
 
     print('[ABHA][PROFILE-LIST] Total profiles: ${profiles.length}');
     for (var index = 0; index < profiles.length; index++) {
       final profile = profiles[index];
       print('[ABHA][PROFILE] Index: $index');
-      print('[ABHA][PROFILE] Profile ID: ${profile.profileId ?? 'Not Available'}');
+      print(
+          '[ABHA][PROFILE] Profile ID: ${profile.profileId ?? 'Not Available'}');
       print('[ABHA][PROFILE] Name: ${profile.name}');
       print('[ABHA][PROFILE] ABHA Number: ${profile.abhaNumber}');
       print('[ABHA][PROFILE] ABHA Address: ${profile.abhaAddress}');
@@ -153,10 +150,7 @@ class AbhaVerifiedProfile {
       'preferredAbhaAddress',
       'abhaaddress',
       'preferred_abha_address',
-      'healthId',
       'phrAddress',
-      'address',
-      'residentialAddress',
     ]);
     final name = _buildName(flattened);
     final dob = _buildDob(flattened);
@@ -194,15 +188,20 @@ class AbhaVerifiedProfile {
     final normalizedPhoto = _normalizePhoto(photoRaw);
     final normalizedDob = _normalizeDobValue(dob);
     final apiAge = _readString(flattened, ['age']);
-    final normalizedAge = apiAge == 'Not Available'
-      ? _calculateAge(normalizedDob)
-      : apiAge;
+    final normalizedAge =
+        apiAge == 'Not Available' ? _calculateAge(normalizedDob) : apiAge;
     final state = _readString(flattened, ['state', 'statename', 'state_name']);
-    final district = _readString(flattened, ['district', 'districtname', 'district_name']);
+    final district =
+        _readString(flattened, ['district', 'districtname', 'district_name']);
     final pincode = _readString(flattened, ['pincode', 'pinCode', 'pin_code']);
-    final address = _readString(flattened, ['residentialaddress', 'address', 'addressline']);
+    final address = _readString(flattened, [
+      'residentialAddress',
+      'permanentAddress',
+      'addressLine',
+      'address',
+    ]);
 
-    print('========== ABHA VERIFICATION RESPONSE ==========' );
+    print('========== ABHA VERIFICATION RESPONSE ==========');
     print('Raw response: ${response.toString()}');
     print('ABHA Number: $abhaNumber');
     print('ABHA Address: $abhaAddress');
@@ -215,7 +214,7 @@ class AbhaVerifiedProfile {
     print('Verification Type: $verificationType');
     print('Account Status: $status');
     print('Profile Photo Available: ${normalizedPhoto.isNotEmpty}');
-    print('========== NORMALIZED ABHA PROFILE ==========' );
+    print('========== NORMALIZED ABHA PROFILE ==========');
     print('abhaNumber=$abhaNumber');
     print('abhaAddress=$abhaAddress');
     print('name=$name');
@@ -252,10 +251,14 @@ class AbhaVerifiedProfile {
     final merged = <String, dynamic>{};
     final wrappers = <Map<String, dynamic>>[
       response,
-      if (response['result'] is Map) Map<String, dynamic>.from(response['result'] as Map),
-      if (response['data'] is Map) Map<String, dynamic>.from(response['data'] as Map),
-      if (response['profile'] is Map) Map<String, dynamic>.from(response['profile'] as Map),
-      if (response['ABHAProfile'] is Map) Map<String, dynamic>.from(response['ABHAProfile'] as Map),
+      if (response['result'] is Map)
+        Map<String, dynamic>.from(response['result'] as Map),
+      if (response['data'] is Map)
+        Map<String, dynamic>.from(response['data'] as Map),
+      if (response['profile'] is Map)
+        Map<String, dynamic>.from(response['profile'] as Map),
+      if (response['ABHAProfile'] is Map)
+        Map<String, dynamic>.from(response['ABHAProfile'] as Map),
     ];
 
     for (final map in wrappers) {
@@ -394,14 +397,21 @@ class AbhaVerifiedProfile {
   }
 
   static String _buildName(Map<String, dynamic> source) {
-    final direct = _readAny(source, ['name', 'fullname', 'full_name']);
+    final direct = _readAny(source, [
+      'fullName',
+      'full_name',
+      'displayName',
+      'patientName',
+      'name',
+    ]);
     if (direct != null && !_isMissing(direct)) {
       return displayValue(direct);
     }
 
-    final firstName = _readAny(source, ['firstname']) ?? '';
+    final firstName = _readAny(source, ['firstName', 'givenName']) ?? '';
     final middleName = _readAny(source, ['middlename']) ?? '';
-    final lastName = _readAny(source, ['lastname']) ?? '';
+    final lastName =
+        _readAny(source, ['lastName', 'familyName', 'surname']) ?? '';
     final name = [
       firstName.toString().trim(),
       middleName.toString().trim(),
@@ -497,7 +507,8 @@ class AbhaVerifiedProfile {
 
     final now = DateTime.now();
     var years = now.year - date.year;
-    if (now.month < date.month || (now.month == date.month && now.day < date.day)) {
+    if (now.month < date.month ||
+        (now.month == date.month && now.day < date.day)) {
       years--;
     }
 
