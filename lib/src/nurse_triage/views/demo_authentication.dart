@@ -418,7 +418,7 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
                         validator: (value) => _demoController.validateName(value),
                         decoration: _buildInputDecoration(
                           labelText: 'Full Name *',
-                          hintText: 'Jeeva Suresh',
+                          hintText: '',
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -431,7 +431,7 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
                         ],
                         decoration: _buildInputDecoration(
                           labelText: 'Mobile Number',
-                          hintText: '9047234229',
+                          hintText: '',
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -444,7 +444,7 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
                         ],
                         decoration: _buildInputDecoration(
                           labelText: 'PIN Code',
-                          hintText: '632514',
+                          hintText: '',
                         ),
                       ),
                       const SizedBox(height: 20),
