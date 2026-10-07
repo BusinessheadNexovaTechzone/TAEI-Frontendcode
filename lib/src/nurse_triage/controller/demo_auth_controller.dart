@@ -2,11 +2,15 @@ import 'dart:developer';
 
 import 'package:get/get.dart';
 import 'package:taei_gov/src/nurse_triage/models/lgd_models.dart';
+import 'package:taei_gov/src/nurse_triage/services/abha_error_message_service.dart';
 import 'package:taei_gov/src/nurse_triage/services/demo_auth_service.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
 
 class DemoAuthController extends GetxController {
-  final DemoAuthService _service = DemoAuthService();
+  DemoAuthController({DemoAuthService? service})
+      : _service = service ?? DemoAuthService();
+
+  final DemoAuthService _service;
 
   final RxBool isSubmitting = false.obs;
   final RxString status = 'idle'.obs;
@@ -55,13 +59,13 @@ class DemoAuthController extends GetxController {
     if (stateName != null) {
       selectedStateName.value = stateName;
       log('[LGD] Selected State: $stateName');
-      
+
       // Find the state code for logging
       final state = lgdStates.firstWhereOrNull((s) => s.name == stateName);
       if (state != null) {
         log('[LGD] Selected State Value: ${state.code}');
       }
-      
+
       // Update available districts
       availableDistricts.value = getDistrictsForState(stateName);
       // Clear district selection when state changes
@@ -155,7 +159,8 @@ class DemoAuthController extends GetxController {
     }
 
     if (cleanedAadhaar.length != 12) {
-      errorMessage.value = 'Aadhaar information is unavailable. Please restart the ABHA enrollment process.';
+      errorMessage.value =
+          'Aadhaar information is unavailable. Please restart the ABHA enrollment process.';
       status.value = 'error';
       return false;
     }
@@ -174,6 +179,17 @@ class DemoAuthController extends GetxController {
         status.value = 'error';
         return false;
       }
+    }
+
+    final selectedState =
+        lgdStates.firstWhereOrNull((state) => state.name == stateName.trim());
+    final selectedDistrict = availableDistricts
+        .firstWhereOrNull((district) => district.name == districtName.trim());
+    if (selectedState == null || selectedDistrict == null) {
+      errorMessage.value =
+          'The selected state or district code is unavailable. Please select them again.';
+      status.value = 'error';
+      return false;
     }
 
     final mobileError = validateMobile(mobile);
@@ -196,16 +212,15 @@ class DemoAuthController extends GetxController {
     try {
       final body = <String, dynamic>{
         'aadhaar': cleanedAadhaar,
-        'stateName': stateName.trim(),
-        'districtName': districtName.trim(),
+        'stateCode': selectedState.code.toString(),
+        'districtCode': selectedDistrict.code.toString(),
         'dateOfBirth': dateOfBirth.trim(),
         'gender': gender.trim(),
         'name': name.trim(),
       };
 
-      // Log state and district names for debugging
-      log('[ABHA] State Name: ${stateName.trim()}');
-      log('[ABHA] District Name: ${districtName.trim()}');
+      log('[ABHA] State Code: ${selectedState.code}');
+      log('[ABHA] District Code: ${selectedDistrict.code}');
 
       final trimmedMobile = mobile?.trim() ?? '';
       final trimmedPin = pinCode?.trim() ?? '';
@@ -218,19 +233,46 @@ class DemoAuthController extends GetxController {
 
       final response = await _service.enrollByAadhaar(body: body);
       if (response == null) {
-        errorMessage.value = 'Unable to complete Demo Authentication. Please try again.';
+        errorMessage.value =
+            'Unable to complete Demo Authentication. Please try again.';
         status.value = 'error';
         return false;
       }
 
-      final directProfileId = response['profileId'];
-      int? extractedProfileId;
-      if (directProfileId != null) {
-        extractedProfileId = int.tryParse(directProfileId.toString());
+      if (AbhaErrorMessageService.isFailure(response)) {
+        errorMessage.value = AbhaErrorMessageService.map(
+          response,
+          context: 'createProfile',
+        );
+        status.value = 'error';
+        return false;
       }
 
+      int? findProfileId(Object? value) {
+        if (value is! Map) return null;
+
+        for (final key in const [
+          'profileId',
+          'profile_id',
+          'abhaProfileId',
+          'abha_profile_id',
+          'id',
+        ]) {
+          final parsed = int.tryParse(value[key]?.toString() ?? '');
+          if (parsed != null && parsed > 0) return parsed;
+        }
+
+        for (final key in const ['result', 'data', 'ABHAProfile', 'profile']) {
+          final nestedProfileId = findProfileId(value[key]);
+          if (nestedProfileId != null) return nestedProfileId;
+        }
+        return null;
+      }
+
+      final extractedProfileId = findProfileId(response);
       if (extractedProfileId == null || extractedProfileId <= 0) {
-        errorMessage.value = 'ABHA profile was created, but the profile ID could not be retrieved.';
+        errorMessage.value =
+            'ABHA profile was created, but the profile ID could not be retrieved.';
         status.value = 'error';
         return false;
       }
@@ -240,8 +282,18 @@ class DemoAuthController extends GetxController {
       status.value = 'success';
       return true;
     } catch (e) {
+      if (e is DemoAuthException) {
+        errorMessage.value = AbhaErrorMessageService.map(
+          {'statusCode': e.statusCode, 'message': e.message},
+          context: 'createProfile',
+        );
+        status.value = 'error';
+        return false;
+      }
       final message = CommonErrorDialog.extractFriendlyErrorMessage(e);
-      errorMessage.value = message.isNotEmpty ? message : 'Demo authentication failed. Please try again.';
+      errorMessage.value = message.isNotEmpty
+          ? message
+          : 'Demo authentication failed. Please try again.';
       status.value = 'error';
       return false;
     } finally {

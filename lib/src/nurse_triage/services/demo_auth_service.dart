@@ -1,9 +1,18 @@
 import 'dart:convert';
-import 'dart:developer';
 
 import 'package:taei_gov/constants/urls.dart';
 import 'package:taei_gov/src/nurse_triage/utils/abha_debug_logger.dart';
 import 'package:taei_gov/utils/helpers/http_helper.dart';
+
+class DemoAuthException implements Exception {
+  const DemoAuthException(this.message, {this.statusCode});
+
+  final String message;
+  final int? statusCode;
+
+  @override
+  String toString() => message;
+}
 
 class DemoAuthService {
   static final CustomHttpHelper _client = CustomHttpHelper();
@@ -17,7 +26,9 @@ class DemoAuthService {
 
     AbhaDebugLogger.log('[DEMO-AUTH] START', flowId: flowId);
     AbhaDebugLogger.log('[DEMO-AUTH] VALIDATING FORM', flowId: flowId);
-    AbhaDebugLogger.log('[DEMO-AUTH] ENDPOINT: /api/abha/aadhaar/enrol-by-aadhaar', flowId: flowId);
+    AbhaDebugLogger.log(
+        '[DEMO-AUTH] ENDPOINT: /api/abha/aadhaar/enrol-by-aadhaar',
+        flowId: flowId);
     AbhaDebugLogger.request(
       api: '/api/abha/aadhaar/enrol-by-aadhaar',
       method: 'POST',
@@ -36,9 +47,22 @@ class DemoAuthService {
         body: jsonEncode(requestBody),
       );
 
-      final decoded = response.body.trim().isEmpty
-          ? <String, dynamic>{}
-          : jsonDecode(response.body) as Map<String, dynamic>;
+      Object? decodedBody;
+      if (response.body.trim().isNotEmpty) {
+        try {
+          decodedBody = jsonDecode(response.body);
+        } on FormatException {
+          decodedBody = response.body.trim();
+        }
+      }
+      final decoded = decodedBody is Map
+          ? Map<String, dynamic>.from(decodedBody)
+          : <String, dynamic>{
+              if (decodedBody != null)
+                'message': decodedBody is String
+                    ? decodedBody
+                    : decodedBody.toString(),
+            };
 
       AbhaDebugLogger.log('[DEMO-AUTH] RESPONSE RECEIVED', flowId: flowId);
       AbhaDebugLogger.response(
@@ -48,22 +72,21 @@ class DemoAuthService {
         flowId: flowId,
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         AbhaDebugLogger.log('[DEMO-AUTH] SUCCESS', flowId: flowId);
-        if (decoded['profileId'] != null) {
-          AbhaDebugLogger.log('[DEMO-AUTH] PROFILE ID: ${decoded['profileId']}', flowId: flowId);
-        }
         return decoded;
       }
 
       final message = decoded['message']?.toString() ??
           decoded['error']?.toString() ??
-          'Demo authentication failed.';
+          decoded['detail']?.toString() ??
+          'Demo authentication failed (HTTP ${response.statusCode}).';
       AbhaDebugLogger.error('[DEMO-AUTH] ERROR: $message', flowId: flowId);
-      throw Exception(message);
+      throw DemoAuthException(message, statusCode: response.statusCode);
     } catch (e, stackTrace) {
       AbhaDebugLogger.error('[DEMO-AUTH] ERROR: $e', flowId: flowId);
-      AbhaDebugLogger.error('[DEMO-AUTH] STACKTRACE: $stackTrace', flowId: flowId);
+      AbhaDebugLogger.error('[DEMO-AUTH] STACKTRACE: $stackTrace',
+          flowId: flowId);
       rethrow;
     }
   }
