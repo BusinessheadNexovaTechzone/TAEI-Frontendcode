@@ -118,6 +118,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   String? _abhaAddress;
   String? _healthId;
   int? _abhaProfileId;
+  String? _verifiedMobileNumber;
+  int? _verifiedMobileProfileId;
 
   @override
   void initState() {
@@ -417,11 +419,15 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       return;
     }
 
-    await Navigator.of(context).push(
+    final selectedProfile =
+        await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(
         builder: (_) => const DemoAuthenticationScreen(),
       ),
     );
+    if (!mounted || selectedProfile == null) return;
+
+    Navigator.of(context).pop(selectedProfile);
   }
 
   Future<void> _authenticateWithFace() async {
@@ -672,6 +678,8 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       final profileMobileRaw = _extractAbhaProfileMobile(response);
       final abhaMobile = profileMobileRaw?.trim();
       final hasAbhaMobile = abhaMobile != null && abhaMobile.isNotEmpty;
+      final normalizedEnteredMobile = _normalizeMobile(mobile);
+      final normalizedProfileMobile = _normalizeMobile(abhaMobile);
       final maskedProfileMobile =
           hasAbhaMobile ? _maskValue(abhaMobile) : 'NULL';
 
@@ -753,6 +761,10 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
 
         controller.currentProfileId.value = profileId.toString();
         controller.createTriageModel.value?.triage?.abhaProfileId = profileId;
+        final mobileIsAlreadyVerified = normalizedEnteredMobile.isNotEmpty &&
+            (normalizedEnteredMobile == normalizedProfileMobile ||
+                (normalizedEnteredMobile == _verifiedMobileNumber &&
+                    profileId == _verifiedMobileProfileId));
 
         AbhaDebugLogger.workflow('NEW ACCOUNT CREATED', flowId: _abhaFlowId);
         AbhaDebugLogger.workflow('Message: Account created successfully',
@@ -766,6 +778,24 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
             flowId: _abhaFlowId);
         AbhaDebugLogger.workflow('Comparing mobile numbers...',
             flowId: _abhaFlowId);
+
+        if (mobileIsAlreadyVerified) {
+          _verifiedMobileNumber = normalizedEnteredMobile;
+          _verifiedMobileProfileId = profileId;
+          setState(() {
+            _workflowState = _AbhaWorkflowState.mobileMatched;
+          });
+          AbhaDebugLogger.workflow('MOBILE MATCH', flowId: _abhaFlowId);
+          AbhaDebugLogger.workflow(
+              'User mobile is already verified for this ABHA profile',
+              flowId: _abhaFlowId);
+          AbhaDebugLogger.skip('updatemobile/send-otp NOT CALLED',
+              flowId: _abhaFlowId);
+          AbhaDebugLogger.skip('updatemobile/verify-otp NOT CALLED',
+              flowId: _abhaFlowId);
+          _goToStep(2);
+          return;
+        }
 
         if (!hasAbhaMobile) {
           AbhaDebugLogger.workflow('ABHAProfile.mobile is NULL/EMPTY',
@@ -801,28 +831,6 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
             _workflowState = _AbhaWorkflowState.mobileUpdateOtpPending;
           });
           _clearOtpFields();
-          return;
-        }
-
-        final normalizedEnteredMobile = _normalizeMobile(mobile);
-        final normalizedProfileMobile = _normalizeMobile(abhaMobile);
-
-        if (normalizedEnteredMobile == normalizedProfileMobile) {
-          setState(() {
-            _workflowState = _AbhaWorkflowState.mobileMatched;
-          });
-          AbhaDebugLogger.workflow('MOBILE MATCH', flowId: _abhaFlowId);
-          AbhaDebugLogger.workflow('User mobile matches ABHA profile mobile',
-              flowId: _abhaFlowId);
-          AbhaDebugLogger.skip('updatemobile/send-otp NOT CALLED',
-              flowId: _abhaFlowId);
-          AbhaDebugLogger.skip('updatemobile/verify-otp NOT CALLED',
-              flowId: _abhaFlowId);
-          AbhaDebugLogger.workflow('Proceeding to ABHA address creation',
-              flowId: _abhaFlowId);
-          AbhaDebugLogger.navigation('Opening abha_address_creation.dart',
-              flowId: _abhaFlowId);
-          _goToStep(2);
           return;
         }
 
@@ -1029,6 +1037,9 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       AbhaDebugLogger.workflow('MOBILE UPDATE SUCCESS', flowId: _abhaFlowId);
       AbhaDebugLogger.workflow('New mobile verified successfully',
           flowId: _abhaFlowId);
+      _verifiedMobileNumber =
+          _normalizeMobile(_mobileController.text);
+      _verifiedMobileProfileId = profileId;
       setState(() {
         _showMobileUpdateOtp = false;
         _currentOtpMode = 'aadhaar';

@@ -1033,23 +1033,36 @@ class NurseTriageController extends GetxController {
     // ✅ Mark profile as imported
     aadhaarProfileImported.value = true;
 
-    // ✅ Name
-    final firstName = data['firstName']?.toString() ?? '';
-    final middleName = data['middleName']?.toString() ?? '';
-    final lastName = data['lastName']?.toString() ?? '';
+    String firstNonEmpty(Iterable<Object?> values) {
+      for (final value in values) {
+        final candidate = value?.toString().trim() ?? '';
+        if (candidate.isNotEmpty &&
+            candidate.toLowerCase() != 'not available') {
+          return candidate;
+        }
+      }
+      return '';
+    }
 
-    triage.nameOfPatient =
-        "$firstName $middleName $lastName".trim().replaceAll(RegExp(' +'), ' ');
+    final name = firstNonEmpty([
+      data['fullName'],
+      data['name'],
+      [
+        data['firstName'],
+        data['middleName'],
+        data['lastName'],
+      ].where((part) => part != null).join(' '),
+    ]);
+    if (name.isNotEmpty) {
+      triage.nameOfPatient = name.replaceAll(RegExp(r'\s+'), ' ');
+    }
 
-    // ✅ Mobile
-    triage.patientMobileNumber = data['mobile']?.toString() ??
-        data['mobileNumber']?.toString() ??
-        triage.patientMobileNumber;
+    final mobile = firstNonEmpty([data['mobile'], data['mobileNumber']]);
+    if (mobile.isNotEmpty) triage.patientMobileNumber = mobile;
 
 // ✅ ABHA ID
-    triage.abhaCard = data['ABHANumber']?.toString() ??
-        data['abhaNumber']?.toString() ??
-        triage.abhaCard;
+    final abhaNumber = firstNonEmpty([data['ABHANumber'], data['abhaNumber']]);
+    if (abhaNumber.isNotEmpty) triage.abhaCard = abhaNumber;
 
     // ✅ ABHA Profile ID for card download - try multiple possible field names
     log("Looking for profile ID in data keys: ${data.keys}");
@@ -1076,40 +1089,40 @@ class NurseTriageController extends GetxController {
     }
 
     // ✅ Address
-    final residentialAddress = data['residentialAddress']?.toString() ??
-        data['address']?.toString() ??
-        '';
+    final residentialAddress =
+        firstNonEmpty([data['residentialAddress'], data['address']]);
     if (residentialAddress.isNotEmpty) {
       triage.addressLine = residentialAddress;
     }
 
-    final pincode =
-        data['pinCode']?.toString() ?? data['pincode']?.toString() ?? '';
+    final pincode = firstNonEmpty([data['pinCode'], data['pincode']]);
     if (pincode.isNotEmpty) {
       triage.pincode = pincode;
     }
 
     // ✅ Gender
-    final gender = data['gender']?.toString();
-    if (gender != null) {
-      triage.gender = _mapGenderToLookupId(gender);
+    final gender = firstNonEmpty([data['gender']]);
+    if (gender.isNotEmpty) {
+      final genderId = _mapGenderToLookupId(gender);
+      if (genderId != null) triage.gender = genderId;
     }
 
     // ✅ State
-    final stateName = data['stateName']?.toString();
-    if (stateName != null) {
+    final stateName = firstNonEmpty([data['stateName'], data['state']]);
+    if (stateName.isNotEmpty) {
       triage.state = _mapStateNameToLookupId(stateName);
     }
 
     // ✅ District
-    final districtName = data['districtName']?.toString();
-    if (districtName != null) {
+    final districtName =
+        firstNonEmpty([data['districtName'], data['district']]);
+    if (districtName.isNotEmpty) {
       triage.district = _mapDistrictNameToLookupId(districtName);
     }
 
     // ✅ DOB → Age
-    final dob = data['dob']?.toString();
-    if (dob != null) {
+    final dob = firstNonEmpty([data['dob'], data['dateOfBirth']]);
+    if (dob.isNotEmpty) {
       _applyAgeFromDob(dob);
     }
 
@@ -1555,12 +1568,20 @@ class NurseTriageController extends GetxController {
               final useButton = Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    _applyAadhaarResponseData(response);
+                    final selectedResponse = <String, dynamic>{
+                      'profileId': selectedProfileId,
+                      'result': {
+                        'profileId': selectedProfileId,
+                        'ABHAProfile': result,
+                      },
+                    };
+                    aadhaarProfileData.value = selectedResponse;
+                    _applyAadhaarResponseData(selectedResponse);
                     selectedAbhaProfile.value = result;
                     log('[ABHA][PROFILE-SELECT] Selected index: $index');
                     log('[ABHA][PROFILE-SELECT] Selected profileId: ${selectedProfileId ?? 'missing'}');
                     log('[ABHA][PROFILE-SELECT] Selected ABHA Number: ${profile.abhaNumber}');
-                    log('[ABHA][PROFILE-SELECT] Returning selected profile to add_accident.dart');
+                    log('[ABHA][PROFILE-SELECT] Returning selected profile to caller');
                     Get.back(result: result);
                   },
                   icon: const Icon(Icons.check_circle_outline),

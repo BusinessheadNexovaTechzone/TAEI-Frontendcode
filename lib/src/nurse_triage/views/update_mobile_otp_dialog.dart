@@ -34,18 +34,27 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
   bool _isResending = false;
   bool _completed = false;
   int _verificationAttempts = 0;
+  int _resendAttempts = 1;
+  int _resendSeconds = _resendCooldown.inSeconds;
   Duration _lockoutRemaining = Duration.zero;
   Timer? _lockoutTimer;
+  Timer? _resendTimer;
   String? _errorMessage;
 
   static const int _maxVerificationAttempts = 3;
+  static const int _maxResendAttempts = 3;
   static const Duration _lockoutDuration = Duration(minutes: 30);
+  static const Duration _resendCooldown = Duration(seconds: 60);
 
   String get otp => _controllers.map((c) => c.text).join();
 
   bool get isOtpComplete => otp.length == 6;
 
-  bool get canVerify => isOtpComplete && !_isVerifying;
+  bool get canVerify =>
+      isOtpComplete &&
+      !_isVerifying &&
+      _lockoutRemaining == Duration.zero &&
+      _verificationAttempts < _maxVerificationAttempts;
 
   @override
   void initState() {
@@ -54,6 +63,7 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
         '[ABHA][UI][FLOW:${widget.flowId}] [OTP] update-mobile OTP dialog opened');
     debugPrint(
         '[ABHA][UI][FLOW:${widget.flowId}] [OTP] OTP fields initialized');
+    _startResendTimer();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -66,6 +76,7 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
   @override
   void dispose() {
     _lockoutTimer?.cancel();
+    _resendTimer?.cancel();
     for (final controller in _controllers) {
       controller.dispose();
     }
@@ -171,6 +182,7 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
       setState(() => _errorMessage = _lockoutMessage());
       return;
     }
+    if (_resendSeconds > 0 || _resendAttempts >= _maxResendAttempts) return;
 
     _isResending = true;
     setState(() {});
@@ -183,8 +195,16 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
         final sent = await widget.onResend!();
         if (!mounted) return;
         if (sent) {
+          setState(() {
+            _resendAttempts++;
+            _errorMessage = null;
+          });
+          _startResendTimer();
           debugPrint(
               '[ABHA][UI][FLOW:${widget.flowId}] [OTP] OTP resent successfully');
+        } else {
+          setState(() =>
+              _errorMessage = 'Unable to resend the OTP. Please try again.');
         }
       }
     } finally {
@@ -193,6 +213,22 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
         setState(() {});
       }
     }
+  }
+
+  void _startResendTimer() {
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendSeconds <= 1) {
+        timer.cancel();
+        setState(() => _resendSeconds = 0);
+      } else {
+        setState(() => _resendSeconds--);
+      }
+    });
   }
 
   Future<void> _verifyOtp() async {
@@ -408,6 +444,29 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
                 ),
                 const SizedBox(height: 16),
               ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _resendAttempts >= _maxResendAttempts
+                        ? 'No more resends'
+                        : _resendSeconds > 0
+                            ? 'Resend available in ${_resendSeconds}s'
+                            : 'You can request another OTP',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF616161),
+                    ),
+                  ),
+                  Text(
+                    'Attempt $_resendAttempts/$_maxResendAttempts',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF616161),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
               Align(
                 alignment: Alignment.center,
                 child: ElevatedButton(
@@ -427,8 +486,18 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
               const SizedBox(height: 16),
               Center(
                 child: TextButton(
-                  onPressed: _isVerifying || _isResending ? null : _resend,
-                  child: const Text('Resend OTP'),
+                  onPressed: _isVerifying ||
+                          _isResending ||
+                          widget.onResend == null ||
+                          _resendSeconds > 0 ||
+                          _resendAttempts >= _maxResendAttempts
+                      ? null
+                      : _resend,
+                  child: Text(
+                    _resendAttempts >= _maxResendAttempts
+                        ? 'Resend limit reached'
+                        : 'Resend OTP',
+                  ),
                 ),
               ),
             ],

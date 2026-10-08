@@ -195,11 +195,13 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
     debugPrint('[ABHA][DEMO-AUTH] Profile data received: ${debugProfilePayload != null ? debugProfilePayload.keys.toList() : 'none'}');
     debugPrint('[ABHA][DEMO-AUTH] OPENING EXISTING ABHA PROFILE');
 
-    await _nurseController.showAadhaarSuccessDialog(profilePayload, showDialog: true);
+    final selectedProfile =
+        await _nurseController.showAadhaarSuccessDialog(profilePayload);
 
-    if (mounted) {
-      setState(() => _isSubmitting = false);
-      Navigator.of(context).maybePop();
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+    if (selectedProfile != null) {
+      Navigator.of(context).pop(selectedProfile);
     }
   }
 

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:taei_gov/constants/urls.dart';
 import 'package:taei_gov/src/nurse_triage/controller/nurse_triage_controller.dart';
+import 'package:taei_gov/src/nurse_triage/utils/create_abha_validation.dart';
 import 'package:taei_gov/src/nurse_triage/services/abha_error_message_service.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
 import 'package:taei_gov/utils/helpers/http_helper.dart';
@@ -311,36 +312,7 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
   }
 
   String? _validateAddressUsername(String value) {
-    if (value.trim().isEmpty) return 'Please enter an ABHA Address.';
-    final username = value;
-    if (username.length < 8) {
-      return 'ABHA Address must be at least 8 characters.';
-    }
-    if (username.length > 18) {
-      return 'ABHA Address can contain a maximum of 18 characters.';
-    }
-    if (username.contains(' ')) {
-      return 'Spaces are not allowed in an ABHA Address.';
-    }
-    if (!RegExp(r'^[A-Za-z0-9._]+$').hasMatch(username)) {
-      return 'Only English letters, numbers, one dot (.) or one underscore (_) are allowed.';
-    }
-    if (username.startsWith('.'))
-      return 'Dot (.) cannot be the first character.';
-    if (username.startsWith('_')) {
-      return 'Underscore (_) cannot be the first character.';
-    }
-    if (username.endsWith('.')) return 'Dot (.) cannot be the last character.';
-    if (username.endsWith('_')) {
-      return 'Underscore (_) cannot be the last character.';
-    }
-    if ('.'.allMatches(username).length > 1) {
-      return 'Only one dot (.) is allowed in an ABHA Address.';
-    }
-    if ('_'.allMatches(username).length > 1) {
-      return 'Only one underscore (_) is allowed in an ABHA Address.';
-    }
-    return null;
+    return CreateAbhaValidation.validateAbhaAddressUsername(value);
   }
 
   @override
@@ -371,6 +343,21 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
               'Select a suggested ABHA address or create a custom address to continue.',
               style: widget.theme.textTheme.bodyMedium
                   ?.copyWith(color: widget.secondaryTextColor),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE0E0E0)),
+              ),
+              child: Text(
+                CreateAbhaValidation.abhaAddressUsernameGuidance,
+                style: widget.theme.textTheme.bodySmall
+                    ?.copyWith(color: widget.secondaryTextColor, height: 1.5),
+              ),
             ),
             const SizedBox(height: 16),
             if (widget.verificationResponse != null) ...[

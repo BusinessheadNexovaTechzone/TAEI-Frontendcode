@@ -9,7 +9,8 @@ class VerifyAbhaAddressScreen extends StatefulWidget {
   const VerifyAbhaAddressScreen({super.key, this.onNext});
 
   @override
-  State<VerifyAbhaAddressScreen> createState() => _VerifyAbhaAddressScreenState();
+  State<VerifyAbhaAddressScreen> createState() =>
+      _VerifyAbhaAddressScreenState();
 }
 
 class _VerifyAbhaAddressScreenState extends State<VerifyAbhaAddressScreen> {
@@ -106,7 +107,8 @@ class _VerifyAbhaAddressScreenState extends State<VerifyAbhaAddressScreen> {
                           color: const Color(0xFFFFF1F2),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(Icons.badge_outlined, color: Color(0xFFEF4444), size: 24),
+                        child: const Icon(Icons.badge_outlined,
+                            color: Color(0xFFEF4444), size: 24),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -143,7 +145,8 @@ class _VerifyAbhaAddressScreenState extends State<VerifyAbhaAddressScreen> {
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF9FAFB),
                       borderRadius: BorderRadius.circular(14),
@@ -153,38 +156,54 @@ class _VerifyAbhaAddressScreenState extends State<VerifyAbhaAddressScreen> {
                       children: [
                         InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          onTap: () => setState(() => _selectedMethod = 'Aadhaar Registered OTP'),
+                          onTap: () => setState(
+                              () => _selectedMethod = 'Aadhaar Registered OTP'),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 10),
                             child: Row(
                               children: [
                                 Radio<String>(
                                   value: 'Aadhaar Registered OTP',
                                   groupValue: _selectedMethod,
-                                  onChanged: (value) => setState(() => _selectedMethod = value ?? 'Aadhaar Registered OTP'),
+                                  onChanged: (value) => setState(() =>
+                                      _selectedMethod =
+                                          value ?? 'Aadhaar Registered OTP'),
                                   activeColor: const Color(0xFFEF4444),
                                 ),
                                 const SizedBox(width: 4),
-                                const Expanded(child: Text('Aadhaar Registered OTP', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151)))),
+                                const Expanded(
+                                    child: Text('Aadhaar Registered OTP',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF374151)))),
                               ],
                             ),
                           ),
                         ),
                         InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          onTap: () => setState(() => _selectedMethod = 'Mobile Registered OTP'),
+                          onTap: () => setState(
+                              () => _selectedMethod = 'Mobile Registered OTP'),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 10),
                             child: Row(
                               children: [
                                 Radio<String>(
                                   value: 'Mobile Registered OTP',
                                   groupValue: _selectedMethod,
-                                  onChanged: (value) => setState(() => _selectedMethod = value ?? 'Mobile Registered OTP'),
+                                  onChanged: (value) => setState(() =>
+                                      _selectedMethod =
+                                          value ?? 'Mobile Registered OTP'),
                                   activeColor: const Color(0xFFEF4444),
                                 ),
                                 const SizedBox(width: 4),
-                                const Expanded(child: Text('Mobile Registered OTP', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151)))),
+                                const Expanded(
+                                    child: Text('Mobile Registered OTP',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF374151)))),
                               ],
                             ),
                           ),
@@ -210,24 +229,28 @@ class _VerifyAbhaAddressScreenState extends State<VerifyAbhaAddressScreen> {
                         textInputAction: TextInputAction.done,
                         inputFormatters: [
                           FilteringTextInputFormatter.singleLineFormatter,
-                          LengthLimitingTextInputFormatter(18),
+                          LengthLimitingTextInputFormatter(30),
                         ],
                         decoration: InputDecoration(
                           hintText: 'Enter ABHA Address',
                           filled: true,
                           fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 16),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Color(0xFFD0D5DD)),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFD0D5DD)),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Color(0xFFD0D5DD)),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFD0D5DD)),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Colors.red, width: 1.8),
+                            borderSide:
+                                const BorderSide(color: Colors.red, width: 1.8),
                           ),
                         ),
                         validator: (value) {
@@ -236,7 +259,8 @@ class _VerifyAbhaAddressScreenState extends State<VerifyAbhaAddressScreen> {
                           debugPrint('UI VALIDATION STARTED');
                           debugPrint('Entered ABHA Address : $trimmed');
 
-                          final isValid = _controller.isValidAbhaAddress(trimmed);
+                          final isValid =
+                              _controller.isValidAbhaAddress(trimmed);
                           debugPrint('UI Validation Result : $isValid');
 
                           if (!isValid) {
@@ -260,20 +284,27 @@ class _VerifyAbhaAddressScreenState extends State<VerifyAbhaAddressScreen> {
                       children: [
                         Row(
                           children: const [
-                            Icon(Icons.shield_outlined, size: 18, color: Color(0xFF6B7280)),
+                            Icon(Icons.shield_outlined,
+                                size: 18, color: Color(0xFF6B7280)),
                             SizedBox(width: 8),
-                            Text('Human Verification', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+                            Text('Human Verification',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF374151))),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Solve the captcha to continue',
-                          style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF6B7280)),
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: const Color(0xFF6B7280)),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           '$_captchaQuestion = ?',
-                          style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF111827)),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF111827)),
                         ),
                         const SizedBox(height: 10),
                         TextFormField(
@@ -283,18 +314,22 @@ class _VerifyAbhaAddressScreenState extends State<VerifyAbhaAddressScreen> {
                             hintText: 'Enter answer',
                             filled: true,
                             fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 14),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFFD0D5DD)),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFD0D5DD)),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFFD0D5DD)),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFD0D5DD)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Colors.red, width: 1.8),
+                              borderSide: const BorderSide(
+                                  color: Colors.red, width: 1.8),
                             ),
                           ),
                           validator: (value) {
