@@ -46,9 +46,10 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
         ? Get.find<VerifyAbhaController>()
         : Get.put(VerifyAbhaController());
     _nurseController = Get.isRegistered<NurseTriageController>()
-      ? Get.find<NurseTriageController>()
-      : Get.put(NurseTriageController());
+        ? Get.find<NurseTriageController>()
+        : Get.put(NurseTriageController());
     _nurseController.verifiedAbhaProfileData.value = null;
+    _nurseController.selectedAbhaProfile.value = null;
     _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
@@ -79,6 +80,16 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
         ),
       ),
     );
+
+    if (!mounted) return;
+
+    final verifiedProfile = _nurseController.verifiedAbhaProfileData.value;
+    if (verifiedProfile != null) {
+      await _nurseController.showAadhaarSuccessDialog(
+        verifiedProfile,
+        returnToCaller: true,
+      );
+    }
 
     final selectedProfile = _nurseController.selectedAbhaProfile.value;
     if (!mounted || selectedProfile == null) return;
@@ -174,12 +185,17 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 220),
                               margin: const EdgeInsets.symmetric(horizontal: 2),
-                              padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 13, horizontal: 4),
                               decoration: BoxDecoration(
-                                color: isActive ? const Color(0xFFEF4444) : Colors.white,
+                                color: isActive
+                                    ? const Color(0xFFEF4444)
+                                    : Colors.white,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: isActive ? Colors.transparent : const Color(0xFFE5E7EB),
+                                  color: isActive
+                                      ? Colors.transparent
+                                      : const Color(0xFFE5E7EB),
                                 ),
                                 boxShadow: isActive
                                     ? [
@@ -199,7 +215,9 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
                                   Icon(
                                     tab.icon,
                                     size: 18,
-                                    color: isActive ? Colors.white : const Color(0xFF374151),
+                                    color: isActive
+                                        ? Colors.white
+                                        : const Color(0xFF374151),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
@@ -208,7 +226,9 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
                                     overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.center,
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      color: isActive ? Colors.white : const Color(0xFF374151),
+                                      color: isActive
+                                          ? Colors.white
+                                          : const Color(0xFF374151),
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -245,10 +265,18 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
                         key: ValueKey<int>(_selectedIndex),
                         index: _selectedIndex,
                         children: [
-                          VerifyMobileAbhaScreen(onNext: (message) => _openOtpScreen(message: message)),
-                          VerifyAadhaarAbhaScreen(onNext: (message) => _openOtpScreen(message: message)),
-                          VerifyAbhaNumberScreen(onNext: (message) => _openOtpScreen(message: message)),
-                          VerifyAbhaAddressScreen(onNext: (message) => _openOtpScreen(message: message)),
+                          VerifyMobileAbhaScreen(
+                              onNext: (message) =>
+                                  _openOtpScreen(message: message)),
+                          VerifyAadhaarAbhaScreen(
+                              onNext: (message) =>
+                                  _openOtpScreen(message: message)),
+                          VerifyAbhaNumberScreen(
+                              onNext: (message) =>
+                                  _openOtpScreen(message: message)),
+                          VerifyAbhaAddressScreen(
+                              onNext: (message) =>
+                                  _openOtpScreen(message: message)),
                           VerifyBiometricAbhaScreen(
                             method: VerifyBiometricMethod.face,
                             onProfileSelected: _returnSelectedProfile,

@@ -51,7 +51,9 @@ void main() {
       );
     });
 
-    test('normalizes a direct verification response into the unified ABHA profile', () {
+    test(
+        'normalizes a direct verification response into the unified ABHA profile',
+        () {
       final profile = AbhaVerifiedProfile.fromResponse({
         'ABHANumber': '91-6470-7346-6839',
         'preferredAbhaAddress': 'pushpa_abha1@sbx',
@@ -107,7 +109,8 @@ void main() {
       expect(profile.status, 'ACTIVE');
     });
 
-    test('normalizes every profile in a multi-profile response independently', () {
+    test('normalizes every profile in a multi-profile response independently',
+        () {
       final profiles = AbhaVerifiedProfile.fromResponseList({
         'result': {
           'ABHAProfile': [
@@ -152,7 +155,9 @@ void main() {
       expect(profiles[2].abhaAddress, 'third@sbx');
     });
 
-    test('normalizes direct mobile verification responses into the ABHA profile card shape', () {
+    test(
+        'normalizes direct mobile verification responses into the ABHA profile card shape',
+        () {
       final controller = VerifyAbhaController();
 
       final response = {
@@ -171,6 +176,46 @@ void main() {
       expect(normalized['result']?['ABHAProfile']?['profileId'], 120);
       expect(normalized['result']?['ABHAProfile']?['mobile'], '9876543210');
       expect(extractAbhaProfileId(normalized), 120);
+    });
+
+    test('merges verified users with profile ids and ABHA addresses', () {
+      final response = {
+        'message': 'OTP verified successfully',
+        'authResult': 'success',
+        'users': [
+          {
+            'abhaAddress': 'santhoshp200209@sbx',
+            'fullName': 'Santhosh Kumar P',
+            'abhaNumber': '91-2816-7126-4154',
+            'status': 'ACTIVE',
+            'kycStatus': 'VERIFIED',
+            'age': 24,
+          },
+        ],
+        'profiles': [
+          {
+            'id': 78,
+            'abha_number': '91-2816-7126-4154',
+            'abha_address': 'santhoshp200209@sbx',
+            'name': 'Santhosh Kumar P',
+          },
+        ],
+      };
+
+      final profiles = AbhaVerifiedProfile.fromResponseList(response);
+      final cardPayload = buildProfileCardPayloadFromVerifyResponse(response);
+      final cardProfile = cardPayload['result']?['ABHAProfile'];
+
+      expect(profiles, hasLength(1));
+      expect(profiles.single.profileId, 78);
+      expect(profiles.single.name, 'Santhosh Kumar P');
+      expect(profiles.single.abhaAddress, 'santhoshp200209@sbx');
+      expect(profiles.single.abhaNumber, '91-2816-7126-4154');
+      expect(profiles.single.status, 'ACTIVE');
+      expect(profiles.single.verificationStatus, 'VERIFIED');
+      expect(profiles.single.age, '24');
+      expect(extractAbhaProfileId(cardPayload), 78);
+      expect(cardProfile['abhaAddress'], 'santhoshp200209@sbx');
     });
 
     test('extracts profileId from nested ABHA verification payloads', () {

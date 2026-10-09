@@ -12,7 +12,10 @@ import 'package:taei_gov/src/login/view/login_page.dart';
 import 'package:flutter/foundation.dart';
 
 class CustomHttpHelper extends http.BaseClient {
-  final http.Client _httpClient = http.Client();
+  final http.Client _httpClient;
+
+  CustomHttpHelper({http.Client? httpClient})
+      : _httpClient = httpClient ?? http.Client();
 
   static const _abhaUrlSegment = '/api/abha/';
   static const _sensitiveKeys = <String>{
@@ -34,7 +37,7 @@ class CustomHttpHelper extends http.BaseClient {
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final token = LocalDataHelper.getString(Constant.token);
 
-    if (token != null && token.isNotEmpty) {
+    if (token.isNotEmpty) {
       request.headers['Authorization'] = 'Bearer $token';
     }
 
@@ -48,8 +51,14 @@ class CustomHttpHelper extends http.BaseClient {
 
     if (httpResponse.statusCode == 401 || httpResponse.statusCode == 403) {
       AbhaDebugLogger.error('Token expired or unauthorized: ${httpResponse.statusCode}');
-      LocalDataHelper.clearData();
-      Get.offAll(() => const EntranceScreen());
+      if (isAbhaRequest) {
+        AbhaDebugLogger.error(
+          'ABHA authorization failed; preserving the TAEI login session',
+        );
+      } else {
+        LocalDataHelper.clearData();
+        Get.offAll(() => const EntranceScreen());
+      }
     } else if (httpResponse.statusCode >= 500) {
       // Server error: leave for caller handling.
       AbhaDebugLogger.http('← ${httpResponse.statusCode} Server error received from ${request.url}');
@@ -105,6 +114,13 @@ class CustomHttpHelper extends http.BaseClient {
     final formatted = Map<String, String>.from(headers);
     if (formatted.containsKey('Authorization')) {
       formatted['Authorization'] = 'Bearer ***';
+    }
+    final xTokenHeader = formatted.keys.firstWhere(
+      (key) => key.toLowerCase() == 'x-token',
+      orElse: () => '',
+    );
+    if (xTokenHeader.isNotEmpty) {
+      formatted[xTokenHeader] = '******';
     }
     if (isAbhaRequest && formatted.containsKey('Transaction_Id')) {
       formatted['Transaction_Id'] = '***';

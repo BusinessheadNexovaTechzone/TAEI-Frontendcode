@@ -149,6 +149,7 @@ class AbhaVerifiedProfile {
       'preferredabhaaddress',
       'preferredAbhaAddress',
       'abhaaddress',
+      'abha_address',
       'preferred_abha_address',
       'phrAddress',
     ]);
@@ -167,6 +168,8 @@ class AbhaVerifiedProfile {
       'verifiedstatus',
       'verificationstatus',
       'verified_status',
+      'kycstatus',
+      'kyc_status',
     ]);
     final verificationType = _readString(flattened, [
       'verificationtype',
@@ -293,14 +296,62 @@ class AbhaVerifiedProfile {
           : null,
       response['data'] is Map ? (response['data'] as Map)['ABHAProfile'] : null,
       response['ABHAProfile'],
-      response['profiles'],
-      response['accounts'],
     ];
 
     for (final candidate in directCandidates) {
       final profiles = fromValue(candidate);
       if (profiles.isNotEmpty) return profiles;
     }
+
+    final profiles = fromValue(response['profiles'] ?? response['accounts']);
+    final users = fromValue(response['users']);
+    if (profiles.isNotEmpty && users.isNotEmpty) {
+      return profiles.asMap().entries.map((entry) {
+        final profile = entry.value;
+        final profileNumber = _firstValue(profile, const [
+          'ABHANumber',
+          'abhaNumber',
+          'abha_number',
+        ]);
+        final profileAddress = _firstValue(profile, const [
+          'preferredAbhaAddress',
+          'abhaAddress',
+          'abha_address',
+          'preferred_abha_address',
+        ]);
+        final matchingUser = users.cast<Map<String, dynamic>?>().firstWhere(
+              (user) =>
+                  user != null &&
+                  ((profileNumber != null &&
+                          _firstValue(user, const [
+                                'ABHANumber',
+                                'abhaNumber',
+                                'abha_number',
+                              ]) ==
+                              profileNumber) ||
+                      (profileAddress != null &&
+                          _firstValue(user, const [
+                                'preferredAbhaAddress',
+                                'abhaAddress',
+                                'abha_address',
+                                'preferred_abha_address',
+                              ]) ==
+                              profileAddress)),
+              orElse: () => null,
+            );
+        final user = matchingUser ??
+            (profiles.length == users.length && entry.key < users.length
+                ? users[entry.key]
+                : null);
+        return <String, dynamic>{
+          if (user != null) ...user,
+          ...profile,
+        };
+      }).toList(growable: false);
+    }
+
+    if (profiles.isNotEmpty) return profiles;
+    if (users.isNotEmpty) return users;
 
     final result = response['result'];
     if (result is Map) {
@@ -315,6 +366,19 @@ class AbhaVerifiedProfile {
     }
 
     return [response];
+  }
+
+  static Object? _firstValue(
+    Map<String, dynamic> source,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = source[key];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value;
+      }
+    }
+    return null;
   }
 
   static Map<String, dynamic> _flattenMap(Object? source) {

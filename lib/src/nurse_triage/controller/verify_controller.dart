@@ -555,11 +555,7 @@ class VerifyAbhaController extends GetxController {
       log('[VERIFY ABHA] WARNING: profileId not found in verify response');
     }
 
-    debugPrint('Opening shared profile card from verify flow');
-    await nurseController.showAadhaarSuccessDialog(
-      enrichedPayload,
-      returnToCaller: true,
-    );
+    debugPrint('Verified ABHA profile is ready for the caller to display');
   }
 
   Future<bool> verifyOtp({required String otp}) async {
