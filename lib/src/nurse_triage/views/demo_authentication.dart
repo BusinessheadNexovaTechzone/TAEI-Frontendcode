@@ -11,7 +11,8 @@ class DemoAuthenticationScreen extends StatefulWidget {
   const DemoAuthenticationScreen({super.key});
 
   @override
-  State<DemoAuthenticationScreen> createState() => _DemoAuthenticationScreenState();
+  State<DemoAuthenticationScreen> createState() =>
+      _DemoAuthenticationScreenState();
 }
 
 class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
@@ -28,15 +29,15 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
   final TextEditingController _pinCodeController = TextEditingController();
 
   String? _selectedGender;
-  bool _consentAccepted = false;
   bool _isSubmitting = false;
   bool _didInit = false;
 
   @override
   void initState() {
     super.initState();
-    final aadhaar = (_nurseController.createTriageModel.value?.triage?.aadhaar ?? '')
-        .replaceAll(RegExp(r'\D'), '');
+    final aadhaar =
+        (_nurseController.createTriageModel.value?.triage?.aadhaar ?? '')
+            .replaceAll(RegExp(r'\D'), '');
     if (aadhaar.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
@@ -63,8 +64,9 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
   }
 
   String get _aadhaarValue {
-    final aadhaar = (_nurseController.createTriageModel.value?.triage?.aadhaar ?? '')
-        .replaceAll(RegExp(r'\D'), '');
+    final aadhaar =
+        (_nurseController.createTriageModel.value?.triage?.aadhaar ?? '')
+            .replaceAll(RegExp(r'\D'), '');
     if (aadhaar.isEmpty) return '';
     if (aadhaar.length <= 4) return aadhaar;
     final visible = aadhaar.substring(aadhaar.length - 4);
@@ -86,9 +88,12 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
     _dobController.text = formatted;
   }
 
-  Map<String, dynamic> _buildExistingProfilePayload(Map<String, dynamic> response) {
+  Map<String, dynamic> _buildExistingProfilePayload(
+      Map<String, dynamic> response) {
     final result = response['result'];
-    final profileMap = result is Map ? Map<String, dynamic>.from(result as Map) : <String, dynamic>{};
+    final profileMap = result is Map
+        ? Map<String, dynamic>.from(result as Map)
+        : <String, dynamic>{};
     final profileId = response['profileId'];
     final parsedProfileId = int.tryParse(profileId?.toString() ?? '');
 
@@ -127,21 +132,15 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
       return;
     }
 
-    final aadhaar = (_nurseController.createTriageModel.value?.triage?.aadhaar ?? '')
-        .replaceAll(RegExp(r'\D'), '');
+    final aadhaar =
+        (_nurseController.createTriageModel.value?.triage?.aadhaar ?? '')
+            .replaceAll(RegExp(r'\D'), '');
 
     if (aadhaar.isEmpty) {
       await CommonErrorDialog.show(
         context,
-        message: 'Aadhaar information is unavailable. Please restart the ABHA enrollment process.',
-      );
-      return;
-    }
-
-    if (!_consentAccepted) {
-      await CommonErrorDialog.show(
-        context,
-        message: 'Please accept the consent to continue.',
+        message:
+            'Aadhaar information is unavailable. Please restart the ABHA enrollment process.',
       );
       return;
     }
@@ -157,7 +156,6 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
       name: _nameController.text,
       mobile: _mobileController.text,
       pinCode: _pinCodeController.text,
-      consentAccepted: _consentAccepted,
     );
 
     if (!mounted) return;
@@ -177,7 +175,8 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
     if (response == null || profileId == null || profileId <= 0) {
       await CommonErrorDialog.show(
         context,
-        message: 'ABHA profile was created, but the profile ID could not be retrieved.',
+        message:
+            'ABHA profile was created, but the profile ID could not be retrieved.',
       );
       setState(() => _isSubmitting = false);
       return;
@@ -192,7 +191,8 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
     final debugProfilePayload = profilePayload['result']?['ABHAProfile'];
     debugPrint('[ABHA][DEMO-AUTH] SUCCESS');
     debugPrint('[ABHA][DEMO-AUTH] PROFILE ID: $profileId');
-    debugPrint('[ABHA][DEMO-AUTH] Profile data received: ${debugProfilePayload != null ? debugProfilePayload.keys.toList() : 'none'}');
+    debugPrint(
+        '[ABHA][DEMO-AUTH] Profile data received: ${debugProfilePayload != null ? debugProfilePayload.keys.toList() : 'none'}');
     debugPrint('[ABHA][DEMO-AUTH] OPENING EXISTING ABHA PROFILE');
 
     final selectedProfile =
@@ -323,7 +323,8 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
                       Obx(
                         () => DropdownButtonFormField<String>(
                           value: _demoController.selectedStateName.value,
-                          validator: (value) => _demoController.validateState(value),
+                          validator: (value) =>
+                              _demoController.validateState(value),
                           decoration: _buildInputDecoration(
                             labelText: 'State *',
                           ),
@@ -351,17 +352,21 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
                       const SizedBox(height: 8),
                       Obx(
                         () {
-                          final isStateSelected = _demoController.selectedStateName.value != null &&
-                              _demoController.selectedStateName.value!.isNotEmpty;
+                          final isStateSelected =
+                              _demoController.selectedStateName.value != null &&
+                                  _demoController
+                                      .selectedStateName.value!.isNotEmpty;
                           return DropdownButtonFormField<String>(
                             value: _demoController.selectedDistrictName.value,
-                            validator: (value) => _demoController.validateDistrict(value),
+                            validator: (value) =>
+                                _demoController.validateDistrict(value),
                             decoration: _buildInputDecoration(
                               labelText: 'District *',
                             ).copyWith(
                               disabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFE0E0E0)),
                               ),
                             ),
                             disabledHint: !isStateSelected
@@ -387,7 +392,8 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
                       TextFormField(
                         controller: _dobController,
                         readOnly: true,
-                        validator: (value) => _demoController.validateDob(value),
+                        validator: (value) =>
+                            _demoController.validateDob(value),
                         decoration: _buildInputDecoration(
                           labelText: 'Date of Birth *',
                           hintText: 'DD-MM-YYYY',
@@ -402,7 +408,8 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         value: _selectedGender,
-                        validator: (value) => _demoController.validateGender(value),
+                        validator: (value) =>
+                            _demoController.validateGender(value),
                         decoration: _buildInputDecoration(
                           labelText: 'Gender *',
                         ),
@@ -411,13 +418,15 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
                           DropdownMenuItem(value: 'F', child: Text('Female')),
                           DropdownMenuItem(value: 'O', child: Text('Other')),
                         ],
-                        onChanged: (value) => setState(() => _selectedGender = value),
+                        onChanged: (value) =>
+                            setState(() => _selectedGender = value),
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _nameController,
                         textCapitalization: TextCapitalization.words,
-                        validator: (value) => _demoController.validateName(value),
+                        validator: (value) =>
+                            _demoController.validateName(value),
                         decoration: _buildInputDecoration(
                           labelText: 'Full Name *',
                           hintText: '',
@@ -427,7 +436,8 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
                       TextFormField(
                         controller: _mobileController,
                         keyboardType: TextInputType.phone,
-                        validator: (value) => _demoController.validateMobile(value),
+                        validator: (value) =>
+                            _demoController.validateMobile(value),
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                         ],
@@ -440,7 +450,8 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
                       TextFormField(
                         controller: _pinCodeController,
                         keyboardType: TextInputType.number,
-                        validator: (value) => _demoController.validatePinCode(value),
+                        validator: (value) =>
+                            _demoController.validatePinCode(value),
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                         ],
@@ -449,22 +460,14 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
                           hintText: '',
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        value: _consentAccepted,
-                        onChanged: (value) => setState(() => _consentAccepted = value ?? false),
-                        title: const Text(
-                          'I consent to the collection and processing of my information for ABHA authentication/enrollment.',
-                        ),
-                      ),
                       const SizedBox(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           OutlinedButton(
-                            onPressed: _isSubmitting ? null : () => Navigator.of(context).maybePop(),
+                            onPressed: _isSubmitting
+                                ? null
+                                : () => Navigator.of(context).maybePop(),
                             child: const Text('Cancel'),
                           ),
                           const SizedBox(width: 12),
@@ -486,7 +489,8 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.red,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 18, vertical: 14),
                             ),
                           ),
                         ],

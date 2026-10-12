@@ -81,7 +81,6 @@ void main() {
       name: 'Test Patient',
       mobile: '9000000000',
       pinCode: '632514',
-      consentAccepted: true,
     );
 
     expect(success, isTrue);

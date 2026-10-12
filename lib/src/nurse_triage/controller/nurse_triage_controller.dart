@@ -88,7 +88,8 @@ class NurseTriageController extends GetxController {
   String _maskValue(String? value, {int visibleChars = 4}) {
     if (value == null || value.isEmpty) return 'n/a';
     final digits = value.toString();
-    if (digits.length <= visibleChars) return '*${digits.substring(0, digits.length)}';
+    if (digits.length <= visibleChars)
+      return '*${digits.substring(0, digits.length)}';
     final suffix = digits.substring(digits.length - visibleChars);
     return '${'*' * (digits.length - visibleChars)}$suffix';
   }
@@ -163,9 +164,11 @@ class NurseTriageController extends GetxController {
 
         if (txnId != null) {
           aadhaarTxnId.value = txnId.toString();
-          _logFlow('[AADHAAR] Transaction ID received: ${_maskValue(txnId.toString(), visibleChars: 6)}');
+          _logFlow(
+              '[AADHAAR] Transaction ID received: ${_maskValue(txnId.toString(), visibleChars: 6)}');
         } else {
-          _logFlow('[AADHAAR] ERROR: transaction ID missing in generate OTP response');
+          _logFlow(
+              '[AADHAAR] ERROR: transaction ID missing in generate OTP response');
         }
 
         if (deliveryMessage.toString().trim().isNotEmpty) {
@@ -215,7 +218,8 @@ class NurseTriageController extends GetxController {
     }
   }
 
-  Future<bool> verifyAadhaarOtp({bool showDialog = true, String? flowId}) async {
+  Future<bool> verifyAadhaarOtp(
+      {bool showDialog = true, String? flowId}) async {
     final otp = aadhaarOtp.value;
     final txnId = aadhaarTxnId.value;
     final mobile = createTriageModel.value?.triage?.patientMobileNumber;
@@ -317,11 +321,13 @@ class NurseTriageController extends GetxController {
         _logFlow('[AADHAAR OTP] profileId extracted: true');
         _logFlow('[AADHAAR OTP] profileId: $profileId');
       } else {
-        _logFlow('[AADHAAR OTP] ERROR: profileId was not found in verification response');
+        _logFlow(
+            '[AADHAAR OTP] ERROR: profileId was not found in verification response');
         if (Get.context != null) {
           await CommonErrorDialog.show(
             Get.context!,
-            message: 'We couldn\'t continue with the mobile verification step. Please try again.',
+            message:
+                'We couldn\'t continue with the mobile verification step. Please try again.',
           );
         }
         return false;
@@ -403,7 +409,8 @@ class NurseTriageController extends GetxController {
         if (Get.context != null) {
           await CommonErrorDialog.show(
             Get.context!,
-            message: 'We couldn\'t send the verification OTP to your mobile number. Please try again.',
+            message:
+                'We couldn\'t send the verification OTP to your mobile number. Please try again.',
           );
         }
         return false;
@@ -457,34 +464,42 @@ class NurseTriageController extends GetxController {
     required String otp,
     String? flowId,
   }) async {
-    debugPrint('[ABHA][TRACE][FLOW:${flowId ?? 'unknown'}] ENTER controller.verifyMobileUpdateOtp');
-    debugPrint('[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] profileId: $profileId');
+    debugPrint(
+        '[ABHA][TRACE][FLOW:${flowId ?? 'unknown'}] ENTER controller.verifyMobileUpdateOtp');
+    debugPrint(
+        '[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] profileId: $profileId');
     if (profileId <= 0) {
-      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] profileId is missing or invalid');
+      debugPrint(
+          '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] profileId is missing or invalid');
       if (Get.context != null) {
         await CommonErrorDialog.show(
           Get.context!,
-          message: 'We could not verify your mobile number because the session expired. Please try again.',
+          message:
+              'We could not verify your mobile number because the session expired. Please try again.',
         );
       }
       return false;
     }
 
     if (txnId.isEmpty) {
-      debugPrint('[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] txnId present: false');
+      debugPrint(
+          '[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] txnId present: false');
       if (Get.context != null) {
         await CommonErrorDialog.show(
           Get.context!,
-          message: 'We could not verify your mobile number because the session expired. Please try again.',
+          message:
+              'We could not verify your mobile number because the session expired. Please try again.',
         );
       }
       return false;
     }
 
-    debugPrint('[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] txnId present: true');
+    debugPrint(
+        '[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] txnId present: true');
 
     if (otp.isEmpty || otp.length != 6) {
-      debugPrint('[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] OTP length: ${otp.length}');
+      debugPrint(
+          '[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] OTP length: ${otp.length}');
       if (Get.context != null) {
         await CommonErrorDialog.show(
           Get.context!,
@@ -494,7 +509,8 @@ class NurseTriageController extends GetxController {
       return false;
     }
 
-    debugPrint('[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] OTP length: ${otp.length}');
+    debugPrint(
+        '[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] OTP length: ${otp.length}');
 
     try {
       _logFlow('========== MOBILE OTP VERIFICATION ==========');
@@ -517,7 +533,8 @@ class NurseTriageController extends GetxController {
         if (Get.context != null) {
           await CommonErrorDialog.show(
             Get.context!,
-            message: 'We couldn\'t verify your mobile number. Please try again.',
+            message:
+                'We couldn\'t verify your mobile number. Please try again.',
           );
         }
         return false;
@@ -535,22 +552,28 @@ class NurseTriageController extends GetxController {
         return false;
       }
 
-      final payload = d is Map<String, dynamic> ? d : Map<String, dynamic>.from(d);
+      final payload =
+          d is Map<String, dynamic> ? d : Map<String, dynamic>.from(d);
       final response = UpdateMobileVerifyOtpResponse.fromJson(payload);
-      final backendAuth = (payload['authResult'] ?? '').toString().trim().toLowerCase();
+      final backendAuth =
+          (payload['authResult'] ?? '').toString().trim().toLowerCase();
       final isAuthSuccess = backendAuth == 'success' || response.isSuccess;
 
       if (!isAuthSuccess) {
         mobileUpdateVerified.value = false;
         lastApiError.value = payload;
-        debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp failed');
-        debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] authResult: ${payload['authResult'] ?? 'missing'}');
-        debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] RESPONSE BODY: ${jsonEncode(payload)}');
+        debugPrint(
+            '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp failed');
+        debugPrint(
+            '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] authResult: ${payload['authResult'] ?? 'missing'}');
+        debugPrint(
+            '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] RESPONSE BODY: ${jsonEncode(payload)}');
         if (Get.context != null) {
           await CommonErrorDialog.show(
             Get.context!,
             title: 'Unable to Continue',
-            message: CommonErrorDialog.extractFriendlyErrorMessage(payload).isNotEmpty
+            message: CommonErrorDialog.extractFriendlyErrorMessage(payload)
+                    .isNotEmpty
                 ? CommonErrorDialog.extractFriendlyErrorMessage(payload)
                 : 'The mobile verification OTP is incorrect. Please check the OTP and try again.',
           );
@@ -558,19 +581,27 @@ class NurseTriageController extends GetxController {
         return false;
       }
 
-      debugPrint('============================================================');
-      debugPrint('[ABHA][WORKFLOW][FLOW:${flowId ?? 'unknown'}] MOBILE OTP VERIFICATION SUCCESS');
-      debugPrint('============================================================');
-      debugPrint('[ABHA][WORKFLOW][FLOW:${flowId ?? 'unknown'}] authResult: success');
-      debugPrint('[ABHA][WORKFLOW][FLOW:${flowId ?? 'unknown'}] Mobile number updated successfully');
-      debugPrint('============================================================');
+      debugPrint(
+          '============================================================');
+      debugPrint(
+          '[ABHA][WORKFLOW][FLOW:${flowId ?? 'unknown'}] MOBILE OTP VERIFICATION SUCCESS');
+      debugPrint(
+          '============================================================');
+      debugPrint(
+          '[ABHA][WORKFLOW][FLOW:${flowId ?? 'unknown'}] authResult: success');
+      debugPrint(
+          '[ABHA][WORKFLOW][FLOW:${flowId ?? 'unknown'}] Mobile number updated successfully');
+      debugPrint(
+          '============================================================');
 
       mobileUpdateVerified.value = true;
       _logFlow('[MOBILE OTP] Verification success: true');
       return true;
     } catch (e, stackTrace) {
-      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp exception: $e');
-      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] stackTrace: $stackTrace');
+      debugPrint(
+          '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp exception: $e');
+      debugPrint(
+          '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] stackTrace: $stackTrace');
       log('verifyMobileUpdateOtp exception: $e');
       mobileUpdateVerified.value = false;
       final friendlyMessage = CommonErrorDialog.extractFriendlyErrorMessage(e);
@@ -768,7 +799,8 @@ class NurseTriageController extends GetxController {
 
     log('[ABHA][CARD-DOWNLOAD] START');
     log('[ABHA][CARD-DOWNLOAD] Download button clicked');
-    debugPrint('[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD ABHA CARD PRESSED');
+    debugPrint(
+        '[ABHA][CARD][FLOW:${flowId ?? 'unknown'}] DOWNLOAD ABHA CARD PRESSED');
 
     final currentProfileIdValue = int.tryParse(currentProfileId.value);
     final directProfileId = profileId ??
@@ -801,14 +833,17 @@ class NurseTriageController extends GetxController {
     }
 
     if (profileIdStr.isEmpty && verifiedAbhaProfileData.value != null) {
-      final verifiedProfileId = extractAbhaProfileId(verifiedAbhaProfileData.value);
+      final verifiedProfileId =
+          extractAbhaProfileId(verifiedAbhaProfileData.value);
       if (verifiedProfileId != null && verifiedProfileId > 0) {
         profileIdStr = verifiedProfileId.toString();
         currentProfileId.value = profileIdStr;
       }
     }
 
-    if (profileIdStr.isEmpty && !selectedProfileOnly && aadhaarProfileData.value != null) {
+    if (profileIdStr.isEmpty &&
+        !selectedProfileOnly &&
+        aadhaarProfileData.value != null) {
       final cachedProfileId = extractAbhaProfileId(aadhaarProfileData.value);
       if (cachedProfileId != null && cachedProfileId > 0) {
         profileIdStr = cachedProfileId.toString();
@@ -827,7 +862,8 @@ class NurseTriageController extends GetxController {
     if (profileIdStr.isEmpty) {
       log('[ABHA CARD][DOWNLOAD] profileId missing');
       Fluttertoast.showToast(
-        msg: 'ABHA card is not available yet. Please complete ABHA verification first.',
+        msg:
+            'ABHA card is not available yet. Please complete ABHA verification first.',
       );
       if (Get.context != null) {
         await CommonErrorDialog.show(
@@ -843,7 +879,8 @@ class NurseTriageController extends GetxController {
     if (parsedProfileId == null || parsedProfileId <= 0) {
       log('[ABHA CARD][DOWNLOAD] profileId invalid: $profileIdStr');
       Fluttertoast.showToast(
-        msg: 'ABHA card is not available yet. Please complete ABHA verification first.',
+        msg:
+            'ABHA card is not available yet. Please complete ABHA verification first.',
       );
       if (Get.context != null) {
         await CommonErrorDialog.show(
@@ -900,7 +937,8 @@ class NurseTriageController extends GetxController {
 
       // Extract downloaded bytes and file info
       final bytes = result['bytes'] as Uint8List?;
-      final contentType = result['contentType']?.toString() ?? 'application/octet-stream';
+      final contentType =
+          result['contentType']?.toString() ?? 'application/octet-stream';
       final filename = result['filename']?.toString() ?? 'ABHA_Card.pdf';
 
       if (bytes == null || bytes.isEmpty) {
@@ -1014,7 +1052,8 @@ class NurseTriageController extends GetxController {
     log("ABHA Profile data: $data");
 
     final normalizedProfiles = AbhaVerifiedProfile.fromResponseList(d);
-    int? extractedProfileId = extractAbhaProfileId(d) ?? extractAbhaProfileId(data);
+    int? extractedProfileId =
+        extractAbhaProfileId(d) ?? extractAbhaProfileId(data);
     if (extractedProfileId == null || extractedProfileId <= 0) {
       for (final parsedProfile in normalizedProfiles) {
         final parsedProfileId = parsedProfile.profileId;
@@ -1130,15 +1169,6 @@ class NurseTriageController extends GetxController {
     debugPrint(
         'Applied Aadhaar fields: ${createTriageModel.value?.triage?.toJson()}');
     log("FINAL TRIAGE: ${triage.toJson()}");
-  }
-
-  // Helper method to get masked mobile number as stars
-  String getMaskedMobileNumber(String? mobileNumber) {
-    if (mobileNumber == null || mobileNumber.isEmpty) {
-      return '';
-    }
-    final len = mobileNumber.length;
-    return '*' * len; // mask the number with stars
   }
 
   int? _mapGenderToLookupId(String gender) {
@@ -1411,9 +1441,11 @@ class NurseTriageController extends GetxController {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(12)),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1535,7 +1567,8 @@ class NurseTriageController extends GetxController {
           _buildDialogInfoRow('Age', profile.age),
           _buildDialogInfoRow('Gender', profile.gender),
           _buildDialogInfoRow('Mobile', profile.mobile),
-          _buildDialogInfoRow('Verification Status', profile.verificationStatus),
+          _buildDialogInfoRow(
+              'Verification Status', profile.verificationStatus),
           _buildDialogInfoRow('Verification Method', profile.verificationType),
           _buildDialogInfoRow('Account Status', profile.status),
           const SizedBox(height: 8),
@@ -2713,7 +2746,8 @@ class NurseTriageController extends GetxController {
         if (Get.context != null) {
           await CommonErrorDialog.show(
             Get.context!,
-            message: 'Face verification is still in progress. Please try again.',
+            message:
+                'Face verification is still in progress. Please try again.',
           );
         }
 

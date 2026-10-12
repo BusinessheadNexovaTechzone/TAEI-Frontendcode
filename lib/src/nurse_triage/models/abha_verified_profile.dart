@@ -303,10 +303,44 @@ class AbhaVerifiedProfile {
       if (profiles.isNotEmpty) return profiles;
     }
 
-    final profiles = fromValue(response['profiles'] ?? response['accounts']);
+    final profiles = fromValue(response['profiles']);
+    final accounts = fromValue(response['accounts']);
     final users = fromValue(response['users']);
-    if (profiles.isNotEmpty && users.isNotEmpty) {
-      return profiles.asMap().entries.map((entry) {
+    if (accounts.isNotEmpty && profiles.isNotEmpty) {
+      return accounts.asMap().entries.map((entry) {
+        final account = entry.value;
+        final accountNumber = _firstValue(account, const [
+          'ABHANumber',
+          'abhaNumber',
+          'abha_number',
+        ]);
+        final matchingProfile =
+            profiles.cast<Map<String, dynamic>?>().firstWhere(
+                  (profile) =>
+                      profile != null &&
+                      accountNumber != null &&
+                      _firstValue(profile, const [
+                            'ABHANumber',
+                            'abhaNumber',
+                            'abha_number',
+                          ]) ==
+                          accountNumber,
+                  orElse: () => null,
+                );
+        final profile = matchingProfile ??
+            (accountNumber == null && accounts.length == profiles.length
+                ? profiles[entry.key]
+                : null);
+        return <String, dynamic>{
+          if (profile != null) ...profile,
+          ...account,
+        };
+      }).toList(growable: false);
+    }
+
+    final accountProfiles = accounts.isNotEmpty ? accounts : profiles;
+    if (accountProfiles.isNotEmpty && users.isNotEmpty) {
+      return accountProfiles.asMap().entries.map((entry) {
         final profile = entry.value;
         final profileNumber = _firstValue(profile, const [
           'ABHANumber',
@@ -340,7 +374,7 @@ class AbhaVerifiedProfile {
               orElse: () => null,
             );
         final user = matchingUser ??
-            (profiles.length == users.length && entry.key < users.length
+            (accountProfiles.length == users.length && entry.key < users.length
                 ? users[entry.key]
                 : null);
         return <String, dynamic>{
@@ -350,7 +384,7 @@ class AbhaVerifiedProfile {
       }).toList(growable: false);
     }
 
-    if (profiles.isNotEmpty) return profiles;
+    if (accountProfiles.isNotEmpty) return accountProfiles;
     if (users.isNotEmpty) return users;
 
     final result = response['result'];

@@ -8,6 +8,8 @@ class TitleDropdown<T> extends StatelessWidget {
   final ValueChanged<T?>? onChanged;
   final InputBorder? border;
   final bool isEditable;
+  final bool filled;
+  final Color? fillColor;
 
   const TitleDropdown({
     super.key,
@@ -18,6 +20,8 @@ class TitleDropdown<T> extends StatelessWidget {
     this.onChanged,
     this.border,
     this.isEditable = true,
+    this.filled = false,
+    this.fillColor,
   });
 
   @override

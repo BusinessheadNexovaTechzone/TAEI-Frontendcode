@@ -144,7 +144,6 @@ class DemoAuthController extends GetxController {
     required String name,
     String? mobile,
     String? pinCode,
-    bool consentAccepted = false,
   }) async {
     errorMessage.value = '';
     status.value = 'validating';
@@ -152,12 +151,6 @@ class DemoAuthController extends GetxController {
     responseData.value = null;
 
     final cleanedAadhaar = aadhaar.replaceAll(RegExp(r'\D'), '');
-    if (!consentAccepted) {
-      errorMessage.value = 'Please accept the consent to continue.';
-      status.value = 'error';
-      return false;
-    }
-
     if (cleanedAadhaar.length != 12) {
       errorMessage.value =
           'Aadhaar information is unavailable. Please restart the ABHA enrollment process.';

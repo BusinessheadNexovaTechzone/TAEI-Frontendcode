@@ -218,6 +218,52 @@ void main() {
       expect(cardProfile['abhaAddress'], 'santhoshp200209@sbx');
     });
 
+    test('uses account data when verification response also has profile ids',
+        () {
+      final response = {
+        'authResult': 'success',
+        'message': 'OTP verified successfully',
+        'accounts': [
+          {
+            'ABHANumber': '91-2816-7126-4154',
+            'preferredAbhaAddress': 'demo@sbx',
+            'name': 'Demo User',
+            'gender': 'M',
+            'dob': '29-09-2002',
+            'verifiedStatus': 'VERIFIED',
+            'verificationType': 'AADHAAR',
+            'status': 'ACTIVE',
+            'profilePhoto': 'AA==',
+            'mobileVerified': true,
+          },
+        ],
+        'profiles': [
+          {
+            'id': 78,
+            'abha_number': '91-2816-7126-4154',
+          },
+        ],
+      };
+
+      final profiles = AbhaVerifiedProfile.fromResponseList(response);
+      final cardPayload = buildProfileCardPayloadFromVerifyResponse(response);
+      final cardProfile = cardPayload['result']?['ABHAProfile'];
+
+      expect(profiles, hasLength(1));
+      expect(profiles.single.profileId, 78);
+      expect(profiles.single.name, 'Demo User');
+      expect(profiles.single.abhaAddress, 'demo@sbx');
+      expect(profiles.single.dateOfBirth, '29-09-2002');
+      expect(profiles.single.gender, 'Male');
+      expect(profiles.single.verificationStatus, 'VERIFIED');
+      expect(profiles.single.verificationType, 'AADHAAR');
+      expect(profiles.single.status, 'ACTIVE');
+      expect(profiles.single.profilePhoto, 'AA==');
+      expect(cardProfile['name'], 'Demo User');
+      expect(cardProfile['abhaAddress'], 'demo@sbx');
+      expect(cardProfile['profileId'], 78);
+    });
+
     test('extracts profileId from nested ABHA verification payloads', () {
       expect(
         extractAbhaProfileId({

@@ -9,7 +9,8 @@ class UpdateMobileAccount {
 
   factory UpdateMobileAccount.fromJson(Map<String, dynamic> json) {
     return UpdateMobileAccount(
-      abhaNumber: json['ABHANumber']?.toString() ?? json['abhaNumber']?.toString(),
+      abhaNumber:
+          json['ABHANumber']?.toString() ?? json['abhaNumber']?.toString(),
       mobileVerified: json['mobileVerified'] is bool
           ? json['mobileVerified'] as bool
           : null,
@@ -30,7 +31,19 @@ class UpdateMobileVerifyOtpResponse {
     required this.accounts,
   });
 
-  bool get isSuccess => (authResult ?? '').toLowerCase() == 'success';
+  bool get isSuccess {
+    if ((authResult ?? '').trim().toLowerCase() == 'success') return true;
+
+    final normalizedMessage =
+        (message ?? '').trim().toLowerCase().replaceAll(RegExp(r'[.!]+$'), '');
+    return const {
+      'mobile number verified successfully',
+      'mobile verified successfully',
+      'mobile number updated successfully',
+      'mobile updated successfully',
+      'otp verified successfully',
+    }.contains(normalizedMessage);
+  }
 
   factory UpdateMobileVerifyOtpResponse.fromJson(Map<String, dynamic> json) {
     final rawAccounts = json['accounts'];
@@ -41,7 +54,8 @@ class UpdateMobileVerifyOtpResponse {
         if (item is Map<String, dynamic>) {
           parsedAccounts.add(UpdateMobileAccount.fromJson(item));
         } else if (item is Map) {
-          parsedAccounts.add(UpdateMobileAccount.fromJson(Map<String, dynamic>.from(item)));
+          parsedAccounts.add(
+              UpdateMobileAccount.fromJson(Map<String, dynamic>.from(item)));
         }
       }
     }

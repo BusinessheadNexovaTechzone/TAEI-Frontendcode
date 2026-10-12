@@ -1067,6 +1067,15 @@ class _AddAccidentState extends State<AddAccident> {
                                           hintText: 'Enter the name',
                                           readOnly: controller
                                               .aadhaarProfileImported.value,
+                                          style: controller
+                                                  .aadhaarProfileImported.value
+                                              ? const TextStyle(
+                                                  color: Colors.grey)
+                                              : null,
+                                          border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
                                           onChanged: controller
                                                   .aadhaarProfileImported.value
                                               ? null
@@ -1174,6 +1183,20 @@ class _AddAccidentState extends State<AddAccident> {
                                                           readOnly: controller
                                                               .aadhaarProfileImported
                                                               .value,
+                                                          style: controller
+                                                                  .aadhaarProfileImported
+                                                                  .value
+                                                              ? const TextStyle(
+                                                                  color: Colors
+                                                                      .grey)
+                                                              : null,
+                                                          border:
+                                                              OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8),
+                                                          ),
                                                           onChanged: controller
                                                                   .aadhaarProfileImported
                                                                   .value
@@ -1655,9 +1678,7 @@ class _AddAccidentState extends State<AddAccident> {
                                                                         10),
                                                           ),
                                                           child: Text(
-                                                            controller
-                                                                .getMaskedMobileNumber(
-                                                                    mobileNumber),
+                                                            mobileNumber.trim(),
                                                             style:
                                                                 const TextStyle(
                                                               fontSize: 16,

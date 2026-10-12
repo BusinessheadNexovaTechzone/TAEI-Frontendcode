@@ -23,6 +23,7 @@ class TitleTextFormField extends StatefulWidget {
   final bool? value1;
   final bool? filled;
   final Color? fillColor;
+  final TextStyle? style;
   final String? suffixText;
   final bool isRequired;
 
@@ -48,6 +49,7 @@ class TitleTextFormField extends StatefulWidget {
     this.suffixText,
     this.filled = false,
     this.fillColor,
+    this.style,
     this.isRequired = false,
   });
 
@@ -66,7 +68,8 @@ class _TitleTextFormFieldState extends State<TitleTextFormField> {
   void initState() {
     super.initState();
     _obscure = widget.obscureText;
-    _internalController = TextEditingController(text: widget.initialValue ?? '');
+    _internalController =
+        TextEditingController(text: widget.initialValue ?? '');
   }
 
   @override
@@ -130,6 +133,7 @@ class _TitleTextFormFieldState extends State<TitleTextFormField> {
           maxLines: widget.maxLines ?? 1,
           controller: _effectiveController,
           keyboardType: widget.keyboardType,
+          style: widget.style,
           obscureText: _obscure,
           maxLength: widget.maxLength,
           inputFormatters: [
@@ -171,10 +175,13 @@ class _TitleTextFormFieldState extends State<TitleTextFormField> {
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: Colors.grey),
                 ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.blue),
-            ),
+            focusedBorder: widget.border?.copyWith(
+                  borderSide: const BorderSide(color: Colors.blue),
+                ) ??
+                OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Colors.blue),
+                ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 12,
