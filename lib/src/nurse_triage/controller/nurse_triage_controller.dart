@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:get/get.dart';
@@ -34,6 +35,7 @@ import '../models/create_triage_model.dart';
 import '../models/update_mobile_verify_otp_response.dart';
 import '../services/triage_service.dart';
 import '../services/abha_error_message_service.dart';
+import '../views/update_mobile_otp_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/face_rd_service.dart';
 import '../utils/abha_debug_logger.dart';
@@ -1264,6 +1266,7 @@ class NurseTriageController extends GetxController {
   RxString aadhaarOtp = ''.obs;
   RxString mobileUpdateTxnId = ''.obs;
   RxString mobileUpdateOtpDeliveryMessage = ''.obs;
+  final RxMap<int, String> _updatedAbhaProfileMobiles = <int, String>{}.obs;
   List<TextEditingController> otpControllers =
       List.generate(6, (_) => TextEditingController());
 
@@ -1566,7 +1569,15 @@ class NurseTriageController extends GetxController {
           _buildDialogInfoRow('Date of Birth', profile.dateOfBirth),
           _buildDialogInfoRow('Age', profile.age),
           _buildDialogInfoRow('Gender', profile.gender),
-          _buildDialogInfoRow('Mobile', profile.mobile),
+          if (selectedProfileId == null)
+            _buildDialogInfoRow('Mobile', profile.mobile)
+          else ...[
+            Obx(() => _buildDialogInfoRow(
+                  'Mobile',
+                  _updatedAbhaProfileMobiles[selectedProfileId] ??
+                      profile.mobile,
+                )),
+          ],
           _buildDialogInfoRow(
               'Verification Status', profile.verificationStatus),
           _buildDialogInfoRow('Verification Method', profile.verificationType),
@@ -1601,6 +1612,10 @@ class NurseTriageController extends GetxController {
               final useButton = Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
+                    result['mobile'] = selectedProfileId == null
+                        ? profile.mobile
+                        : _updatedAbhaProfileMobiles[selectedProfileId] ??
+                            profile.mobile;
                     final selectedResponse = <String, dynamic>{
                       'profileId': selectedProfileId,
                       'result': {
@@ -1622,23 +1637,40 @@ class NurseTriageController extends GetxController {
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                 ),
               );
+              final actionButtons = constraints.maxWidth < 420
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        downloadButton,
+                        const SizedBox(height: 8),
+                        useButton,
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        downloadButton,
+                        const SizedBox(width: 8),
+                        useButton,
+                      ],
+                    );
 
-              if (constraints.maxWidth < 420) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    downloadButton,
-                    const SizedBox(height: 8),
-                    useButton,
-                  ],
-                );
-              }
-
-              return Row(
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  downloadButton,
-                  const SizedBox(width: 8),
-                  useButton,
+                  actionButtons,
+                  if (selectedProfileId != null) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _updateAbhaProfileMobile(
+                        profileId: selectedProfileId,
+                        currentMobile:
+                            _updatedAbhaProfileMobiles[selectedProfileId] ??
+                                profile.mobile,
+                      ),
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('UPDATE NUMBER'),
+                    ),
+                  ],
                 ],
               );
             },
@@ -1646,6 +1678,117 @@ class NurseTriageController extends GetxController {
         ],
       ),
     );
+  }
+
+  Future<void> _updateAbhaProfileMobile({
+    required int profileId,
+    required String currentMobile,
+  }) async {
+    final flowId = 'profile-mobile-update-$profileId';
+    if (profileId <= 0) {
+      await CommonErrorDialog.show(
+        Get.context!,
+        message: 'We could not identify this ABHA profile. Please try again.',
+      );
+      return;
+    }
+
+    final formKey = GlobalKey<FormState>();
+    final mobileController = TextEditingController(text: currentMobile);
+    var isSending = false;
+
+    final mobile = await showDialog<String>(
+      context: Get.context!,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Update Mobile Number'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: mobileController,
+              autofocus: true,
+              keyboardType: TextInputType.phone,
+              maxLength: 10,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: 'New mobile number',
+                counterText: '',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) {
+                if (value == null || !RegExp(r'^\d{10}$').hasMatch(value)) {
+                  return 'Enter a valid 10-digit mobile number';
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed:
+                  isSending ? null : () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSending
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDialogState(() => isSending = true);
+                      final sent = await sendMobileUpdateOtp(
+                        profileId: profileId,
+                        mobile: mobileController.text,
+                        flowId: flowId,
+                      );
+                      if (!dialogContext.mounted) return;
+                      if (sent) {
+                        Navigator.of(dialogContext).pop(mobileController.text);
+                      } else {
+                        setDialogState(() => isSending = false);
+                      }
+                    },
+              child: isSending
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Send OTP'),
+            ),
+          ],
+        ),
+      ),
+    );
+    mobileController.dispose();
+    if (mobile == null || Get.context == null) return;
+    if (mobile == null || Get.context == null) return;
+    final verified = await Get.dialog<bool>(
+      UpdateMobileOtpDialog(
+        flowId: flowId,
+        profileId: profileId,
+        txnId: mobileUpdateTxnId.value,
+        message: mobileUpdateOtpDeliveryMessage.value.isNotEmpty
+            ? mobileUpdateOtpDeliveryMessage.value
+            : 'Enter the OTP sent to $mobile.',
+        onVerify: (otp) => verifyMobileUpdateOtp(
+          profileId: profileId,
+          txnId: mobileUpdateTxnId.value,
+          otp: otp,
+          flowId: flowId,
+        ),
+        onResend: () => sendMobileUpdateOtp(
+          profileId: profileId,
+          mobile: mobile,
+          flowId: flowId,
+        ),
+      ),
+      barrierDismissible: false,
+    );
+
+    if (verified == true) {
+      _updatedAbhaProfileMobiles[profileId] = mobile;
+      Fluttertoast.showToast(msg: 'Mobile number updated successfully');
+    }
   }
 
   Widget _buildOfficialAbhaCardPreview(int profileId) {

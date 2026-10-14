@@ -274,9 +274,6 @@ class _UpdateMobileOtpDialogState extends State<UpdateMobileOtpDialog> {
             '[ABHA][WORKFLOW][FLOW:${widget.flowId}] MOBILE UPDATE SUCCESS');
         debugPrint(
             '[ABHA][UI][FLOW:${widget.flowId}] [OTP] Closing OTP dialog');
-        debugPrint(
-            '[ABHA][NAVIGATION][FLOW:${widget.flowId}] Opening abha_address_creation.dart');
-
         if (!_completed) {
           _completed = true;
           Navigator.of(context).pop(true);
