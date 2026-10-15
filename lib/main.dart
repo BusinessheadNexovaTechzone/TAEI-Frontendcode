@@ -29,6 +29,10 @@ class MyApp extends StatelessWidget {
       theme: AppThemes.lightTheme,
       darkTheme: AppThemes.darkTheme,
       themeMode: homeController.isDarkMode.value ? ThemeMode.dark : ThemeMode.light,
+      builder: (context, child) => TooltipVisibility(
+        visible: false,
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: LocalDataHelper.getString(Constant.token).isEmpty
           ? EntranceScreen()
           : Home(),

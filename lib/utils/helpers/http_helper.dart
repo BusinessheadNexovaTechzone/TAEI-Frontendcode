@@ -37,8 +37,11 @@ class CustomHttpHelper extends http.BaseClient {
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final token = LocalDataHelper.getString(Constant.token);
 
-    if (token.isNotEmpty) {
-      request.headers['Authorization'] = 'Bearer $token';
+    if (token.isNotEmpty &&
+        !request.headers.keys
+            .any((key) => key.toLowerCase() == 'authorization')) {
+      request.headers['Authorization'] =
+          token.toLowerCase().startsWith('bearer ') ? token : 'Bearer ' + token;
     }
 
     final isAbhaRequest = _isAbhaRequest(request.url);

@@ -114,9 +114,8 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        ...profiles.asMap().entries.map((entry) {
-          final index = entry.key;
-          final profile = entry.value;
+        ...profiles.map((profile) {
+          final recordIndex = _controller.mobileSearchRecordIndex(profile);
           final name = _profileValue(
             profile,
             const ['name', 'fullName', 'full_name'],
@@ -135,6 +134,7 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
             ],
           );
           final details = <String>[
+            if (recordIndex != null) 'Index $recordIndex',
             if (name.isNotEmpty) name,
             if (abhaAddress.isNotEmpty) abhaAddress,
           ].join(' • ');
@@ -144,35 +144,46 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: _selectedProfileIndex == index
-                    ? const Color(0xFFEF4444)
-                    : const Color(0xFFE5E7EB),
+                color:
+                    recordIndex != null && _selectedProfileIndex == recordIndex
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFFE5E7EB),
               ),
             ),
             child: Semantics(
               button: true,
-              selected: _selectedProfileIndex == index,
+              selected:
+                  recordIndex != null && _selectedProfileIndex == recordIndex,
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
-                onTap: _isSendingOtp
+                onTap: _isSendingOtp || recordIndex == null
                     ? null
-                    : () => setState(() => _selectedProfileIndex = index),
+                    : () => setState(
+                          () => _selectedProfileIndex = recordIndex,
+                        ),
                 child: ListTile(
                   leading: Icon(
-                    _selectedProfileIndex == index
+                    recordIndex != null && _selectedProfileIndex == recordIndex
                         ? Icons.radio_button_checked
                         : Icons.radio_button_unchecked,
-                    color: _selectedProfileIndex == index
+                    color: recordIndex != null &&
+                            _selectedProfileIndex == recordIndex
                         ? const Color(0xFFEF4444)
                         : const Color(0xFF6B7280),
                   ),
                   title: Text(
                     abhaNumber.isNotEmpty
                         ? abhaNumber
-                        : 'ABHA profile ${index + 1}',
+                        : recordIndex == null
+                            ? 'ABHA profile'
+                            : 'ABHA profile $recordIndex',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  subtitle: details.isEmpty ? null : Text(details),
+                  subtitle: recordIndex == null
+                      ? const Text('Missing ABHA record index')
+                      : details.isEmpty
+                          ? null
+                          : Text(details),
                 ),
               ),
             ),

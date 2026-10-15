@@ -229,6 +229,12 @@ class VerifyAbhaController extends GetxController {
     }
   }
 
+  int? mobileSearchRecordIndex(Map<String, dynamic> profile) {
+    final value = profile['index'];
+    if (value is int) return value;
+    return int.tryParse(value?.toString() ?? '');
+  }
+
   List<Map<String, dynamic>> _extractMobileSearchProfiles(
     Map<String, dynamic> response,
   ) {
@@ -393,9 +399,10 @@ class VerifyAbhaController extends GetxController {
   }
 
   Future<bool> sendMobileSearchOtp({required int index}) async {
-    if (index < 0 ||
-        index >= mobileSearchProfiles.length ||
-        mobileSearchTxnId.value.isEmpty) {
+    final selectedRecord = mobileSearchProfiles.where(
+      (profile) => mobileSearchRecordIndex(profile) == index,
+    );
+    if (selectedRecord.isEmpty || mobileSearchTxnId.value.isEmpty) {
       if (Get.context != null) {
         await CommonErrorDialog.show(
           Get.context!,
