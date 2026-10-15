@@ -77,6 +77,44 @@ class VerifyAbhaService {
     );
   }
 
+  Future<Map<String, dynamic>?> searchAbhaByMobile({
+    required String mobile,
+  }) {
+    return _postJson(
+      url: Urls.searchAbhaByMobile,
+      debugLabel: 'SEARCH ABHA BY MOBILE',
+      body: {'mobile': mobile},
+    );
+  }
+
+  Future<Map<String, dynamic>?> sendAbhaSearchOtp({
+    required String txnId,
+    required int index,
+  }) {
+    return _postJson(
+      url: Urls.sendAbhaSearchOtp,
+      debugLabel: 'SEND ABHA SEARCH OTP',
+      body: {
+        'txnId': txnId,
+        'index': index,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>?> verifyAbhaSearchOtp({
+    required String otpTxnId,
+    required String otp,
+  }) {
+    return _postJson(
+      url: Urls.verifyAbhaSearchOtp,
+      debugLabel: 'VERIFY ABHA SEARCH OTP',
+      body: {
+        'otpTxnId': otpTxnId,
+        'otp': otp,
+      },
+    );
+  }
+
   Future<Map<String, dynamic>?> sendAbhaAddressOtp({
     required String loginType,
     required String loginId,

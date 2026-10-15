@@ -151,6 +151,13 @@ Map<String, dynamic> buildProfileCardPayloadFromVerifyResponse(
 class VerifyAbhaController extends GetxController {
   final VerifyAbhaService _service = VerifyAbhaService();
 
+  final RxList<Map<String, dynamic>> mobileSearchProfiles =
+      <Map<String, dynamic>>[].obs;
+  final RxString mobileSearchTxnId = ''.obs;
+  final RxString mobileSearchOtpTxnId = ''.obs;
+  final RxString mobileSearchNumber = ''.obs;
+  final RxnInt selectedMobileSearchIndex = RxnInt();
+
   final RxString selectedLoginType = 'aadhaar-aadhaar-otp'.obs;
   final RxString selectedMethod = 'aadhaar'.obs;
   final RxString selectedLoginId = ''.obs;
@@ -206,6 +213,270 @@ class VerifyAbhaController extends GetxController {
 
   String normalizeInput(String value) {
     return value.replaceAll(RegExp(r'\D'), '');
+  }
+
+  void clearMobileSearchResults() {
+    mobileSearchProfiles.clear();
+    mobileSearchTxnId.value = '';
+    mobileSearchOtpTxnId.value = '';
+    mobileSearchNumber.value = '';
+    selectedMobileSearchIndex.value = null;
+    if (selectedMethod.value == 'mobile-search') {
+      selectedMethod.value = 'mobile';
+      selectedLoginType.value = 'mobile-mobile-otp';
+      selectedLoginId.value = '';
+      selectedTxnId.value = '';
+    }
+  }
+
+  List<Map<String, dynamic>> _extractMobileSearchProfiles(
+    Map<String, dynamic> response,
+  ) {
+    Map<String, dynamic>? toStringMap(Object? value) {
+      if (value is Map<String, dynamic>) return value;
+      if (value is Map) return Map<String, dynamic>.from(value);
+      return null;
+    }
+
+    List<Map<String, dynamic>>? profilesFrom(Object? value) {
+      if (value is List) {
+        final profiles =
+            value.map(toStringMap).whereType<Map<String, dynamic>>().toList();
+        return profiles.isEmpty ? null : profiles;
+      }
+      final profile = toStringMap(value);
+      return profile == null ? null : [profile];
+    }
+
+    List<Map<String, dynamic>>? search(Object? value, {int depth = 0}) {
+      if (depth > 3) return null;
+      if (value is List) {
+        final profiles = profilesFrom(value);
+        if (profiles != null) return profiles;
+        for (final item in value) {
+          final nested = search(item, depth: depth + 1);
+          if (nested != null) return nested;
+        }
+        return null;
+      }
+
+      final map = toStringMap(value);
+      if (map == null) return null;
+
+      for (final key in const [
+        'profiles',
+        'accounts',
+        'users',
+        'ABHAProfile',
+        'abhaProfiles',
+        'records',
+      ]) {
+        final profiles = profilesFrom(map[key]);
+        if (profiles != null) return profiles;
+      }
+
+      for (final key in const ['result', 'data', 'payload']) {
+        final nested = search(map[key], depth: depth + 1);
+        if (nested != null) return nested;
+      }
+      return null;
+    }
+
+    return search(response) ?? const [];
+  }
+
+  Object? _responseValue(
+    Map<String, dynamic> response,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = response[key];
+      if (value != null && value.toString().trim().isNotEmpty) return value;
+    }
+
+    for (final wrapperKey in const ['result', 'data', 'payload']) {
+      final wrapper = response[wrapperKey];
+      if (wrapper is Map) {
+        for (final key in keys) {
+          final value = wrapper[key];
+          if (value != null && value.toString().trim().isNotEmpty) {
+            return value;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<bool> searchAbhaByMobile({required String mobile}) async {
+    final normalizedMobile = normalizeInput(mobile);
+    if (normalizedMobile.length != 10) {
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: AbhaErrorMessageService.invalid('mobile', incomplete: true),
+        );
+      }
+      return false;
+    }
+
+    isLoading.value = true;
+    clearMobileSearchResults();
+    otpMessage.value = '';
+    try {
+      final response =
+          await _service.searchAbhaByMobile(mobile: normalizedMobile);
+      if (response == null || AbhaErrorMessageService.isFailure(response)) {
+        lastApiError.value = response ??
+            {
+              'message': AbhaErrorMessageService.map(
+                null,
+                context: 'generateOtp',
+              ),
+            };
+        if (Get.context != null) {
+          if (response == null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: AbhaErrorMessageService.map(
+                null,
+                context: 'generateOtp',
+              ),
+            );
+          } else {
+            await CommonErrorDialog.showFromResponse(
+              Get.context!,
+              response: response,
+            );
+          }
+        }
+        return false;
+      }
+
+      final txnId = _responseValue(response, const ['txnId'])?.toString();
+      final profiles = _extractMobileSearchProfiles(response);
+      if (txnId == null || txnId.isEmpty || profiles.isEmpty) {
+        lastApiError.value = response;
+        if (Get.context != null) {
+          await CommonErrorDialog.showFromResponse(
+            Get.context!,
+            response: {
+              ...response,
+              'message': 'No ABHA profiles were found for this mobile number.',
+            },
+          );
+        }
+        return false;
+      }
+
+      mobileSearchNumber.value = normalizedMobile;
+      mobileSearchTxnId.value = txnId;
+      mobileSearchProfiles.assignAll(profiles);
+      lastApiError.value = null;
+      return true;
+    } catch (error) {
+      log('Verify ABHA mobile search exception: $error');
+      lastApiError.value = {'message': error.toString()};
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: AbhaErrorMessageService.map(
+            error,
+            context: 'generateOtp',
+          ),
+        );
+      }
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> sendMobileSearchOtp({required int index}) async {
+    if (index < 0 ||
+        index >= mobileSearchProfiles.length ||
+        mobileSearchTxnId.value.isEmpty) {
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: 'Select an ABHA profile before requesting an OTP.',
+        );
+      }
+      return false;
+    }
+
+    isLoading.value = true;
+    try {
+      final response = await _service.sendAbhaSearchOtp(
+        txnId: mobileSearchTxnId.value,
+        index: index,
+      );
+      if (response == null || AbhaErrorMessageService.isFailure(response)) {
+        lastApiError.value = response ??
+            {
+              'message': AbhaErrorMessageService.map(
+                null,
+                context: 'generateOtp',
+              ),
+            };
+        if (Get.context != null) {
+          if (response == null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: AbhaErrorMessageService.map(
+                null,
+                context: 'generateOtp',
+              ),
+            );
+          } else {
+            await CommonErrorDialog.showFromResponse(
+              Get.context!,
+              response: response,
+            );
+          }
+        }
+        return false;
+      }
+
+      final otpTxnId =
+          _responseValue(response, const ['otpTxnId', 'txnId'])?.toString();
+      if (otpTxnId == null || otpTxnId.isEmpty) {
+        lastApiError.value = response;
+        if (Get.context != null) {
+          await CommonErrorDialog.showFromResponse(
+            Get.context!,
+            response: response,
+          );
+        }
+        return false;
+      }
+
+      selectedMobileSearchIndex.value = index;
+      mobileSearchOtpTxnId.value = otpTxnId;
+      selectedLoginType.value = 'mobile-search-otp';
+      selectedMethod.value = 'mobile-search';
+      selectedLoginId.value = mobileSearchNumber.value;
+      selectedTxnId.value = otpTxnId;
+      otpMessage.value =
+          _responseValue(response, const ['message'])?.toString() ?? '';
+      lastApiError.value = null;
+      return true;
+    } catch (error) {
+      log('Verify ABHA mobile search OTP request exception: $error');
+      lastApiError.value = {'message': error.toString()};
+      if (Get.context != null) {
+        await CommonErrorDialog.show(
+          Get.context!,
+          message: AbhaErrorMessageService.map(
+            error,
+            context: 'generateOtp',
+          ),
+        );
+      }
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   bool isValidAbhaAddress(String value) {
@@ -400,6 +671,11 @@ class VerifyAbhaController extends GetxController {
   }
 
   Future<bool> resendOtp() async {
+    if (selectedMethod.value == 'mobile-search') {
+      final index = selectedMobileSearchIndex.value;
+      if (index == null) return false;
+      return sendMobileSearchOtp(index: index);
+    }
     return sendOtp(
       method: selectedMethod.value,
       loginId: selectedLoginId.value,
@@ -573,18 +849,23 @@ class VerifyAbhaController extends GetxController {
 
     isLoading.value = true;
     try {
-      final response = selectedMethod.value == 'abha-address-mobile' ||
-              selectedMethod.value == 'abha-address-aadhaar'
-          ? await _service.verifyAbhaAddressOtp(
-              loginType: selectedLoginType.value,
-              txnId: selectedTxnId.value,
+      final response = selectedMethod.value == 'mobile-search'
+          ? await _service.verifyAbhaSearchOtp(
+              otpTxnId: mobileSearchOtpTxnId.value,
               otp: otp,
             )
-          : await _service.verifyOtp(
-              loginType: selectedLoginType.value,
-              txnId: selectedTxnId.value,
-              otp: otp,
-            );
+          : selectedMethod.value == 'abha-address-mobile' ||
+                  selectedMethod.value == 'abha-address-aadhaar'
+              ? await _service.verifyAbhaAddressOtp(
+                  loginType: selectedLoginType.value,
+                  txnId: selectedTxnId.value,
+                  otp: otp,
+                )
+              : await _service.verifyOtp(
+                  loginType: selectedLoginType.value,
+                  txnId: selectedTxnId.value,
+                  otp: otp,
+                );
 
       if (response == null) {
         final message = AbhaErrorMessageService.map(null, context: 'otp');

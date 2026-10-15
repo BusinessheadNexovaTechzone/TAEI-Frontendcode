@@ -1,8 +1,8 @@
 class Urls {
   /// Triage API
   static const String baseUrl = 'https://dev.taei.co.in/';
-  static const String local = 'https://taei.nexovatechzone.com/';
-//   static const String local = 'http://localhost:5000/';
+//   static const String local = 'https://taei.nexovatechzone.com/';
+  static const String local = 'http://localhost:5000/';
   static const String phone = 'http://192.168.1.5:5000/';
   //  ABHA Face API
   //  static const String baseUrl = "http://192.168.1.6:5000";
@@ -238,6 +238,10 @@ class Urls {
   static const String sendVerifyAbhaOtp = '${local}api/abha/login/send-otp';
   static const String verifyVerifyAbhaOtp = '${local}api/abha/login/verify-otp';
   static const String mobileOtpVerify = '${local}api/abha/login/mobile/verify-otp';
+  static const String searchAbhaByMobile = '${local}api/abha/search/mobile';
+  static const String sendAbhaSearchOtp = '${local}api/abha/search/otp';
+  static const String verifyAbhaSearchOtp =
+      '${local}api/abha/search/verify-otp';
   static const String abhaAddressSendOtp = '${local}api/abha/abha-address/send-otp';
   static const String abhaAddressVerifyOtp =
       '${local}api/abha/abha-address/verify-otp';
