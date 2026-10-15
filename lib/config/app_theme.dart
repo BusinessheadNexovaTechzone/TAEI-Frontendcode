@@ -14,7 +14,6 @@ class AppThemes {
     primaryColor: _primary,
     scaffoldBackgroundColor: _background,
     appBarTheme: const AppBarTheme(
-      iconTheme: IconThemeData(color: Colors.white),
       backgroundColor: _primary,
       foregroundColor: Colors.white,
       elevation: 0,

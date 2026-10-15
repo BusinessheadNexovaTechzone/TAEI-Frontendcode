@@ -134,7 +134,6 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
             ],
           );
           final details = <String>[
-            if (recordIndex != null) 'Index $recordIndex',
             if (name.isNotEmpty) name,
             if (abhaAddress.isNotEmpty) abhaAddress,
           ].join(' • ');

@@ -57,7 +57,9 @@ class _UpdateMobileNumberScreenState extends State<UpdateMobileNumberScreen> {
   @override
   void initState() {
     super.initState();
-    _mobileController.text = widget.currentMobile;
+    final currentMobile = widget.currentMobile.trim();
+    _mobileController.text =
+        currentMobile.toLowerCase() == 'not available' ? '' : currentMobile;
   }
 
   @override
