@@ -35,7 +35,7 @@ import '../models/create_triage_model.dart';
 import '../models/update_mobile_verify_otp_response.dart';
 import '../services/triage_service.dart';
 import '../services/abha_error_message_service.dart';
-import '../views/update_mobile_otp_dialog.dart';
+import '../views/update_mobile_number_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/face_rd_service.dart';
 import '../utils/abha_debug_logger.dart';
@@ -396,6 +396,7 @@ class NurseTriageController extends GetxController {
       isSendingMobileUpdateOtp.value = true;
       mobileUpdateOtpSent.value = false;
       mobileUpdateVerified.value = false;
+      mobileUpdateTxnId.value = '';
 
       final d = await TriageService.sendMobileUpdateOtp(
         profileId: profileId,
@@ -1662,6 +1663,7 @@ class NurseTriageController extends GetxController {
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: () => _updateAbhaProfileMobile(
+                        context: context,
                         profileId: selectedProfileId,
                         currentMobile:
                             _updatedAbhaProfileMobiles[selectedProfileId] ??
@@ -1681,6 +1683,7 @@ class NurseTriageController extends GetxController {
   }
 
   Future<void> _updateAbhaProfileMobile({
+    required BuildContext context,
     required int profileId,
     required String currentMobile,
   }) async {
@@ -1693,99 +1696,28 @@ class NurseTriageController extends GetxController {
       return;
     }
 
-    final formKey = GlobalKey<FormState>();
-    final mobileController = TextEditingController(text: currentMobile);
-    var isSending = false;
-
-    final mobile = await showDialog<String>(
-      context: Get.context!,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Update Mobile Number'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: mobileController,
-              autofocus: true,
-              keyboardType: TextInputType.phone,
-              maxLength: 10,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'New mobile number',
-                counterText: '',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || !RegExp(r'^\d{10}$').hasMatch(value)) {
-                  return 'Enter a valid 10-digit mobile number';
-                }
-                return null;
-              },
-            ),
+    final mobile = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => UpdateMobileNumberScreen(
+          flowId: flowId,
+          currentMobile: currentMobile,
+          onSendOtp: (mobile) => sendMobileUpdateOtp(
+            profileId: profileId,
+            mobile: mobile,
+            flowId: flowId,
           ),
-          actions: [
-            TextButton(
-              onPressed:
-                  isSending ? null : () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: isSending
-                  ? null
-                  : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      setDialogState(() => isSending = true);
-                      final sent = await sendMobileUpdateOtp(
-                        profileId: profileId,
-                        mobile: mobileController.text,
-                        flowId: flowId,
-                      );
-                      if (!dialogContext.mounted) return;
-                      if (sent) {
-                        Navigator.of(dialogContext).pop(mobileController.text);
-                      } else {
-                        setDialogState(() => isSending = false);
-                      }
-                    },
-              child: isSending
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Send OTP'),
-            ),
-          ],
+          onVerify: (otp) => verifyMobileUpdateOtp(
+            profileId: profileId,
+            txnId: mobileUpdateTxnId.value,
+            otp: otp,
+            flowId: flowId,
+          ),
         ),
       ),
-    );
-    mobileController.dispose();
-    if (mobile == null || Get.context == null) return;
-    if (mobile == null || Get.context == null) return;
-    final verified = await Get.dialog<bool>(
-      UpdateMobileOtpDialog(
-        flowId: flowId,
-        profileId: profileId,
-        txnId: mobileUpdateTxnId.value,
-        message: mobileUpdateOtpDeliveryMessage.value.isNotEmpty
-            ? mobileUpdateOtpDeliveryMessage.value
-            : 'Enter the OTP sent to $mobile.',
-        onVerify: (otp) => verifyMobileUpdateOtp(
-          profileId: profileId,
-          txnId: mobileUpdateTxnId.value,
-          otp: otp,
-          flowId: flowId,
-        ),
-        onResend: () => sendMobileUpdateOtp(
-          profileId: profileId,
-          mobile: mobile,
-          flowId: flowId,
-        ),
-      ),
-      barrierDismissible: false,
     );
 
-    if (verified == true) {
+    if (mobile != null) {
       _updatedAbhaProfileMobiles[profileId] = mobile;
       Fluttertoast.showToast(msg: 'Mobile number updated successfully');
     }
