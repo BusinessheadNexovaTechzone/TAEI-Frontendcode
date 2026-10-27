@@ -170,6 +170,7 @@ class VerifyAbhaController extends GetxController {
       Rxn<Map<String, dynamic>>();
 
   bool get _usesAbhaAccountDetails =>
+      selectedMethod.value == 'aadhaar' ||
       selectedMethod.value == 'abha-aadhaar' ||
       selectedMethod.value == 'abha-abha' ||
       selectedMethod.value == 'abha-address-mobile' ||
