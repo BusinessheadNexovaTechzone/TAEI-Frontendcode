@@ -30,12 +30,6 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
     controller = Get.isRegistered<VerifyAbhaController>()
         ? Get.find<VerifyAbhaController>()
         : Get.put(VerifyAbhaController());
-    debugPrint('===== VERIFY OTP SCREEN OPENED =====');
-    debugPrint('Message: ${widget.message}');
-    debugPrint('Selected login type: ${controller.selectedLoginType.value}');
-    debugPrint('Selected method: ${controller.selectedMethod.value}');
-    debugPrint('Selected txnId: ${controller.selectedTxnId.value}');
-    debugPrint('Selected loginId: ${controller.selectedLoginId.value}');
     _startTimer();
   }
 
@@ -114,13 +108,8 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
       return;
     }
 
-    debugPrint('===== VERIFY OTP SUBMIT =====');
-    debugPrint('Entered OTP: $otp');
-    debugPrint('TxnId: ${controller.selectedTxnId.value}');
-    debugPrint('LoginType: ${controller.selectedLoginType.value}');
-
-    final verified = await widget.onVerify?.call(otp) ?? await controller.verifyOtp(otp: otp);
-    debugPrint('verifyOtp result: $verified');
+    final verified = await widget.onVerify?.call(otp) ??
+        await controller.verifyOtp(otp: otp);
     if (!verified) return;
 
     if (!mounted) return;

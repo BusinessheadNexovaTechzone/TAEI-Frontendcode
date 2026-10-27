@@ -31,51 +31,56 @@ class TitleDropdown<T> extends StatelessWidget {
       children: [
         Text(title ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        DropdownButtonFormField<T>(
-          value: selectedItem,
-          isExpanded: true,
-          decoration: InputDecoration(
-            hintText: hint,
-            // enabledBorder: border,
-            // focusedBorder: border,
-            hintStyle: const TextStyle(overflow: TextOverflow.ellipsis),
-            errorBorder: border != null
-                ? border!.copyWith(
-                    borderSide: BorderSide(color: Colors.red),
-                  )
-                : OutlineInputBorder(
+        Theme(
+          data: Theme.of(context).copyWith(
+            disabledColor: Theme.of(context).colorScheme.onSurface,
+          ),
+          child: DropdownButtonFormField<T>(
+            value: selectedItem,
+            isExpanded: true,
+            decoration: InputDecoration(
+              hintText: hint,
+              // enabledBorder: border,
+              // focusedBorder: border,
+              hintStyle: const TextStyle(overflow: TextOverflow.ellipsis),
+              errorBorder: border != null
+                  ? border!.copyWith(
+                      borderSide: const BorderSide(color: Colors.red),
+                    )
+                  : OutlineInputBorder(
+                      borderSide: const BorderSide(color: Colors.red),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+              border: border ??
+                  OutlineInputBorder(
                     borderSide: const BorderSide(color: Colors.red),
                     borderRadius: BorderRadius.circular(8.0),
                   ),
-            border: border ??
-                OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.red),
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
+            ),
+            items: items.isEmpty
+                ? []
+                : items.map((T item) {
+                    return DropdownMenuItem<T>(
+                      value: item,
+                      child: Text(
+                        item.toString(),
+                        style: const TextStyle(fontSize: 16),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    );
+                  }).toList(),
+            onChanged: isEditable ? onChanged : null,
+            validator: (value) {
+              if (items.isEmpty) {
+                return 'No items available';
+              }
+              if (value == null) {
+                return 'Please select an option';
+              }
+              return null;
+            },
           ),
-          items: items.isEmpty
-              ? []
-              : items.map((T item) {
-                  return DropdownMenuItem<T>(
-                    value: item,
-                    child: Text(
-                      item.toString(),
-                      style: const TextStyle(fontSize: 16),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  );
-                }).toList(),
-          onChanged: isEditable ? onChanged : null,
-          validator: (value) {
-            if (items.isEmpty) {
-              return 'No items available';
-            }
-            if (value == null) {
-              return 'Please select an option';
-            }
-            return null;
-          },
         ),
       ],
     );
@@ -115,7 +120,6 @@ class NewTitleDropdown extends StatelessWidget {
     )
         ? selectedId
         : null;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -152,52 +156,45 @@ class NewTitleDropdown extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<int>(
-          value: validSelectedId,
-          isExpanded: true,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(overflow: TextOverflow.ellipsis),
-            border: border ??
-                OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-            enabledBorder: border ??
-                OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-            errorBorder: OutlineInputBorder(
-              borderSide: const BorderSide(color: Colors.red),
-              borderRadius: BorderRadius.circular(8),
-            ),
+        Theme(
+          data: Theme.of(context).copyWith(
+            disabledColor: Theme.of(context).colorScheme.onSurface,
           ),
-          items: items.map((item) {
-            final int? value = item['id'] ?? item['hospitalid'];
-
-            final String label = item['name'] ?? item['hospitalname'] ?? '';
-
-            return DropdownMenuItem<int>(
-              value: value,
-              child: Text(
-                label,
-                style: const TextStyle(fontSize: 16),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
+          child: DropdownButtonFormField<int>(
+            value: validSelectedId,
+            isExpanded: true,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(overflow: TextOverflow.ellipsis),
+              border: border ??
+                  OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+              enabledBorder: border ??
+                  OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+              errorBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Colors.red),
+                borderRadius: BorderRadius.circular(8),
               ),
-            );
-          }).toList(),
-          onChanged: isEditable ? onChanged : null,
-          // validator: valid! ? (!isValidation
-          //     ? null
-          //     : (value) {
-          //         if (items.isEmpty) {
-          //           return 'No items available';
-          //         }
-          //         if (value == null) {
-          //           return 'Please select an option';
-          //         }
-          //         return null;
-          //       }):null,
+            ),
+            items: items.map((item) {
+              final int? value = item['id'] ?? item['hospitalid'];
+              final String label = item['name'] ?? item['hospitalname'] ?? '';
+
+              return DropdownMenuItem<int>(
+                value: value,
+                child: Text(
+                  label,
+                  style: const TextStyle(fontSize: 16),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              );
+            }).toList(),
+            onChanged: isEditable ? onChanged : null,
+          ),
         ),
       ],
     );

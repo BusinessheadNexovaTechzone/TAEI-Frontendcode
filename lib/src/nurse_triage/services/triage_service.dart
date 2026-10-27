@@ -413,18 +413,24 @@ class TriageService {
       final responseBody = _parseResponseBody(response.body);
       responseBody['statusCode'] = response.statusCode;
 
-      debugPrint('============================================================');
-      debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp RESPONSE');
-      debugPrint('============================================================');
-      debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] STATUS: ${response.statusCode}');
+      debugPrint(
+          '============================================================');
+      debugPrint(
+          '[ABHA][API][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp RESPONSE');
+      debugPrint(
+          '============================================================');
+      debugPrint(
+          '[ABHA][API][FLOW:${flowId ?? 'unknown'}] STATUS: ${response.statusCode}');
       debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] RESPONSE:');
       debugPrint(jsonEncode(responseBody));
-      debugPrint('============================================================');
+      debugPrint(
+          '============================================================');
 
       if (responseBody is Map<String, dynamic>) {
         final authResult = responseBody['authResult']?.toString();
         if (authResult != null && authResult.isNotEmpty) {
-          debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] authResult: $authResult');
+          debugPrint(
+              '[ABHA][API][FLOW:${flowId ?? 'unknown'}] authResult: $authResult');
         }
         final msg = responseBody['message']?.toString();
         if (msg != null && msg.isNotEmpty) {
@@ -444,11 +450,15 @@ class TriageService {
       AbhaDebugLogger.log('END verifyMobileUpdateOtp', flowId: flowId);
       return responseBody;
     } catch (ex, stackTrace) {
-      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp failed');
+      debugPrint(
+          '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp failed');
       debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] Exception: $ex');
-      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] StackTrace: $stackTrace');
-      debugPrint('[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] Request: profileId=$profileId txnId=$txnId otp=$maskedOtp');
-      AbhaDebugLogger.error('API FAILED: verifyMobileUpdateOtp', flowId: flowId);
+      debugPrint(
+          '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] StackTrace: $stackTrace');
+      debugPrint(
+          '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] Request: profileId=$profileId txnId=$txnId otp=$maskedOtp');
+      AbhaDebugLogger.error('API FAILED: verifyMobileUpdateOtp',
+          flowId: flowId);
       AbhaDebugLogger.error('Exception: $ex', flowId: flowId);
       AbhaDebugLogger.error('StackTrace: $stackTrace', flowId: flowId);
       AbhaDebugLogger.response(
@@ -732,7 +742,7 @@ class TriageService {
       final decoded = decodedBody is Map<String, dynamic>
           ? decodedBody
           : <String, dynamic>{'data': decodedBody};
-        decoded['statusCode'] = response.statusCode;
+      decoded['statusCode'] = response.statusCode;
 
       print("======================================");
       print("ENROLL RESPONSE");
@@ -761,7 +771,7 @@ class TriageService {
   }
 
   /// Download official ABHA card from backend
-  /// 
+  ///
   /// Returns a map with:
   /// - 'success': bool indicating if download succeeded
   /// - 'bytes': Uint8List containing the card file data
@@ -769,36 +779,59 @@ class TriageService {
   /// - 'filename': String suggested filename
   /// - 'error': String error message if failed
   static Future<Map<String, dynamic>> downloadAbhaCard({
-    required int profileId,
+    int? profileId,
+    String? accessToken,
     String? flowId,
   }) async {
-    final url = '${Urls.downloadAbhaCard}/$profileId';
-    
+    final hasAccessToken = accessToken?.trim().isNotEmpty == true;
+    if (!hasAccessToken && (profileId == null || profileId <= 0)) {
+      return {
+        'success': false,
+        'error': 'A valid ABHA token or profile ID is required.',
+      };
+    }
+
+    final url = hasAccessToken
+        ? Urls.abhaDownloadCard
+        : '${Urls.downloadAbhaCard}/$profileId';
+    final apiName =
+        hasAccessToken ? 'abha/download-card' : 'abha/card/{profileId}';
+    final cardLabel = profileId == null ? 'ABHA_Card' : 'ABHA_Card_$profileId';
+
     log('[ABHA CARD][DOWNLOAD] Starting download from backend');
     log('[ABHA CARD][DOWNLOAD] URL: $url');
-    log('[ABHA CARD][DOWNLOAD] profileId: $profileId');
-    
+
     AbhaDebugLogger.log('START downloadAbhaCard', flowId: flowId);
     AbhaDebugLogger.http('→ GET $url', flowId: flowId);
     AbhaDebugLogger.request(
-      api: 'abha/card/{profileId}',
+      api: apiName,
       method: 'GET',
       url: url,
-      data: {'profileId': profileId},
+      data: profileId == null ? {} : {'profileId': profileId},
       flowId: flowId,
     );
 
     try {
-      final response = await _client.get(
-        Uri.parse(url),
-        headers: {
-          'Accept': 'application/pdf, image/png',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(
-        const Duration(seconds: 30),
-        onTimeout: () => throw TimeoutException('ABHA card download timeout'),
-      );
+      final headers = <String, String>{
+        'Accept': 'application/pdf, image/png',
+        'Content-Type': 'application/json',
+      };
+      if (hasAccessToken) {
+        final token = accessToken!.trim();
+        headers['X-Token'] =
+            token.toLowerCase().startsWith('bearer ') ? token : 'Bearer $token';
+      }
+
+      final response = await _client
+          .get(
+            Uri.parse(url),
+            headers: headers,
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () =>
+                throw TimeoutException('ABHA card download timeout'),
+          );
 
       log('[ABHA CARD][DOWNLOAD] HTTP Status: ${response.statusCode}');
       log('[ABHA CARD][DOWNLOAD] Content-Type: ${response.headers['content-type']}');
@@ -813,14 +846,14 @@ class TriageService {
       if (response.statusCode != 200) {
         final errorMessage = 'Failed to download ABHA card. '
             'Status: ${response.statusCode}';
-        
+
         log('[ABHA CARD][DOWNLOAD][ERROR] $errorMessage');
         AbhaDebugLogger.error(
           'API FAILED: downloadAbhaCard - Status ${response.statusCode}',
           flowId: flowId,
         );
         AbhaDebugLogger.response(
-          api: 'abha/card/{profileId}',
+          api: apiName,
           statusCode: response.statusCode,
           data: {'error': errorMessage},
           flowId: flowId,
@@ -842,7 +875,7 @@ class TriageService {
           flowId: flowId,
         );
         AbhaDebugLogger.response(
-          api: 'abha/card/{profileId}',
+          api: apiName,
           statusCode: 200,
           data: {'error': errorMessage},
           flowId: flowId,
@@ -855,9 +888,10 @@ class TriageService {
       }
 
       // Determine content type and filename
-      final contentType = response.headers['content-type'] ?? 'application/octet-stream';
+      final contentType =
+          response.headers['content-type'] ?? 'application/octet-stream';
       late String fileExtension;
-      
+
       if (contentType.contains('pdf')) {
         fileExtension = '.pdf';
       } else if (contentType.contains('png')) {
@@ -868,7 +902,7 @@ class TriageService {
         fileExtension = '.pdf'; // Default to PDF
       }
 
-      final filename = 'ABHA_Card_$profileId$fileExtension';
+      final filename = '$cardLabel$fileExtension';
 
       log('[ABHA CARD][DOWNLOAD][SUCCESS]');
       log('[ABHA CARD][DOWNLOAD] Filename: $filename');
@@ -877,7 +911,7 @@ class TriageService {
 
       AbhaDebugLogger.log('END downloadAbhaCard', flowId: flowId);
       AbhaDebugLogger.response(
-        api: 'abha/card/{profileId}',
+        api: apiName,
         statusCode: 200,
         data: {
           'filename': filename,
@@ -894,12 +928,13 @@ class TriageService {
         'filename': filename,
       };
     } on TimeoutException catch (e) {
-      const errorMessage = 'ABHA card download timed out. Please check your connection.';
+      const errorMessage =
+          'ABHA card download timed out. Please check your connection.';
       log('[ABHA CARD][DOWNLOAD][ERROR] $errorMessage');
       AbhaDebugLogger.error('API TIMEOUT: downloadAbhaCard', flowId: flowId);
       AbhaDebugLogger.error('Exception: $e', flowId: flowId);
       AbhaDebugLogger.response(
-        api: 'abha/card/{profileId}',
+        api: apiName,
         statusCode: 408,
         data: {'error': errorMessage},
         flowId: flowId,
@@ -917,7 +952,7 @@ class TriageService {
       AbhaDebugLogger.error('Exception: $e', flowId: flowId);
       AbhaDebugLogger.error('StackTrace: $stackTrace', flowId: flowId);
       AbhaDebugLogger.response(
-        api: 'abha/card/{profileId}',
+        api: apiName,
         statusCode: 500,
         data: {'error': errorMessage},
         flowId: flowId,

@@ -5,6 +5,19 @@ import 'package:taei_gov/src/nurse_triage/utils/abha_otp_utils.dart';
 
 void main() {
   group('VerifyAbhaController', () {
+    test('uses the mobile login OTP flow for mobile number verification', () {
+      final controller = VerifyAbhaController();
+
+      expect(
+        controller.resolveLoginType(method: 'mobile'),
+        'mobile-mobile-otp',
+      );
+      expect(
+        controller.validateInput(method: 'mobile', value: '9384243598'),
+        isTrue,
+      );
+    });
+
     test('accepts only 14-digit ABHA numbers for ABHA-based OTP methods', () {
       final controller = VerifyAbhaController();
 

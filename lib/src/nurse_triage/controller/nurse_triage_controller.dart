@@ -792,6 +792,11 @@ class NurseTriageController extends GetxController {
 
   RxBool isDownloadingAbhaCard = false.obs;
   final RxSet<int> downloadingAbhaProfileIds = <int>{}.obs;
+  String? verifiedAbhaAccessToken;
+
+  void clearAbhaCardPreviewCache() {
+    _abhaCardPreviewCache.clear();
+  }
 
   Future<void> downloadAbhaCard({
     String? flowId,
@@ -799,6 +804,8 @@ class NurseTriageController extends GetxController {
     bool selectedProfileOnly = false,
   }) async {
     var profileIdStr = '';
+    final accessToken = verifiedAbhaAccessToken;
+    final hasAccessToken = accessToken?.trim().isNotEmpty == true;
 
     log('[ABHA][CARD-DOWNLOAD] START');
     log('[ABHA][CARD-DOWNLOAD] Download button clicked');
@@ -860,9 +867,12 @@ class NurseTriageController extends GetxController {
     }
 
     log('[ABHA][CARD-DOWNLOAD] Profile ID: ${profileIdStr.isNotEmpty ? 'available' : 'missing'}');
-    log('[ABHA][CARD-DOWNLOAD] API: /api/abha/card');
+    final endpointPath = hasAccessToken
+        ? '/api/abha/download-card'
+        : '/api/abha/card';
+    log('[ABHA][CARD-DOWNLOAD] API: $endpointPath');
 
-    if (profileIdStr.isEmpty) {
+    if (profileIdStr.isEmpty && !hasAccessToken) {
       log('[ABHA CARD][DOWNLOAD] profileId missing');
       Fluttertoast.showToast(
         msg:
@@ -879,7 +889,7 @@ class NurseTriageController extends GetxController {
     }
 
     final parsedProfileId = int.tryParse(profileIdStr);
-    if (parsedProfileId == null || parsedProfileId <= 0) {
+    if (!hasAccessToken && (parsedProfileId == null || parsedProfileId <= 0)) {
       log('[ABHA CARD][DOWNLOAD] profileId invalid: $profileIdStr');
       Fluttertoast.showToast(
         msg:
@@ -896,6 +906,7 @@ class NurseTriageController extends GetxController {
     }
 
     if (profileId != null &&
+        parsedProfileId != null &&
         downloadingAbhaProfileIds.contains(parsedProfileId)) {
       log('[ABHA CARD][DOWNLOAD] This profile is already downloading');
       return;
@@ -907,16 +918,16 @@ class NurseTriageController extends GetxController {
     }
 
     isDownloadingAbhaCard.value = true;
-    if (profileId != null) {
+    if (profileId != null && parsedProfileId != null) {
       downloadingAbhaProfileIds.add(parsedProfileId);
     }
     try {
-      log('[ABHA CARD][DOWNLOAD] profileId available: true');
-      log('[ABHA CARD][DOWNLOAD] profileId: $parsedProfileId');
+      log('[ABHA CARD][DOWNLOAD] ABHA token available: $hasAccessToken');
 
       // Call backend API to download official ABHA card
       final result = await TriageService.downloadAbhaCard(
         profileId: parsedProfileId,
+        accessToken: accessToken,
         flowId: flowId,
       );
 
@@ -982,7 +993,7 @@ class NurseTriageController extends GetxController {
       );
     } finally {
       isDownloadingAbhaCard.value = false;
-      if (profileId != null) {
+      if (profileId != null && parsedProfileId != null) {
         downloadingAbhaProfileIds.remove(parsedProfileId);
       }
     }
@@ -1726,7 +1737,10 @@ class NurseTriageController extends GetxController {
   Widget _buildOfficialAbhaCardPreview(int profileId) {
     final cardFuture = _abhaCardPreviewCache.putIfAbsent(
       profileId,
-      () => TriageService.downloadAbhaCard(profileId: profileId),
+      () => TriageService.downloadAbhaCard(
+        profileId: profileId,
+        accessToken: verifiedAbhaAccessToken,
+      ),
     );
 
     return FutureBuilder<Map<String, dynamic>>(

@@ -1070,7 +1070,7 @@ class _AddAccidentState extends State<AddAccident> {
                                           style: controller
                                                   .aadhaarProfileImported.value
                                               ? const TextStyle(
-                                                  color: Colors.grey)
+                                                  color: Colors.black87)
                                               : null,
                                           border: OutlineInputBorder(
                                             borderRadius:
@@ -1188,7 +1188,7 @@ class _AddAccidentState extends State<AddAccident> {
                                                                   .value
                                                               ? const TextStyle(
                                                                   color: Colors
-                                                                      .grey)
+                                                                      .black87)
                                                               : null,
                                                           border:
                                                               OutlineInputBorder(

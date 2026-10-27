@@ -19,9 +19,7 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
   late final VerifyAbhaController _controller;
   late String _captchaQuestion;
   late String _captchaAnswer;
-  bool _isSearching = false;
   bool _isSendingOtp = false;
-  int? _selectedProfileIndex;
 
   @override
   void initState() {
@@ -47,187 +45,25 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
     _captchaController.clear();
   }
 
-  Future<void> _searchProfiles() async {
+  Future<void> _sendOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final rawMobile = _mobileController.text.trim();
-    final mobile = rawMobile.replaceAll(RegExp(r'\D'), '');
-
-    debugPrint('===== VERIFY MOBILE ENTRY =====');
-    debugPrint('Raw mobile input: $rawMobile');
-    debugPrint('Digits-only mobile: $mobile');
-    debugPrint('Mobile length: ${mobile.length}');
-
-    setState(() {
-      _isSearching = true;
-      _selectedProfileIndex = null;
-    });
-    try {
-      final found = await _controller.searchAbhaByMobile(mobile: mobile);
-      if (!mounted || !found) return;
-      setState(() {});
-    } finally {
-      if (mounted) setState(() => _isSearching = false);
-    }
-  }
-
-  Future<void> _sendOtpForSelectedProfile() async {
-    final index = _selectedProfileIndex;
-    if (index == null) return;
+    final mobile = _mobileController.text.replaceAll(RegExp(r'\D'), '');
 
     setState(() => _isSendingOtp = true);
     try {
-      final sent = await _controller.sendMobileSearchOtp(index: index);
+      final sent = await _controller.sendOtp(
+        method: 'mobile',
+        loginId: mobile,
+      );
       if (!mounted || !sent) return;
       final message = _controller.otpMessage.value.isNotEmpty
           ? _controller.otpMessage.value
-          : 'OTP sent to your registered mobile number.';
+          : 'OTP sent to your mobile number.';
       await widget.onNext?.call(message);
     } finally {
       if (mounted) setState(() => _isSendingOtp = false);
     }
-  }
-
-  String _profileValue(Map<String, dynamic> profile, List<String> keys) {
-    for (final key in keys) {
-      final value = profile[key];
-      if (value != null && value.toString().trim().isNotEmpty) {
-        return value.toString().trim();
-      }
-    }
-    return '';
-  }
-
-  Widget _buildSearchResults(ThemeData theme) {
-    final profiles = _controller.mobileSearchProfiles;
-    if (profiles.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        Text(
-          'Select the ABHA profile to verify',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF374151),
-          ),
-        ),
-        const SizedBox(height: 8),
-        ...profiles.map((profile) {
-          final recordIndex = _controller.mobileSearchRecordIndex(profile);
-          final name = _profileValue(
-            profile,
-            const ['name', 'fullName', 'full_name'],
-          );
-          final abhaNumber = _profileValue(
-            profile,
-            const ['ABHANumber', 'abhaNumber', 'abha_number'],
-          );
-          final abhaAddress = _profileValue(
-            profile,
-            const [
-              'preferredAbhaAddress',
-              'abhaAddress',
-              'abha_address',
-              'preferred_abha_address',
-            ],
-          );
-          final details = <String>[
-            if (name.isNotEmpty) name,
-            if (abhaAddress.isNotEmpty) abhaAddress,
-          ].join(' • ');
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color:
-                    recordIndex != null && _selectedProfileIndex == recordIndex
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFFE5E7EB),
-              ),
-            ),
-            child: Semantics(
-              button: true,
-              selected:
-                  recordIndex != null && _selectedProfileIndex == recordIndex,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: _isSendingOtp || recordIndex == null
-                    ? null
-                    : () => setState(
-                          () => _selectedProfileIndex = recordIndex,
-                        ),
-                child: ListTile(
-                  leading: Icon(
-                    recordIndex != null && _selectedProfileIndex == recordIndex
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
-                    color: recordIndex != null &&
-                            _selectedProfileIndex == recordIndex
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF6B7280),
-                  ),
-                  title: Text(
-                    abhaNumber.isNotEmpty
-                        ? abhaNumber
-                        : recordIndex == null
-                            ? 'ABHA profile'
-                            : 'ABHA profile $recordIndex',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: recordIndex == null
-                      ? const Text('Missing ABHA record index')
-                      : details.isEmpty
-                          ? null
-                          : Text(details),
-                ),
-              ),
-            ),
-          );
-        }),
-        const SizedBox(height: 12),
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _selectedProfileIndex == null || _isSendingOtp
-                    ? null
-                    : _sendOtpForSelectedProfile,
-                icon: _isSendingOtp
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.sms_outlined),
-                label: Text(
-                  _isSendingOtp
-                      ? 'Sending OTP...'
-                      : 'Send OTP to selected ABHA',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEF4444),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   @override
@@ -309,7 +145,7 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
                       width: 420,
                       child: TextFormField(
                         controller: _mobileController,
-                        enabled: !_isSearching && !_isSendingOtp,
+                        enabled: !_isSendingOtp,
                         keyboardType: TextInputType.phone,
                         textInputAction: TextInputAction.done,
                         inputFormatters: [
@@ -357,13 +193,6 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
                                 const BorderSide(color: Colors.red, width: 1.8),
                           ),
                         ),
-                        onChanged: (_) {
-                          if (_controller.mobileSearchProfiles.isNotEmpty ||
-                              _selectedProfileIndex != null) {
-                            _controller.clearMobileSearchResults();
-                            setState(() => _selectedProfileIndex = null);
-                          }
-                        },
                         validator: (value) {
                           if ((value ?? '').trim().length != 10) {
                             return 'Mobile number must contain exactly 10 digits.';
@@ -445,7 +274,6 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  _buildSearchResults(theme),
                   const SizedBox(height: 24),
                   Center(
                     child: ConstrainedBox(
@@ -453,10 +281,8 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
                       child: SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: _isSearching || _isSendingOtp
-                              ? null
-                              : _searchProfiles,
-                          icon: _isSearching
+                          onPressed: _isSendingOtp ? null : _sendOtp,
+                          icon: _isSendingOtp
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
@@ -467,7 +293,7 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
                                 )
                               : const Icon(Icons.search_rounded),
                           label: Text(
-                            _isSearching ? 'Searching...' : 'Search ABHA',
+                            _isSendingOtp ? 'Sending OTP...' : 'Send OTP',
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFEF4444),

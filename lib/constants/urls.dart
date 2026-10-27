@@ -245,6 +245,9 @@ class Urls {
   static const String abhaAddressSendOtp = '${local}api/abha/abha-address/send-otp';
   static const String abhaAddressVerifyOtp =
       '${local}api/abha/abha-address/verify-otp';
+  static const String abhaVerifyUser = '${local}api/abha/verify-user';
+  static const String abhaAccountDetails = '${local}api/abha/account-details';
+  static const String abhaDownloadCard = '${local}api/abha/download-card';
   static const String abhaAddressSuggestions =
       '${local}api/abha/address/suggestions';
   static const String abhaAddressCreate = '${local}api/abha/address/create';

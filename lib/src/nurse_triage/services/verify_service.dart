@@ -11,10 +11,11 @@ class VerifyAbhaService {
     required String url,
     required String debugLabel,
     required Map<String, dynamic> body,
+    bool logBody = true,
   }) async {
     log('[ABHA VerifyService] ===== $debugLabel =====');
     log('[ABHA VerifyService] URL : $url');
-    log('[ABHA VerifyService] Body : ${jsonEncode(body)}');
+    log('[ABHA VerifyService] Body : ${logBody ? jsonEncode(body) : '[redacted]'}');
 
     try {
       final response = await _client.post(
@@ -24,7 +25,7 @@ class VerifyAbhaService {
       );
 
       log('[ABHA VerifyService] Status : ${response.statusCode}');
-      log('[ABHA VerifyService] Response : ${response.body}');
+      log('[ABHA VerifyService] Response received');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (response.body.trim().isEmpty) {
@@ -64,16 +65,11 @@ class VerifyAbhaService {
       'loginId': loginId,
     };
 
-    debugPrint('===== SEND OTP REQUEST =====');
-    debugPrint('URL : $url');
-    debugPrint('loginType : $loginType');
-    debugPrint('loginId : $loginId');
-    debugPrint('Body : ${jsonEncode(body)}');
-
     return _postJson(
       url: url,
       debugLabel: 'SEND OTP REQUEST',
       body: body,
+      logBody: false,
     );
   }
 
@@ -112,6 +108,7 @@ class VerifyAbhaService {
         'otpTxnId': otpTxnId,
         'otp': otp,
       },
+      logBody: false,
     );
   }
 
@@ -160,11 +157,10 @@ class VerifyAbhaService {
 
     try {
       debugPrint('========== MOBILE OTP VERIFY ==========');
-      debugPrint('Endpoint: ${isMobileFlow ? '/api/abha/login/mobile/verify-otp' : '/api/abha/login/verify-otp'}');
-      debugPrint('TxnId: $txnId');
-      debugPrint('OTP: $otp');
+      debugPrint(
+          'Endpoint: ${isMobileFlow ? '/api/abha/login/mobile/verify-otp' : '/api/abha/login/verify-otp'}');
       debugPrint('URL : $url');
-      debugPrint('Body : ${jsonEncode(body)}');
+      debugPrint('Body : [redacted]');
 
       final response = await _client.post(
         Uri.parse(url),
@@ -173,12 +169,10 @@ class VerifyAbhaService {
       );
 
       debugPrint('Status : ${response.statusCode}');
-      debugPrint('Response : ${response.body}');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         debugPrint('========== MOBILE OTP VERIFY SUCCESS ==========');
         debugPrint('Status Code: ${response.statusCode}');
-        debugPrint('Response: ${response.body}');
         if (response.body.trim().isEmpty) {
           return <String, dynamic>{'success': true};
         }
@@ -195,7 +189,6 @@ class VerifyAbhaService {
 
       debugPrint('========== MOBILE OTP VERIFY FAILED ==========');
       debugPrint('Status Code: ${response.statusCode}');
-      debugPrint('Message: ${response.body}');
 
       final decoded = response.body.trim().isEmpty
           ? <String, dynamic>{}
@@ -235,5 +228,65 @@ class VerifyAbhaService {
       debugLabel: 'VERIFY ABHA ADDRESS OTP',
       body: body,
     );
+  }
+
+  Future<Map<String, dynamic>?> verifyAbhaUser({
+    required String abhaNumber,
+    required String txnId,
+    required String tToken,
+  }) {
+    return _postJson(
+      url: Urls.abhaVerifyUser,
+      debugLabel: 'VERIFY ABHA USER',
+      body: {
+        'ABHANumber': abhaNumber,
+        'txnId': txnId,
+        'tToken': tToken,
+      },
+      logBody: false,
+    );
+  }
+
+  Future<Map<String, dynamic>?> getAbhaAccountDetails({
+    required String accessToken,
+  }) async {
+    final token = accessToken.toLowerCase().startsWith('bearer ')
+        ? accessToken
+        : 'Bearer ' + accessToken;
+    try {
+      final response = await _client.get(
+        Uri.parse(Urls.abhaAccountDetails),
+        headers: {'X-Token': token},
+      );
+
+      log('[ABHA VerifyService] Account details status: ${response.statusCode}');
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (response.body.trim().isEmpty) {
+          return <String, dynamic>{};
+        }
+
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) return decoded;
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        return {'message': decoded.toString()};
+      }
+
+      final decoded = response.body.trim().isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        return {...decoded, 'statusCode': response.statusCode};
+      }
+      if (decoded is Map) {
+        return {
+          ...Map<String, dynamic>.from(decoded),
+          'statusCode': response.statusCode,
+        };
+      }
+      return {'message': decoded.toString(), 'statusCode': response.statusCode};
+    } catch (e) {
+      log('Get ABHA account details service error: $e');
+      return null;
+    }
   }
 }

@@ -191,8 +191,9 @@ class AbhaVerifiedProfile {
     final normalizedPhoto = _normalizePhoto(photoRaw);
     final normalizedDob = _normalizeDobValue(dob);
     final apiAge = _readString(flattened, ['age']);
+    final calculatedAge = _calculateAge(normalizedDob);
     final normalizedAge =
-        apiAge == 'Not Available' ? _calculateAge(normalizedDob) : apiAge;
+        calculatedAge == 'Not Available' ? apiAge : calculatedAge;
     final state = _readString(flattened, ['state', 'statename', 'state_name']);
     final district =
         _readString(flattened, ['district', 'districtname', 'district_name']);
@@ -520,16 +521,16 @@ class AbhaVerifiedProfile {
   }
 
   static String _buildDob(Map<String, dynamic> source) {
-    final direct = _readAny(source, ['dob', 'dateofbirth', 'date_of_birth']);
-    if (direct != null && !_isMissing(direct)) {
-      return direct.toString();
-    }
-
     final day = _readAny(source, ['dayofbirth', 'day_of_birth']);
     final month = _readAny(source, ['monthofbirth', 'month_of_birth']);
     final year = _readAny(source, ['yearofbirth', 'year_of_birth']);
     if (day != null && month != null && year != null) {
       return '$day-$month-$year';
+    }
+
+    final direct = _readAny(source, ['dob', 'dateofbirth', 'date_of_birth']);
+    if (direct != null && !_isMissing(direct)) {
+      return direct.toString();
     }
 
     return 'Not Available';

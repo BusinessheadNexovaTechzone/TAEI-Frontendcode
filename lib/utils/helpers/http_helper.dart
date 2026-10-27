@@ -31,6 +31,8 @@ class CustomHttpHelper extends http.BaseClient {
     'loginId',
     'abhaNumber',
     'ABHANumber',
+    'token',
+    'x-token',
   };
 
   @override

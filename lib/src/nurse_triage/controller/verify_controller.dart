@@ -150,6 +150,7 @@ Map<String, dynamic> buildProfileCardPayloadFromVerifyResponse(
 
 class VerifyAbhaController extends GetxController {
   final VerifyAbhaService _service = VerifyAbhaService();
+  String? _verifiedAbhaAccessToken;
 
   final RxList<Map<String, dynamic>> mobileSearchProfiles =
       <Map<String, dynamic>>[].obs;
@@ -168,11 +169,76 @@ class VerifyAbhaController extends GetxController {
   final Rxn<Map<String, dynamic>> verifiedAuthResponse =
       Rxn<Map<String, dynamic>>();
 
+  bool get _usesAbhaAccountDetails =>
+      selectedMethod.value == 'abha-aadhaar' ||
+      selectedMethod.value == 'abha-abha' ||
+      selectedMethod.value == 'abha-address-mobile' ||
+      selectedMethod.value == 'abha-address-aadhaar';
+
+  bool get _usesMobileAccountVerification =>
+      selectedMethod.value == 'mobile' ||
+      selectedMethod.value == 'mobile-search';
+
+  String? _extractAccessToken(Map<String, dynamic> response) {
+    const tokenKeys = {
+      'accesstoken',
+      'token',
+      'ttoken',
+      'xtoken',
+      'abhausertoken',
+    };
+
+    String? findToken(Object? value) {
+      if (value is Map) {
+        for (final entry in value.entries) {
+          if (tokenKeys.contains(entry.key
+              .toString()
+              .toLowerCase()
+              .replaceAll('_', '')
+              .replaceAll('-', ''))) {
+            final token = entry.value?.toString().trim();
+            if (token != null && token.isNotEmpty) return token;
+          }
+        }
+        for (final nested in value.values) {
+          final token = findToken(nested);
+          if (token != null) return token;
+        }
+      } else if (value is List) {
+        for (final item in value) {
+          final token = findToken(item);
+          if (token != null) return token;
+        }
+      }
+      return null;
+    }
+
+    return findToken(response);
+  }
+
+  String? _extractAbhaNumber(Map<String, dynamic> response) {
+    final accounts = response['accounts'];
+    if (accounts is! List) return null;
+
+    for (final account in accounts) {
+      if (account is! Map) continue;
+      for (final key in const ['ABHANumber', 'abhaNumber']) {
+        final value = account[key]?.toString().trim();
+        if (value != null && value.isNotEmpty) return value;
+      }
+    }
+    return null;
+  }
+
   void setSelection({
     required String loginType,
     required String loginId,
     required String method,
   }) {
+    _verifiedAbhaAccessToken = null;
+    if (Get.isRegistered<NurseTriageController>()) {
+      Get.find<NurseTriageController>().verifiedAbhaAccessToken = null;
+    }
     selectedLoginType.value = loginType;
     selectedLoginId.value = loginId;
     selectedMethod.value = method;
@@ -536,18 +602,9 @@ class VerifyAbhaController extends GetxController {
 
   Future<bool> sendOtp(
       {required String method, required String loginId}) async {
-    debugPrint('Controller sendOtp()');
-    debugPrint('Method : $method');
-    debugPrint('LoginId : $loginId');
-
     final normalizedLoginId = method == 'mobile' || method == 'aadhaar'
         ? normalizeInput(loginId)
         : loginId.trim();
-    debugPrint('Controller Input : $loginId');
-    debugPrint('Normalized : $normalizedLoginId');
-    debugPrint('Length : ${normalizedLoginId.length}');
-    debugPrint(
-        'Current selected login type before send: ${selectedLoginType.value}');
 
     if (!validateInput(method: method, value: normalizedLoginId)) {
       final message = normalizedLoginId.isEmpty
@@ -588,14 +645,10 @@ class VerifyAbhaController extends GetxController {
       method: method,
     );
 
-    debugPrint('Final LoginId : $requestLoginId');
-    debugPrint('Login Type : $loginType');
-
     if (method == 'abha-address-mobile' || method == 'abha-address-aadhaar') {
       debugPrint('=============================');
       debugPrint('VERIFY ABHA ADDRESS');
       debugPrint('Authentication Method : $method');
-      debugPrint('ABHA Address : $requestLoginId');
       debugPrint('loginType : $loginType');
     }
 
@@ -611,8 +664,6 @@ class VerifyAbhaController extends GetxController {
                   loginType: loginType,
                   loginId: requestLoginId,
                 );
-      debugPrint('sendOtp service response: $response');
-
       if (response == null) {
         final message =
             AbhaErrorMessageService.map(null, context: 'generateOtp');
@@ -793,11 +844,11 @@ class VerifyAbhaController extends GetxController {
     return enriched;
   }
 
-  Future<void> _syncVerifiedResponse(Map<String, dynamic> response) async {
+  Future<void> _syncVerifiedResponse(
+    Map<String, dynamic> response, {
+    String? accessToken,
+  }) async {
     final normalizedResponse = normalizeVerifyResponsePayload(response);
-
-    debugPrint('===== VERIFY OTP RESPONSE =====');
-    debugPrint(normalizedResponse.toString());
 
     verifiedAuthResponse.value = normalizedResponse;
 
@@ -809,12 +860,12 @@ class VerifyAbhaController extends GetxController {
       return;
     }
 
+    nurseController.verifiedAbhaAccessToken = accessToken;
+    nurseController.clearAbhaCardPreviewCache();
     final profileId = _resolveProfileIdFromResponse(normalizedResponse);
     final payload = _buildAadhaarProfileCardPayload(normalizedResponse);
     final enrichedPayload = _injectProfileIdIntoPayload(payload, profileId);
 
-    debugPrint('===== PROFILE PAYLOAD =====');
-    debugPrint(enrichedPayload.toString());
     nurseController.aadhaarProfileData.value = enrichedPayload;
     nurseController.verifiedAbhaProfileData.value = enrichedPayload;
     nurseController.aadhaarProfileImported.value = true;
@@ -897,8 +948,6 @@ class VerifyAbhaController extends GetxController {
         return false;
       }
 
-      debugPrint('verifyOtp response payload: $response');
-
       final success = response['success'] == true ||
           response['status'] == 'success' ||
           response['message']?.toString().toLowerCase().contains('success') ==
@@ -916,7 +965,95 @@ class VerifyAbhaController extends GetxController {
         return false;
       }
 
-      await _syncVerifiedResponse(response);
+      if (_usesMobileAccountVerification) {
+        final txnId = _responseValue(response, const ['txnId'])?.toString();
+        final otpToken = _extractAccessToken(response);
+        final abhaNumber = _extractAbhaNumber(response);
+        if (txnId == null ||
+            txnId.trim().isEmpty ||
+            otpToken == null ||
+            abhaNumber == null) {
+          const message =
+              'Mobile verification succeeded, but the response is missing the transaction ID, token, or ABHA number.';
+          lastApiError.value = {'message': message};
+          if (Get.context != null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: message,
+            );
+          }
+          return false;
+        }
+
+        final verifiedUser = await _service.verifyAbhaUser(
+          abhaNumber: abhaNumber,
+          txnId: txnId,
+          tToken: otpToken,
+        );
+        if (verifiedUser == null ||
+            AbhaErrorMessageService.isFailure(verifiedUser)) {
+          lastApiError.value =
+              verifiedUser ?? {'message': 'Unable to verify the ABHA user.'};
+          if (Get.context != null) {
+            await CommonErrorDialog.showFromResponse(
+              Get.context!,
+              response: lastApiError.value!,
+            );
+          }
+          return false;
+        }
+
+        _verifiedAbhaAccessToken = _extractAccessToken(verifiedUser);
+        if (_verifiedAbhaAccessToken == null) {
+          const message =
+              'ABHA user verification succeeded, but no account-details token was returned.';
+          lastApiError.value = {'message': message};
+          if (Get.context != null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: message,
+            );
+          }
+          return false;
+        }
+      } else if (_usesAbhaAccountDetails) {
+        _verifiedAbhaAccessToken = _extractAccessToken(response);
+        if (_verifiedAbhaAccessToken == null) {
+          const message =
+              'Verification succeeded, but no ABHA access token was returned.';
+          lastApiError.value = {'message': message};
+          if (Get.context != null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: message,
+            );
+          }
+          return false;
+        }
+      } else {
+        await _syncVerifiedResponse(response);
+        return true;
+      }
+
+      final accountDetails = await _service.getAbhaAccountDetails(
+        accessToken: _verifiedAbhaAccessToken!,
+      );
+      if (accountDetails == null ||
+          AbhaErrorMessageService.isFailure(accountDetails)) {
+        lastApiError.value = accountDetails ??
+            {'message': 'Unable to retrieve ABHA account details.'};
+        if (Get.context != null) {
+          await CommonErrorDialog.showFromResponse(
+            Get.context!,
+            response: lastApiError.value!,
+          );
+        }
+        return false;
+      }
+      await _syncVerifiedResponse(
+        accountDetails,
+        accessToken: _verifiedAbhaAccessToken,
+      );
       return true;
     } catch (e) {
       log('Verify ABHA verify OTP exception: $e');
