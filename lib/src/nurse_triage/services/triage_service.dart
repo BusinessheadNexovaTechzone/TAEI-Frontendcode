@@ -781,6 +781,7 @@ class TriageService {
   static Future<Map<String, dynamic>> downloadAbhaCard({
     int? profileId,
     String? accessToken,
+    bool usePhrCard = false,
     String? flowId,
   }) async {
     final hasAccessToken = accessToken?.trim().isNotEmpty == true;
@@ -792,10 +793,15 @@ class TriageService {
     }
 
     final url = hasAccessToken
-        ? Urls.abhaDownloadCard
+        ? usePhrCard
+            ? Urls.abhaDownloadPhrCard
+            : Urls.abhaDownloadCard
         : '${Urls.downloadAbhaCard}/$profileId';
-    final apiName =
-        hasAccessToken ? 'abha/download-card' : 'abha/card/{profileId}';
+    final apiName = hasAccessToken
+        ? usePhrCard
+            ? 'abha/download-phr-card'
+            : 'abha/download-card'
+        : 'abha/card/{profileId}';
     final cardLabel = profileId == null ? 'ABHA_Card' : 'ABHA_Card_$profileId';
 
     log('[ABHA CARD][DOWNLOAD] Starting download from backend');
@@ -818,8 +824,9 @@ class TriageService {
       };
       if (hasAccessToken) {
         final token = accessToken!.trim();
-        headers['X-Token'] =
-            token.toLowerCase().startsWith('bearer ') ? token : 'Bearer $token';
+        headers['X-Token'] = token.toLowerCase().startsWith('bearer ')
+            ? token
+            : 'Bearer ' + token;
       }
 
       final response = await _client

@@ -793,6 +793,7 @@ class NurseTriageController extends GetxController {
   RxBool isDownloadingAbhaCard = false.obs;
   final RxSet<int> downloadingAbhaProfileIds = <int>{}.obs;
   String? verifiedAbhaAccessToken;
+  bool verifiedAbhaUsesPhrCard = false;
 
   void clearAbhaCardPreviewCache() {
     _abhaCardPreviewCache.clear();
@@ -868,7 +869,9 @@ class NurseTriageController extends GetxController {
 
     log('[ABHA][CARD-DOWNLOAD] Profile ID: ${profileIdStr.isNotEmpty ? 'available' : 'missing'}');
     final endpointPath = hasAccessToken
-        ? '/api/abha/download-card'
+        ? verifiedAbhaUsesPhrCard
+            ? '/api/abha/download-phr-card'
+            : '/api/abha/download-card'
         : '/api/abha/card';
     log('[ABHA][CARD-DOWNLOAD] API: $endpointPath');
 
@@ -928,6 +931,7 @@ class NurseTriageController extends GetxController {
       final result = await TriageService.downloadAbhaCard(
         profileId: parsedProfileId,
         accessToken: accessToken,
+        usePhrCard: verifiedAbhaUsesPhrCard,
         flowId: flowId,
       );
 
@@ -1740,6 +1744,7 @@ class NurseTriageController extends GetxController {
       () => TriageService.downloadAbhaCard(
         profileId: profileId,
         accessToken: verifiedAbhaAccessToken,
+        usePhrCard: verifiedAbhaUsesPhrCard,
       ),
     );
 

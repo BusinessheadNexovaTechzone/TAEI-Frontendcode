@@ -172,13 +172,15 @@ class VerifyAbhaController extends GetxController {
   bool get _usesAbhaAccountDetails =>
       selectedMethod.value == 'aadhaar' ||
       selectedMethod.value == 'abha-aadhaar' ||
-      selectedMethod.value == 'abha-abha' ||
-      selectedMethod.value == 'abha-address-mobile' ||
-      selectedMethod.value == 'abha-address-aadhaar';
+      selectedMethod.value == 'abha-abha';
 
   bool get _usesMobileAccountVerification =>
       selectedMethod.value == 'mobile' ||
       selectedMethod.value == 'mobile-search';
+
+  bool get _usesPhrProfile =>
+      selectedMethod.value == 'abha-address-mobile' ||
+      selectedMethod.value == 'abha-address-aadhaar';
 
   String? _extractAccessToken(Map<String, dynamic> response) {
     const tokenKeys = {
@@ -238,7 +240,9 @@ class VerifyAbhaController extends GetxController {
   }) {
     _verifiedAbhaAccessToken = null;
     if (Get.isRegistered<NurseTriageController>()) {
-      Get.find<NurseTriageController>().verifiedAbhaAccessToken = null;
+      final nurseController = Get.find<NurseTriageController>();
+      nurseController.verifiedAbhaAccessToken = null;
+      nurseController.verifiedAbhaUsesPhrCard = false;
     }
     selectedLoginType.value = loginType;
     selectedLoginId.value = loginId;
@@ -848,6 +852,7 @@ class VerifyAbhaController extends GetxController {
   Future<void> _syncVerifiedResponse(
     Map<String, dynamic> response, {
     String? accessToken,
+    bool usePhrCard = false,
   }) async {
     final normalizedResponse = normalizeVerifyResponsePayload(response);
 
@@ -862,6 +867,7 @@ class VerifyAbhaController extends GetxController {
     }
 
     nurseController.verifiedAbhaAccessToken = accessToken;
+    nurseController.verifiedAbhaUsesPhrCard = usePhrCard;
     nurseController.clearAbhaCardPreviewCache();
     final profileId = _resolveProfileIdFromResponse(normalizedResponse);
     final payload = _buildAadhaarProfileCardPayload(normalizedResponse);
@@ -1017,7 +1023,7 @@ class VerifyAbhaController extends GetxController {
           }
           return false;
         }
-      } else if (_usesAbhaAccountDetails) {
+      } else if (_usesAbhaAccountDetails || _usesPhrProfile) {
         _verifiedAbhaAccessToken = _extractAccessToken(response);
         if (_verifiedAbhaAccessToken == null) {
           const message =
@@ -1036,13 +1042,21 @@ class VerifyAbhaController extends GetxController {
         return true;
       }
 
-      final accountDetails = await _service.getAbhaAccountDetails(
-        accessToken: _verifiedAbhaAccessToken!,
-      );
-      if (accountDetails == null ||
-          AbhaErrorMessageService.isFailure(accountDetails)) {
-        lastApiError.value = accountDetails ??
-            {'message': 'Unable to retrieve ABHA account details.'};
+      final profileDetails = _usesPhrProfile
+          ? await _service.getAbhaPhrProfile(
+              accessToken: _verifiedAbhaAccessToken!,
+            )
+          : await _service.getAbhaAccountDetails(
+              accessToken: _verifiedAbhaAccessToken!,
+            );
+      if (profileDetails == null ||
+          AbhaErrorMessageService.isFailure(profileDetails)) {
+        lastApiError.value = profileDetails ??
+            {
+              'message': _usesPhrProfile
+                  ? 'Unable to retrieve ABHA PHR profile details.'
+                  : 'Unable to retrieve ABHA account details.',
+            };
         if (Get.context != null) {
           await CommonErrorDialog.showFromResponse(
             Get.context!,
@@ -1052,8 +1066,9 @@ class VerifyAbhaController extends GetxController {
         return false;
       }
       await _syncVerifiedResponse(
-        accountDetails,
+        profileDetails,
         accessToken: _verifiedAbhaAccessToken,
+        usePhrCard: _usesPhrProfile,
       );
       return true;
     } catch (e) {

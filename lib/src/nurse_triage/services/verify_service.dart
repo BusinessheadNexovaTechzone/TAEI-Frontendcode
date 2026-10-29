@@ -249,31 +249,47 @@ class VerifyAbhaService {
 
   Future<Map<String, dynamic>?> getAbhaAccountDetails({
     required String accessToken,
+  }) =>
+      _getJson(
+        url: Urls.abhaAccountDetails,
+        label: 'ABHA ACCOUNT DETAILS',
+        accessToken: accessToken,
+      );
+
+  Future<Map<String, dynamic>?> getAbhaPhrProfile({
+    required String accessToken,
+  }) =>
+      _getJson(
+        url: Urls.abhaPhrProfile,
+        label: 'ABHA PHR PROFILE',
+        accessToken: accessToken,
+      );
+
+  Future<Map<String, dynamic>?> _getJson({
+    required String url,
+    required String label,
+    required String accessToken,
   }) async {
-    final token = accessToken.toLowerCase().startsWith('bearer ')
-        ? accessToken
-        : 'Bearer ' + accessToken;
+    final trimmedToken = accessToken.trim();
+    final token = trimmedToken.toLowerCase().startsWith('bearer ')
+        ? trimmedToken
+        : 'Bearer ' + trimmedToken;
     try {
       final response = await _client.get(
-        Uri.parse(Urls.abhaAccountDetails),
+        Uri.parse(url),
         headers: {'X-Token': token},
       );
 
-      log('[ABHA VerifyService] Account details status: ${response.statusCode}');
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        if (response.body.trim().isEmpty) {
-          return <String, dynamic>{};
-        }
-
-        final decoded = jsonDecode(response.body);
-        if (decoded is Map<String, dynamic>) return decoded;
-        if (decoded is Map) return Map<String, dynamic>.from(decoded);
-        return {'message': decoded.toString()};
-      }
-
+      log('[ABHA VerifyService] $label status: ${response.statusCode}');
       final decoded = response.body.trim().isEmpty
           ? <String, dynamic>{}
           : jsonDecode(response.body);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (decoded is Map<String, dynamic>) return decoded;
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        return {'data': decoded};
+      }
+
       if (decoded is Map<String, dynamic>) {
         return {...decoded, 'statusCode': response.statusCode};
       }
@@ -285,7 +301,7 @@ class VerifyAbhaService {
       }
       return {'message': decoded.toString(), 'statusCode': response.statusCode};
     } catch (e) {
-      log('Get ABHA account details service error: $e');
+      log('Get $label service error: $e');
       return null;
     }
   }

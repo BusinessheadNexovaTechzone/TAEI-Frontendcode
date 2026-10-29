@@ -248,6 +248,9 @@ class Urls {
   static const String abhaVerifyUser = '${local}api/abha/verify-user';
   static const String abhaAccountDetails = '${local}api/abha/account-details';
   static const String abhaDownloadCard = '${local}api/abha/download-card';
+  static const String abhaPhrProfile = '${local}api/abha/phr-profile';
+  static const String abhaDownloadPhrCard =
+      '${local}api/abha/download-phr-card';
   static const String abhaAddressSuggestions =
       '${local}api/abha/address/suggestions';
   static const String abhaAddressCreate = '${local}api/abha/address/create';
