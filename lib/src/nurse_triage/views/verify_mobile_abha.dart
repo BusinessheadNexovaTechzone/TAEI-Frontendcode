@@ -52,14 +52,57 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
 
     setState(() => _isSendingOtp = true);
     try {
-      final sent = await _controller.sendOtp(
-        method: 'mobile',
-        loginId: mobile,
+      final searchSucceeded = await _controller.searchAbhaByMobile(
+        mobile: mobile,
       );
-      if (!mounted || !sent) return;
+      if (!mounted || !searchSucceeded) return;
+
+      final profiles = _controller.mobileSearchProfiles;
+      if (profiles.isEmpty) {
+        return;
+      }
+
+      late final int selectedIndex;
+      if (profiles.length == 1) {
+        selectedIndex = _controller.mobileSearchRecordIndex(profiles.first) ?? 0;
+      } else {
+        final selectedProfile = await showDialog<Map<String, dynamic>>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Select ABHA Profile'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: profiles.length,
+                itemBuilder: (context, index) {
+                  final profile = profiles[index];
+                  final abhaNumber = (profile['ABHANumber'] ??
+                          profile['abhaNumber'] ??
+                          'ABHA Number')
+                      .toString();
+                  final name = (profile['name'] ?? 'Unknown User').toString();
+                  return ListTile(
+                    title: Text(name),
+                    subtitle: Text(abhaNumber),
+                    onTap: () => Navigator.of(context).pop(profile),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+
+        if (!mounted || selectedProfile == null) return;
+        selectedIndex = _controller.mobileSearchRecordIndex(selectedProfile) ?? 0;
+      }
+
+      final otpSent = await _controller.sendMobileSearchOtp(index: selectedIndex);
+      if (!mounted || !otpSent) return;
+
       final message = _controller.otpMessage.value.isNotEmpty
           ? _controller.otpMessage.value
-          : 'OTP sent to your mobile number.';
+          : 'OTP sent to the selected ABHA profile.';
       await widget.onNext?.call(message);
     } finally {
       if (mounted) setState(() => _isSendingOtp = false);

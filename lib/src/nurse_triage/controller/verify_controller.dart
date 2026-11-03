@@ -254,6 +254,8 @@ class VerifyAbhaController extends GetxController {
 
     switch (method) {
       case 'mobile':
+      case 'mobile-search':
+      case 'mobile-search-otp':
         loginType = 'mobile-mobile-otp';
         break;
       case 'aadhaar':
@@ -914,7 +916,10 @@ class VerifyAbhaController extends GetxController {
 
     isLoading.value = true;
     try {
-      final response = selectedMethod.value == 'mobile-search'
+      final bool isMobileSearchFlow = selectedMethod.value == 'mobile-search' ||
+          selectedLoginType.value == 'mobile-search-otp';
+
+      final response = isMobileSearchFlow
           ? await _service.verifyAbhaSearchOtp(
               otpTxnId: mobileSearchOtpTxnId.value,
               otp: otp,
@@ -972,10 +977,37 @@ class VerifyAbhaController extends GetxController {
         return false;
       }
 
-      if (_usesMobileAccountVerification) {
-        final txnId = _responseValue(response, const ['txnId'])?.toString();
-        final otpToken = _extractAccessToken(response);
-        final abhaNumber = _extractAbhaNumber(response);
+      final bool isMobileSearchVerification =
+          selectedMethod.value == 'mobile-search' ||
+          selectedLoginType.value == 'mobile-search-otp';
+
+      if (isMobileSearchVerification) {
+        _verifiedAbhaAccessToken = _extractAccessToken(response) ??
+            _extractAccessToken(response['data'] is Map ? response['data'] : {});
+        if (_verifiedAbhaAccessToken == null) {
+          const message =
+              'ABHA search OTP verification succeeded, but no auth token was returned for account details.';
+          lastApiError.value = {'message': message};
+          if (Get.context != null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: message,
+            );
+          }
+          return false;
+        }
+      } else if (_usesMobileAccountVerification) {
+        final txnId = _responseValue(response, const [
+          'txnId',
+          'transactionId',
+          'otpTxnId',
+          'xTxnId',
+        ])?.toString();
+        final otpToken = _extractAccessToken(response) ??
+            _extractAccessToken(
+                response['data'] is Map ? response['data'] : {});
+        final abhaNumber = _extractAbhaNumber(response) ??
+            _extractAbhaNumber(response['data'] is Map ? response['data'] : {});
         if (txnId == null ||
             txnId.trim().isEmpty ||
             otpToken == null ||
