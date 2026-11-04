@@ -1304,7 +1304,11 @@ class _AddAccidentState extends State<AddAccident> {
                                                     isEditable: !controller
                                                         .aadhaarProfileImported
                                                         .value,
-                                                    highlight: false,
+                                                    highlight: _hasImportedValue([
+                                                      'gender',
+                                                      'sex',
+                                                      'genderName'
+                                                    ]),
                                                     onChanged: (value) {
                                                       if (controller
                                                           .aadhaarProfileImported
@@ -1787,9 +1791,7 @@ class _AddAccidentState extends State<AddAccident> {
                                                             .triage!
                                                             .occupation,
                                                         highlight: false,
-                                                        isEditable: !controller
-                                                            .aadhaarProfileImported
-                                                            .value,
+                                                        isEditable: true,
                                                         onChanged: (value) {
                                                           if (controller
                                                               .aadhaarProfileImported
@@ -1826,23 +1828,15 @@ class _AddAccidentState extends State<AddAccident> {
                                                                 .number,
                                                         hintText:
                                                             'Enter Income',
-                                                        highlight: controller
-                                                            .aadhaarProfileImported
-                                                            .value,
-                                                        readOnly: controller
-                                                            .aadhaarProfileImported
-                                                            .value,
-                                                        onChanged: controller
-                                                                .aadhaarProfileImported
-                                                                .value
-                                                            ? null
-                                                            : (v) {
-                                                                controller
-                                                                    .createTriageModel
-                                                                    .value!
-                                                                    .triage!
-                                                                    .income = v;
-                                                              },
+                                                        highlight: false,
+                                                        readOnly: false,
+                                                        onChanged: (v) {
+                                                          controller
+                                                              .createTriageModel
+                                                              .value!
+                                                              .triage!
+                                                              .income = v;
+                                                        },
                                                         validator: (value) {
                                                           if (value == null ||
                                                               value.isEmpty) {
@@ -1854,130 +1848,38 @@ class _AddAccidentState extends State<AddAccident> {
                                                       )
                                                     : Container(),
                                                 Space(height: 20),
-                                                Obx(() {
-                                                  final isImported = controller
-                                                      .aadhaarProfileImported
-                                                      .value;
-                                                  final hasProfileData =
-                                                      controller
-                                                              .aadhaarProfileData
-                                                              .value !=
-                                                          null;
-                                                  final mobileNumber =
-                                                      controller
-                                                          .createTriageModel
-                                                          .value!
-                                                          .triage!
-                                                          .patientMobileNumber;
-
-                                                  if ((isImported ||
-                                                          hasProfileData) &&
-                                                      mobileNumber != null &&
-                                                      mobileNumber.isNotEmpty) {
-                                                    return Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Padding(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  bottom: 6),
-                                                          child: Text(
-                                                            'Patient mobile Number',
-                                                            style:
-                                                                const TextStyle(
-                                                              fontSize: 15,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              color: Colors
-                                                                  .black87,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                            height: 8),
-                                                        Container(
-                                                          width:
-                                                              double.infinity,
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .symmetric(
-                                                                  horizontal:
-                                                                      16,
-                                                                  vertical: 12),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                            color: isImported
-                                                                ? const Color(
-                                                                    0xFFFFF3CD)
-                                                                : null,
-                                                            border: Border.all(
-                                                                color: isImported
-                                                                    ? const Color(
-                                                                        0xFFE6C653)
-                                                                    : Colors.grey),
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        10),
-                                                          ),
-                                                          child: Text(
-                                                            mobileNumber.trim(),
-                                                            style:
-                                                                const TextStyle(
-                                                              fontSize: 16,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                              color: Colors
-                                                                  .black87,
-                                                              letterSpacing:
-                                                                  1.0,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    );
-                                                  }
-
-                                                  return TitleTextFormField(
-                                                    obscureText: false,
-                                                    maxLength: 10,
-                                                    title:
-                                                        "Patient mobile Number",
-                                                    controller: TextEditingController(
-                                                        text: controller
-                                                                .createTriageModel
-                                                                .value!
-                                                                .triage!
-                                                                .patientMobileNumber ??
-                                                            ""),
-                                                    keyboardType:
-                                                        TextInputType.number,
-                                                    hintText:
-                                                        'Enter mobile number',
-                                                    onChanged: (v) {
-                                                      controller
-                                                          .createTriageModel
-                                                          .value!
-                                                          .triage!
-                                                          .patientMobileNumber = v;
-                                                    },
-                                                    validator: (value) {
-                                                      if (value == null ||
-                                                          value.isEmpty) {
-                                                        return 'Please Enter mobile number';
-                                                      } else if (value.length !=
-                                                          10) {
-                                                        return 'Please Enter valid mobile number';
-                                                      }
-                                                      return null;
-                                                    },
-                                                  );
-                                                }),
+                                                TitleTextFormField(
+                                                  obscureText: false,
+                                                  maxLength: 10,
+                                                  title: "Patient mobile Number",
+                                                  controller: TextEditingController(
+                                                      text: controller
+                                                              .createTriageModel
+                                                              .value!
+                                                              .triage!
+                                                              .patientMobileNumber ??
+                                                          ""),
+                                                  keyboardType: TextInputType.number,
+                                                  hintText: 'Enter mobile number',
+                                                  highlight: false,
+                                                  readOnly: false,
+                                                  onChanged: (v) {
+                                                    controller
+                                                        .createTriageModel
+                                                        .value!
+                                                        .triage!
+                                                        .patientMobileNumber = v;
+                                                  },
+                                                  validator: (value) {
+                                                    if (value == null ||
+                                                        value.isEmpty) {
+                                                      return 'Please Enter mobile number';
+                                                    } else if (value.length != 10) {
+                                                      return 'Please Enter valid mobile number';
+                                                    }
+                                                    return null;
+                                                  },
+                                                ),
                                                 // TODO:need to add API data
 
                                                 // TitleDropdown(
