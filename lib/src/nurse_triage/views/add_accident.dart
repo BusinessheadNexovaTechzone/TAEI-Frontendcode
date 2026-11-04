@@ -453,6 +453,22 @@ class _AddAccidentState extends State<AddAccident> {
     return scan(data);
   }
 
+  bool _isFieldHighlighted(Iterable<String> keys, [dynamic triageValue]) {
+    if (!controller.aadhaarProfileImported.value) return false;
+    if (_hasImportedValue(keys)) return true;
+    if (triageValue != null) {
+      if (triageValue is String &&
+          triageValue.trim().isNotEmpty &&
+          triageValue.trim().toLowerCase() != 'not available') {
+        return true;
+      }
+      if (triageValue is num && triageValue > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   int? _matchLookupIdByName(
     List<dynamic>? items,
     String value,
@@ -1209,24 +1225,28 @@ class _AddAccidentState extends State<AddAccident> {
                                           hintText: 'Enter the name',
                                           readOnly: controller
                                               .aadhaarProfileImported.value,
-                                          highlight: _hasImportedValue([
+                                          highlight: _isFieldHighlighted([
                                             'fullName',
                                             'name',
                                             'patientName',
                                             'nameOfPatient',
                                             'firstName',
                                             'middleName',
-                                            'lastName'
-                                          ]),
-                                          style: _hasImportedValue([
+                                            'lastName',
+                                            'first_name',
+                                            'last_name'
+                                          ], controller.createTriageModel.value?.triage?.nameOfPatient),
+                                          style: _isFieldHighlighted([
                                             'fullName',
                                             'name',
                                             'patientName',
                                             'nameOfPatient',
                                             'firstName',
                                             'middleName',
-                                            'lastName'
-                                          ])
+                                            'lastName',
+                                            'first_name',
+                                            'last_name'
+                                          ], controller.createTriageModel.value?.triage?.nameOfPatient)
                                               ? const TextStyle(
                                                   color: Colors.black87)
                                               : null,
@@ -1342,24 +1362,24 @@ class _AddAccidentState extends State<AddAccident> {
                                                           readOnly: controller
                                                               .aadhaarProfileImported
                                                               .value,
-                                                          highlight: _hasImportedValue([
+                                                          highlight: _isFieldHighlighted([
                                                             'age',
                                                             'dob',
                                                             'dateOfBirth',
+                                                            'date_of_birth',
                                                             'yearOfBirth',
-                                                            'monthOfBirth',
-                                                            'year',
-                                                            'month'
-                                                          ]),
-                                                          style: _hasImportedValue([
+                                                            'year_of_birth',
+                                                            'year'
+                                                          ], controller.createTriageModel.value?.triage?.ageYear),
+                                                          style: _isFieldHighlighted([
                                                             'age',
                                                             'dob',
                                                             'dateOfBirth',
+                                                            'date_of_birth',
                                                             'yearOfBirth',
-                                                            'monthOfBirth',
-                                                            'year',
-                                                            'month'
-                                                          ])
+                                                            'year_of_birth',
+                                                            'year'
+                                                          ], controller.createTriageModel.value?.triage?.ageYear)
                                                               ? const TextStyle(
                                                                   color: Colors
                                                                       .black87)
@@ -1427,15 +1447,15 @@ class _AddAccidentState extends State<AddAccident> {
                                                                         !controller
                                                                             .aadhaarProfileImported
                                                                             .value,
-                                                                    highlight: _hasImportedValue([
+                                                                    highlight: _isFieldHighlighted([
                                                                       'age',
                                                                       'dob',
                                                                       'dateOfBirth',
-                                                                      'yearOfBirth',
+                                                                      'date_of_birth',
                                                                       'monthOfBirth',
-                                                                      'year',
+                                                                      'month_of_birth',
                                                                       'month'
-                                                                    ]),
+                                                                    ], controller.createTriageModel.value?.triage?.ageMonth),
                                                                     onChanged:
                                                                         (value) {
                                                                       if (controller
@@ -2283,22 +2303,36 @@ class _AddAccidentState extends State<AddAccident> {
                                                             TextInputType.name,
                                                         decoration:
                                                             InputDecoration(
-                                                          filled: _hasImportedValue([
+                                                          filled: _isFieldHighlighted([
                                                             'abhaNumber',
                                                             'ABHANumber',
+                                                            'abha_number',
                                                             'abhaId',
                                                             'ABHAID',
+                                                            'abha_id',
                                                             'healthIdNumber',
-                                                            'healthId'
-                                                          ]),
-                                                          fillColor: _hasImportedValue([
+                                                            'healthId',
+                                                            'health_id',
+                                                            'hidn',
+                                                            'hid',
+                                                            'abhaCard',
+                                                            'abha_card'
+                                                          ], controller.createTriageModel.value?.triage?.abhaCard),
+                                                          fillColor: _isFieldHighlighted([
                                                             'abhaNumber',
                                                             'ABHANumber',
+                                                            'abha_number',
                                                             'abhaId',
                                                             'ABHAID',
+                                                            'abha_id',
                                                             'healthIdNumber',
-                                                            'healthId'
-                                                          ])
+                                                            'healthId',
+                                                            'health_id',
+                                                            'hidn',
+                                                            'hid',
+                                                            'abhaCard',
+                                                            'abha_card'
+                                                          ], controller.createTriageModel.value?.triage?.abhaCard)
                                                               ? const Color(
                                                                   0xFFFFF3CD)
                                                               : null,
@@ -2311,14 +2345,21 @@ class _AddAccidentState extends State<AddAccident> {
                                                                         10),
                                                             borderSide:
                                                                 BorderSide(
-                                                              color: _hasImportedValue([
+                                                              color: _isFieldHighlighted([
                                                                 'abhaNumber',
                                                                 'ABHANumber',
+                                                                'abha_number',
                                                                 'abhaId',
                                                                 'ABHAID',
+                                                                'abha_id',
                                                                 'healthIdNumber',
-                                                                'healthId'
-                                                              ])
+                                                                'healthId',
+                                                                'health_id',
+                                                                'hidn',
+                                                                'hid',
+                                                                'abhaCard',
+                                                                'abha_card'
+                                                              ], controller.createTriageModel.value?.triage?.abhaCard)
                                                                   ? const Color(
                                                                       0xFFE6C653)
                                                                   : Colors.grey,
@@ -2332,17 +2373,53 @@ class _AddAccidentState extends State<AddAccident> {
                                                                         10),
                                                             borderSide:
                                                                 BorderSide(
-                                                              color: _hasImportedValue([
+                                                              color: _isFieldHighlighted([
                                                                 'abhaNumber',
                                                                 'ABHANumber',
+                                                                'abha_number',
                                                                 'abhaId',
                                                                 'ABHAID',
+                                                                'abha_id',
                                                                 'healthIdNumber',
-                                                                'healthId'
-                                                              ])
+                                                                'healthId',
+                                                                'health_id',
+                                                                'hidn',
+                                                                'hid',
+                                                                'abhaCard',
+                                                                'abha_card'
+                                                              ], controller.createTriageModel.value?.triage?.abhaCard)
                                                                   ? const Color(
                                                                       0xFFE6C653)
                                                                   : Colors.grey,
+                                                            ),
+                                                          ),
+                                                          focusedBorder:
+                                                              OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        10),
+                                                            borderSide:
+                                                                BorderSide(
+                                                              color: _isFieldHighlighted([
+                                                                'abhaNumber',
+                                                                'ABHANumber',
+                                                                'abha_number',
+                                                                'abhaId',
+                                                                'ABHAID',
+                                                                'abha_id',
+                                                                'healthIdNumber',
+                                                                'healthId',
+                                                                'health_id',
+                                                                'hidn',
+                                                                'hid',
+                                                                'abhaCard',
+                                                                'abha_card'
+                                                              ], controller.createTriageModel.value?.triage?.abhaCard)
+                                                                  ? const Color(
+                                                                      0xFFE6C653)
+                                                                  : Colors.blue,
+                                                              width: 1.5,
                                                             ),
                                                           ),
                                                           hintText:
@@ -2501,17 +2578,33 @@ class _AddAccidentState extends State<AddAccident> {
                                                     },
                                                   ),
 
-                                                TitleTextFormField(
-                                                  title: "ABHA Address",
-                                                  initialValue:
-                                                      _selectedAbhaAddress,
-                                                  readOnly: true,
-                                                  highlight: _hasImportedValue([
-                                                    'abhaAddress',
-                                                    'preferredAbhaAddress'
-                                                  ]),
-                                                  keyboardType:
-                                                      TextInputType.name,
+                                                Builder(
+                                                  builder: (context) {
+                                                    final resolvedAbhaAddress = _selectedAbhaAddress.isNotEmpty
+                                                        ? _selectedAbhaAddress
+                                                        : (_importedProfileValue('preferredAbhaAddress').isNotEmpty
+                                                            ? _importedProfileValue('preferredAbhaAddress')
+                                                            : (_importedProfileValue('abhaAddress').isNotEmpty
+                                                                ? _importedProfileValue('abhaAddress')
+                                                                : (_importedProfileValue('healthId').isNotEmpty
+                                                                    ? _importedProfileValue('healthId')
+                                                                    : _importedProfileValue('phrAddress'))));
+                                                    return TitleTextFormField(
+                                                      title: "ABHA Address",
+                                                      initialValue: resolvedAbhaAddress,
+                                                      readOnly: true,
+                                                      highlight: _isFieldHighlighted([
+                                                        'abhaAddress',
+                                                        'preferredAbhaAddress',
+                                                        'preferred_abha_address',
+                                                        'phrAddress',
+                                                        'healthId',
+                                                        'health_id'
+                                                      ], resolvedAbhaAddress),
+                                                      keyboardType:
+                                                          TextInputType.name,
+                                                    );
+                                                  },
                                                 ),
 
                                                 TitleTextFormField(
@@ -2523,10 +2616,12 @@ class _AddAccidentState extends State<AddAccident> {
                                                           .addressLine ??
                                                       "",
                                                   readOnly: true,
-                                                  highlight: _hasImportedValue([
+                                                  highlight: _isFieldHighlighted([
                                                     'residentialAddress',
-                                                    'address'
-                                                  ]),
+                                                    'address',
+                                                    'addressLine',
+                                                    'address_line'
+                                                  ], controller.createTriageModel.value?.triage?.addressLine),
                                                   keyboardType:
                                                       TextInputType.name,
                                                   hintText: 'Address',
@@ -2556,10 +2651,12 @@ class _AddAccidentState extends State<AddAccident> {
                                                         .value!
                                                         .triage!
                                                         .district,
-                                                    highlight: _hasImportedValue([
+                                                    highlight: _isFieldHighlighted([
                                                       'districtName',
-                                                      'district'
-                                                    ]),
+                                                      'district',
+                                                      'district_name',
+                                                      'residentialDistrict'
+                                                    ], controller.createTriageModel.value?.triage?.district),
                                                     fallbackLabel:
                                                         controller.aadhaarProfileImported
                                                                 .value
@@ -2592,10 +2689,12 @@ class _AddAccidentState extends State<AddAccident> {
                                                         .value!
                                                         .triage!
                                                         .state,
-                                                    highlight: _hasImportedValue([
+                                                    highlight: _isFieldHighlighted([
                                                       'stateName',
-                                                      'state'
-                                                    ]),
+                                                      'state',
+                                                      'state_name',
+                                                      'residentialState'
+                                                    ], controller.createTriageModel.value?.triage?.state),
                                                     fallbackLabel:
                                                         controller.aadhaarProfileImported
                                                                 .value
@@ -2621,12 +2720,15 @@ class _AddAccidentState extends State<AddAccident> {
                                                               .triage!
                                                               .pincode ??
                                                           ""),
-                                                  highlight: _hasImportedValue([
+                                                  highlight: _isFieldHighlighted([
                                                     'pincode',
                                                     'pinCode',
+                                                    'pin_code',
                                                     'postalCode',
-                                                    'zipCode'
-                                                  ]),
+                                                    'postal_code',
+                                                    'zipCode',
+                                                    'zipcode'
+                                                  ], controller.createTriageModel.value?.triage?.pincode),
                                                   keyboardType:
                                                       TextInputType.name,
                                                   hintText: 'Enter Pincode',

@@ -48,7 +48,7 @@ class TitleTextFormField extends StatefulWidget {
     this.maxLines,
     this.value1,
     this.suffixText,
-    this.filled = false,
+    this.filled,
     this.fillColor,
     this.highlight = false,
     this.style,
@@ -94,6 +94,53 @@ class _TitleTextFormFieldState extends State<TitleTextFormField> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isFilled = (widget.filled ?? false) || widget.highlight;
+    final Color? effectiveFillColor = widget.fillColor ??
+        (widget.highlight
+            ? const Color(0xFFFFF3CD)
+            : (isFilled ? Colors.grey.shade100 : null));
+
+    const Color highlightBorderColor = Color(0xFFE6C653);
+    const Color defaultBorderColor = Color(0xFFCED4DA);
+
+    OutlineInputBorder getBorder([Color? color, double width = 1.0]) {
+      if (widget.highlight) {
+        if (widget.border != null) {
+          return widget.border!.copyWith(
+            borderSide: BorderSide(
+              color: color ?? highlightBorderColor,
+              width: width,
+            ),
+          );
+        }
+        return OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(
+            color: color ?? highlightBorderColor,
+            width: width,
+          ),
+        );
+      }
+
+      if (color != null) {
+        if (widget.border != null) {
+          return widget.border!.copyWith(
+            borderSide: BorderSide(color: color, width: width),
+          );
+        }
+        return OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: color, width: width),
+        );
+      }
+
+      return widget.border ??
+          OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: defaultBorderColor),
+          );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -135,7 +182,10 @@ class _TitleTextFormFieldState extends State<TitleTextFormField> {
           maxLines: widget.maxLines ?? 1,
           controller: _effectiveController,
           keyboardType: widget.keyboardType,
-          style: widget.style,
+          style: widget.style ??
+              (widget.highlight
+                  ? const TextStyle(color: Colors.black87)
+                  : null),
           obscureText: _obscure,
           maxLength: widget.maxLength,
           inputFormatters: [
@@ -143,9 +193,8 @@ class _TitleTextFormFieldState extends State<TitleTextFormField> {
             ...?widget.inputFormatters,
           ],
           decoration: InputDecoration(
-            filled: widget.filled ?? widget.highlight,
-            fillColor: widget.fillColor ??
-                (widget.highlight ? const Color(0xFFFFF3CD) : null),
+            filled: isFilled,
+            fillColor: effectiveFillColor,
             labelText: widget.labelText,
             hintText: widget.hintText,
             prefixIcon:
@@ -164,41 +213,29 @@ class _TitleTextFormFieldState extends State<TitleTextFormField> {
                 : widget.suffixIcon != null
                     ? Icon(widget.suffixIcon)
                     : null,
-            border: widget.border ??
-                OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                    color: widget.highlight
-                        ? const Color(0xFFE6C653)
-                        : Colors.grey,
+            border: getBorder(),
+            enabledBorder: getBorder(),
+            disabledBorder: getBorder(),
+            focusedBorder: getBorder(
+              widget.highlight ? highlightBorderColor : Colors.blue,
+              1.5,
+            ),
+            errorBorder: widget.border != null
+                ? widget.border!.copyWith(
+                    borderSide: const BorderSide(color: Colors.red),
+                  )
+                : OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.red),
                   ),
-                ),
-            enabledBorder: widget.border ??
-                OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                    color: widget.highlight
-                        ? const Color(0xFFE6C653)
-                        : Colors.grey,
+            focusedErrorBorder: widget.border != null
+                ? widget.border!.copyWith(
+                    borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                  )
+                : OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.red, width: 1.5),
                   ),
-                ),
-            focusedBorder: widget.border?.copyWith(
-                  borderSide: BorderSide(
-                    color: widget.highlight
-                        ? const Color(0xFFE6C653)
-                        : Colors.blue,
-                    width: 1.5,
-                  ),
-                ) ??
-                OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                    color: widget.highlight
-                        ? const Color(0xFFE6C653)
-                        : Colors.blue,
-                    width: 1.5,
-                  ),
-                ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 12,
