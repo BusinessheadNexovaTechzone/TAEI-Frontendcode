@@ -23,6 +23,7 @@ class TitleTextFormField extends StatefulWidget {
   final bool? value1;
   final bool? filled;
   final Color? fillColor;
+  final bool highlight;
   final TextStyle? style;
   final String? suffixText;
   final bool isRequired;
@@ -49,6 +50,7 @@ class TitleTextFormField extends StatefulWidget {
     this.suffixText,
     this.filled = false,
     this.fillColor,
+    this.highlight = false,
     this.style,
     this.isRequired = false,
   });
@@ -141,17 +143,9 @@ class _TitleTextFormFieldState extends State<TitleTextFormField> {
             ...?widget.inputFormatters,
           ],
           decoration: InputDecoration(
-            /*suffix: widget.suffixText != null
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(widget.suffixText!),
-                      Icon(widget.suffixIcon),
-                    ],
-                  )
-                : null,*/
-            filled: widget.filled,
-            fillColor: widget.fillColor,
+            filled: widget.filled ?? widget.highlight,
+            fillColor: widget.fillColor ??
+                (widget.highlight ? const Color(0xFFFFF3CD) : null),
             labelText: widget.labelText,
             hintText: widget.hintText,
             prefixIcon:
@@ -173,14 +167,37 @@ class _TitleTextFormFieldState extends State<TitleTextFormField> {
             border: widget.border ??
                 OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Colors.grey),
+                  borderSide: BorderSide(
+                    color: widget.highlight
+                        ? const Color(0xFFE6C653)
+                        : Colors.grey,
+                  ),
+                ),
+            enabledBorder: widget.border ??
+                OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                    color: widget.highlight
+                        ? const Color(0xFFE6C653)
+                        : Colors.grey,
+                  ),
                 ),
             focusedBorder: widget.border?.copyWith(
-                  borderSide: const BorderSide(color: Colors.blue),
+                  borderSide: BorderSide(
+                    color: widget.highlight
+                        ? const Color(0xFFE6C653)
+                        : Colors.blue,
+                    width: 1.5,
+                  ),
                 ) ??
                 OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Colors.blue),
+                  borderSide: BorderSide(
+                    color: widget.highlight
+                        ? const Color(0xFFE6C653)
+                        : Colors.blue,
+                    width: 1.5,
+                  ),
                 ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,

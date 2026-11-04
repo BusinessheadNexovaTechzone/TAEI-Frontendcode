@@ -368,6 +368,114 @@ class _AddAccidentState extends State<AddAccident> {
     setState(() {});
   }
 
+  String _importedProfileValue(String key) {
+    final data = controller.aadhaarProfileData.value;
+    if (data == null) return '';
+
+    final topLevel = data[key]?.toString().trim() ?? '';
+    if (topLevel.isNotEmpty) return topLevel;
+
+    final result = data['result'];
+    if (result is Map) {
+      final resultValue = result[key]?.toString().trim() ?? '';
+      if (resultValue.isNotEmpty) return resultValue;
+      final abhaProfile = result['ABHAProfile'];
+      if (abhaProfile is Map) {
+        final value = abhaProfile[key]?.toString().trim() ?? '';
+        if (value.isNotEmpty) return value;
+      }
+    }
+
+    final dataWrapper = data['data'];
+    if (dataWrapper is Map) {
+      final dataValue = dataWrapper[key]?.toString().trim() ?? '';
+      if (dataValue.isNotEmpty) return dataValue;
+      final abhaProfile = dataWrapper['ABHAProfile'];
+      if (abhaProfile is Map) {
+        final value = abhaProfile[key]?.toString().trim() ?? '';
+        if (value.isNotEmpty) return value;
+      }
+    }
+
+    return '';
+  }
+
+  bool _hasImportedValue(Iterable<String> keys) {
+    if (!controller.aadhaarProfileImported.value) return false;
+
+    final normalizedKeys = keys
+        .map((key) => key.trim())
+        .where((key) => key.isNotEmpty)
+        .toList();
+    if (normalizedKeys.isEmpty) return false;
+
+    bool matchesKey(String candidate, String expected) {
+      final normalizedCandidate = candidate
+          .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+          .toLowerCase();
+      final normalizedExpected = expected
+          .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+          .toLowerCase();
+      return normalizedCandidate == normalizedExpected;
+    }
+
+    bool scan(dynamic value) {
+      if (value is Map) {
+        for (final entry in value.entries) {
+          final key = entry.key.toString();
+          final foundMatch = normalizedKeys.any((expected) =>
+              matchesKey(key, expected));
+          if (foundMatch) {
+            final candidateValue = entry.value?.toString().trim() ?? '';
+            if (candidateValue.isNotEmpty &&
+                candidateValue.toLowerCase() != 'not available') {
+              return true;
+            }
+          }
+
+          if (scan(entry.value)) return true;
+        }
+        return false;
+      }
+
+      if (value is List) {
+        for (final item in value) {
+          if (scan(item)) return true;
+        }
+      }
+
+      return false;
+    }
+
+    final data = controller.aadhaarProfileData.value;
+    if (data == null) return false;
+
+    return scan(data);
+  }
+
+  int? _matchLookupIdByName(
+    List<dynamic>? items,
+    String value,
+  ) {
+    final normalizedValue = value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    if (normalizedValue.isEmpty || items == null) return null;
+
+    for (final item in items) {
+      final itemName = (item as dynamic).name?.toString() ?? '';
+      if (itemName.trim().isEmpty) continue;
+      final normalizedItem = itemName
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]'), '');
+      if (normalizedItem == normalizedValue ||
+          normalizedItem.contains(normalizedValue) ||
+          normalizedValue.contains(normalizedItem)) {
+        return (item as dynamic).id;
+      }
+    }
+
+    return null;
+  }
+
   void _applySelectedAbhaProfile(Map<String, dynamic> profile) {
     final triage = controller.createTriageModel.value?.triage;
     if (triage == null) return;
@@ -407,6 +515,16 @@ class _AddAccidentState extends State<AddAccident> {
     ]);
     final ageText = value('age').split(' ').first;
     final age = int.tryParse(ageText);
+    final stateName = firstNonEmpty([
+      value('stateName'),
+      value('state'),
+      value('state_name'),
+    ]);
+    final districtName = firstNonEmpty([
+      value('districtName'),
+      value('district'),
+      value('district_name'),
+    ]);
 
     debugPrint('[ACCIDENT] ABHA profile received');
     debugPrint('[ACCIDENT] Profile ID available: ${profileId != null}');
@@ -429,6 +547,20 @@ class _AddAccidentState extends State<AddAccident> {
     if (pincode.isNotEmpty && pincode != 'Not Available')
       triage.pincode = pincode;
     if (age != null) triage.ageYear = age;
+    if (stateName.isNotEmpty && stateName != 'Not Available') {
+      triage.state = _matchLookupIdByName(
+            controller.lookupList.value?.state,
+            stateName,
+          ) ??
+          triage.state;
+    }
+    if (districtName.isNotEmpty && districtName != 'Not Available') {
+      triage.district = _matchLookupIdByName(
+            controller.lookupList.value?.district,
+            districtName,
+          ) ??
+          triage.district;
+    }
 
     final gender = value('gender').toLowerCase();
     if (gender.isNotEmpty && gender != 'not available') {
@@ -636,6 +768,16 @@ class _AddAccidentState extends State<AddAccident> {
 
   @override
   Widget build(BuildContext context) {
+    final importedStateName = controller.aadhaarProfileImported.value
+        ? (_importedProfileValue('stateName').isNotEmpty
+            ? _importedProfileValue('stateName')
+            : _importedProfileValue('state'))
+        : '';
+    final importedDistrictName = controller.aadhaarProfileImported.value
+        ? (_importedProfileValue('districtName').isNotEmpty
+            ? _importedProfileValue('districtName')
+            : _importedProfileValue('district'))
+        : '';
     print(
         "TEST 108${controller.createTriageModel.value?.triage?.ageYear.toString()}");
     print(" jjj ${controller.isLoading.value}");
@@ -1067,8 +1209,24 @@ class _AddAccidentState extends State<AddAccident> {
                                           hintText: 'Enter the name',
                                           readOnly: controller
                                               .aadhaarProfileImported.value,
-                                          style: controller
-                                                  .aadhaarProfileImported.value
+                                          highlight: _hasImportedValue([
+                                            'fullName',
+                                            'name',
+                                            'patientName',
+                                            'nameOfPatient',
+                                            'firstName',
+                                            'middleName',
+                                            'lastName'
+                                          ]),
+                                          style: _hasImportedValue([
+                                            'fullName',
+                                            'name',
+                                            'patientName',
+                                            'nameOfPatient',
+                                            'firstName',
+                                            'middleName',
+                                            'lastName'
+                                          ])
                                               ? const TextStyle(
                                                   color: Colors.black87)
                                               : null,
@@ -1126,6 +1284,7 @@ class _AddAccidentState extends State<AddAccident> {
                                                     isEditable: !controller
                                                         .aadhaarProfileImported
                                                         .value,
+                                                    highlight: false,
                                                     onChanged: (value) {
                                                       if (controller
                                                           .aadhaarProfileImported
@@ -1183,9 +1342,24 @@ class _AddAccidentState extends State<AddAccident> {
                                                           readOnly: controller
                                                               .aadhaarProfileImported
                                                               .value,
-                                                          style: controller
-                                                                  .aadhaarProfileImported
-                                                                  .value
+                                                          highlight: _hasImportedValue([
+                                                            'age',
+                                                            'dob',
+                                                            'dateOfBirth',
+                                                            'yearOfBirth',
+                                                            'monthOfBirth',
+                                                            'year',
+                                                            'month'
+                                                          ]),
+                                                          style: _hasImportedValue([
+                                                            'age',
+                                                            'dob',
+                                                            'dateOfBirth',
+                                                            'yearOfBirth',
+                                                            'monthOfBirth',
+                                                            'year',
+                                                            'month'
+                                                          ])
                                                               ? const TextStyle(
                                                                   color: Colors
                                                                       .black87)
@@ -1253,6 +1427,15 @@ class _AddAccidentState extends State<AddAccident> {
                                                                         !controller
                                                                             .aadhaarProfileImported
                                                                             .value,
+                                                                    highlight: _hasImportedValue([
+                                                                      'age',
+                                                                      'dob',
+                                                                      'dateOfBirth',
+                                                                      'yearOfBirth',
+                                                                      'monthOfBirth',
+                                                                      'year',
+                                                                      'month'
+                                                                    ]),
                                                                     onChanged:
                                                                         (value) {
                                                                       if (controller
@@ -1410,7 +1593,14 @@ class _AddAccidentState extends State<AddAccident> {
                                                             .value!
                                                             .triage!
                                                             .maritalStatus,
+                                                        highlight: false,
+                                                        isEditable: !controller
+                                                            .aadhaarProfileImported
+                                                            .value,
                                                         onChanged: (value) {
+                                                          if (controller
+                                                              .aadhaarProfileImported
+                                                              .value) return;
                                                           controller
                                                               .createTriageModel
                                                               .value!
@@ -1452,7 +1642,14 @@ class _AddAccidentState extends State<AddAccident> {
                                                         .value!
                                                         .triage!
                                                         .education,
+                                                    highlight: false,
+                                                    isEditable: !controller
+                                                        .aadhaarProfileImported
+                                                        .value,
                                                     onChanged: (value) {
+                                                      if (controller
+                                                          .aadhaarProfileImported
+                                                          .value) return;
                                                       controller
                                                           .createTriageModel
                                                           .value!
@@ -1508,7 +1705,14 @@ class _AddAccidentState extends State<AddAccident> {
                                                             .value!
                                                             .triage!
                                                             .employmentStatus,
+                                                        highlight: false,
+                                                        isEditable: !controller
+                                                            .aadhaarProfileImported
+                                                            .value,
                                                         onChanged: (value) {
+                                                          if (controller
+                                                              .aadhaarProfileImported
+                                                              .value) return;
                                                           controller
                                                               .createTriageModel
                                                               .value!
@@ -1562,7 +1766,14 @@ class _AddAccidentState extends State<AddAccident> {
                                                             .value!
                                                             .triage!
                                                             .occupation,
+                                                        highlight: false,
+                                                        isEditable: !controller
+                                                            .aadhaarProfileImported
+                                                            .value,
                                                         onChanged: (value) {
+                                                          if (controller
+                                                              .aadhaarProfileImported
+                                                              .value) return;
                                                           controller
                                                               .createTriageModel
                                                               .value!
@@ -1595,13 +1806,23 @@ class _AddAccidentState extends State<AddAccident> {
                                                                 .number,
                                                         hintText:
                                                             'Enter Income',
-                                                        onChanged: (v) {
-                                                          controller
-                                                              .createTriageModel
-                                                              .value!
-                                                              .triage!
-                                                              .income = v;
-                                                        },
+                                                        highlight: controller
+                                                            .aadhaarProfileImported
+                                                            .value,
+                                                        readOnly: controller
+                                                            .aadhaarProfileImported
+                                                            .value,
+                                                        onChanged: controller
+                                                                .aadhaarProfileImported
+                                                                .value
+                                                            ? null
+                                                            : (v) {
+                                                                controller
+                                                                    .createTriageModel
+                                                                    .value!
+                                                                    .triage!
+                                                                    .income = v;
+                                                              },
                                                         validator: (value) {
                                                           if (value == null ||
                                                               value.isEmpty) {
@@ -1669,9 +1890,15 @@ class _AddAccidentState extends State<AddAccident> {
                                                                   vertical: 12),
                                                           decoration:
                                                               BoxDecoration(
+                                                            color: isImported
+                                                                ? const Color(
+                                                                    0xFFFFF3CD)
+                                                                : null,
                                                             border: Border.all(
-                                                                color: Colors
-                                                                    .grey),
+                                                                color: isImported
+                                                                    ? const Color(
+                                                                        0xFFE6C653)
+                                                                    : Colors.grey),
                                                             borderRadius:
                                                                 BorderRadius
                                                                     .circular(
@@ -2056,6 +2283,25 @@ class _AddAccidentState extends State<AddAccident> {
                                                             TextInputType.name,
                                                         decoration:
                                                             InputDecoration(
+                                                          filled: _hasImportedValue([
+                                                            'abhaNumber',
+                                                            'ABHANumber',
+                                                            'abhaId',
+                                                            'ABHAID',
+                                                            'healthIdNumber',
+                                                            'healthId'
+                                                          ]),
+                                                          fillColor: _hasImportedValue([
+                                                            'abhaNumber',
+                                                            'ABHANumber',
+                                                            'abhaId',
+                                                            'ABHAID',
+                                                            'healthIdNumber',
+                                                            'healthId'
+                                                          ])
+                                                              ? const Color(
+                                                                  0xFFFFF3CD)
+                                                              : null,
                                                           counterText: '',
                                                           border:
                                                               OutlineInputBorder(
@@ -2065,8 +2311,38 @@ class _AddAccidentState extends State<AddAccident> {
                                                                         10),
                                                             borderSide:
                                                                 BorderSide(
-                                                              color:
-                                                                  Colors.grey,
+                                                              color: _hasImportedValue([
+                                                                'abhaNumber',
+                                                                'ABHANumber',
+                                                                'abhaId',
+                                                                'ABHAID',
+                                                                'healthIdNumber',
+                                                                'healthId'
+                                                              ])
+                                                                  ? const Color(
+                                                                      0xFFE6C653)
+                                                                  : Colors.grey,
+                                                            ),
+                                                          ),
+                                                          enabledBorder:
+                                                              OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        10),
+                                                            borderSide:
+                                                                BorderSide(
+                                                              color: _hasImportedValue([
+                                                                'abhaNumber',
+                                                                'ABHANumber',
+                                                                'abhaId',
+                                                                'ABHAID',
+                                                                'healthIdNumber',
+                                                                'healthId'
+                                                              ])
+                                                                  ? const Color(
+                                                                      0xFFE6C653)
+                                                                  : Colors.grey,
                                                             ),
                                                           ),
                                                           hintText:
@@ -2230,6 +2506,10 @@ class _AddAccidentState extends State<AddAccident> {
                                                   initialValue:
                                                       _selectedAbhaAddress,
                                                   readOnly: true,
+                                                  highlight: _hasImportedValue([
+                                                    'abhaAddress',
+                                                    'preferredAbhaAddress'
+                                                  ]),
                                                   keyboardType:
                                                       TextInputType.name,
                                                 ),
@@ -2243,6 +2523,10 @@ class _AddAccidentState extends State<AddAccident> {
                                                           .addressLine ??
                                                       "",
                                                   readOnly: true,
+                                                  highlight: _hasImportedValue([
+                                                    'residentialAddress',
+                                                    'address'
+                                                  ]),
                                                   keyboardType:
                                                       TextInputType.name,
                                                   hintText: 'Address',
@@ -2272,6 +2556,15 @@ class _AddAccidentState extends State<AddAccident> {
                                                         .value!
                                                         .triage!
                                                         .district,
+                                                    highlight: _hasImportedValue([
+                                                      'districtName',
+                                                      'district'
+                                                    ]),
+                                                    fallbackLabel:
+                                                        controller.aadhaarProfileImported
+                                                                .value
+                                                            ? importedDistrictName
+                                                            : null,
                                                     onChanged: (value) {
                                                       controller
                                                           .createTriageModel
@@ -2299,6 +2592,15 @@ class _AddAccidentState extends State<AddAccident> {
                                                         .value!
                                                         .triage!
                                                         .state,
+                                                    highlight: _hasImportedValue([
+                                                      'stateName',
+                                                      'state'
+                                                    ]),
+                                                    fallbackLabel:
+                                                        controller.aadhaarProfileImported
+                                                                .value
+                                                            ? importedStateName
+                                                            : null,
                                                     onChanged: (value) {
                                                       controller
                                                           .createTriageModel
@@ -2319,6 +2621,12 @@ class _AddAccidentState extends State<AddAccident> {
                                                               .triage!
                                                               .pincode ??
                                                           ""),
+                                                  highlight: _hasImportedValue([
+                                                    'pincode',
+                                                    'pinCode',
+                                                    'postalCode',
+                                                    'zipCode'
+                                                  ]),
                                                   keyboardType:
                                                       TextInputType.name,
                                                   hintText: 'Enter Pincode',

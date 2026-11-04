@@ -10,6 +10,7 @@ class TitleDropdown<T> extends StatelessWidget {
   final bool isEditable;
   final bool filled;
   final Color? fillColor;
+  final bool highlight;
 
   const TitleDropdown({
     super.key,
@@ -22,6 +23,7 @@ class TitleDropdown<T> extends StatelessWidget {
     this.isEditable = true,
     this.filled = false,
     this.fillColor,
+    this.highlight = false,
   });
 
   @override
@@ -40,8 +42,9 @@ class TitleDropdown<T> extends StatelessWidget {
             isExpanded: true,
             decoration: InputDecoration(
               hintText: hint,
-              // enabledBorder: border,
-              // focusedBorder: border,
+              filled: filled || highlight,
+              fillColor: fillColor ??
+                  (highlight ? const Color(0xFFFFF3CD) : null),
               hintStyle: const TextStyle(overflow: TextOverflow.ellipsis),
               errorBorder: border != null
                   ? border!.copyWith(
@@ -51,6 +54,24 @@ class TitleDropdown<T> extends StatelessWidget {
                       borderSide: const BorderSide(color: Colors.red),
                       borderRadius: BorderRadius.circular(8.0),
                     ),
+              enabledBorder: border ??
+                  OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: highlight
+                          ? const Color(0xFFE6C653)
+                          : const Color(0xFFCED4DA),
+                    ),
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+              focusedBorder: border ??
+                  OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: highlight
+                          ? const Color(0xFFE6C653)
+                          : const Color(0xFFCED4DA),
+                    ),
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
               border: border ??
                   OutlineInputBorder(
                     borderSide: const BorderSide(color: Colors.red),
@@ -98,6 +119,8 @@ class NewTitleDropdown extends StatelessWidget {
   final bool isRequired;
   final bool? valid;
   final bool isEditable;
+  final bool highlight;
+  final String? fallbackLabel;
   const NewTitleDropdown({
     super.key,
     this.title,
@@ -110,16 +133,28 @@ class NewTitleDropdown extends StatelessWidget {
     this.isValidation = true,
     this.valid,
     this.isEditable = true,
+    this.highlight = false,
+    this.fallbackLabel,
   });
 
   @override
   Widget build(BuildContext context) {
-    // ✅ prevent dropdown crash
-    final validSelectedId = items.any(
+    // ✅ prevent dropdown crash and retain exact imported ABHA values when a
+    // lookup match is not available in the current dropdown list.
+    final resolvedFallbackLabel = fallbackLabel?.trim();
+    final dropdownItems = <Map<String, dynamic>>[
+      if (resolvedFallbackLabel != null && resolvedFallbackLabel.isNotEmpty)
+        {'id': -1, 'name': resolvedFallbackLabel},
+      ...items,
+    ];
+    final validSelectedId = dropdownItems.any(
       (e) => (e['id'] ?? e['hospitalid']) == selectedId,
     )
         ? selectedId
-        : null;
+        : (resolvedFallbackLabel != null && resolvedFallbackLabel.isNotEmpty
+            ? -1
+            : null);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -166,20 +201,39 @@ class NewTitleDropdown extends StatelessWidget {
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: const TextStyle(overflow: TextOverflow.ellipsis),
+              filled: highlight,
+              fillColor: highlight ? const Color(0xFFFFF3CD) : null,
               border: border ??
                   OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: highlight
+                          ? const Color(0xFFE6C653)
+                          : const Color(0xFFCED4DA),
+                    ),
                   ),
               enabledBorder: border ??
                   OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: highlight
+                          ? const Color(0xFFE6C653)
+                          : const Color(0xFFCED4DA),
+                    ),
                   ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: highlight ? const Color(0xFFE6C653) : Colors.red,
+                  width: 1.5,
+                ),
+              ),
               errorBorder: OutlineInputBorder(
                 borderSide: const BorderSide(color: Colors.red),
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            items: items.map((item) {
+            items: dropdownItems.map((item) {
               final int? value = item['id'] ?? item['hospitalid'];
               final String label = item['name'] ?? item['hospitalname'] ?? '';
 
@@ -193,7 +247,12 @@ class NewTitleDropdown extends StatelessWidget {
                 ),
               );
             }).toList(),
-            onChanged: isEditable ? onChanged : null,
+            onChanged: isEditable
+                ? (value) {
+                    if (value == -1) return;
+                    onChanged(value);
+                  }
+                : null,
           ),
         ),
       ],

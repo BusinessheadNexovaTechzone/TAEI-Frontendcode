@@ -20,6 +20,8 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
   late String _captchaQuestion;
   late String _captchaAnswer;
   bool _isSendingOtp = false;
+  List<Map<String, dynamic>> _profiles = [];
+  int? _selectedProfileIndex;
 
   @override
   void initState() {
@@ -37,6 +39,15 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
     super.dispose();
   }
 
+  String _profileName(Map<String, dynamic> profile) {
+    return (profile['name'] ?? profile['fullName'] ?? 'Unknown User').toString();
+  }
+
+  String _profileAbhaNumber(Map<String, dynamic> profile) {
+    return (profile['ABHANumber'] ?? profile['abhaNumber'] ?? 'ABHA Number')
+        .toString();
+  }
+
   void _generateCaptcha() {
     final first = 2 + DateTime.now().millisecond % 5;
     final second = 1 + DateTime.now().second % 6;
@@ -50,53 +61,47 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
 
     final mobile = _mobileController.text.replaceAll(RegExp(r'\D'), '');
 
-    setState(() => _isSendingOtp = true);
+    setState(() {
+      _isSendingOtp = true;
+      _profiles = [];
+      _selectedProfileIndex = null;
+    });
+
     try {
       final searchSucceeded = await _controller.searchAbhaByMobile(
         mobile: mobile,
       );
       if (!mounted || !searchSucceeded) return;
 
-      final profiles = _controller.mobileSearchProfiles;
+      final profiles = List<Map<String, dynamic>>.from(_controller.mobileSearchProfiles);
       if (profiles.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No ABHA profiles found for this mobile number.')),
+          );
+        }
         return;
       }
 
-      late final int selectedIndex;
-      if (profiles.length == 1) {
-        selectedIndex = _controller.mobileSearchRecordIndex(profiles.first) ?? 0;
-      } else {
-        final selectedProfile = await showDialog<Map<String, dynamic>>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Select ABHA Profile'),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: profiles.length,
-                itemBuilder: (context, index) {
-                  final profile = profiles[index];
-                  final abhaNumber = (profile['ABHANumber'] ??
-                          profile['abhaNumber'] ??
-                          'ABHA Number')
-                      .toString();
-                  final name = (profile['name'] ?? 'Unknown User').toString();
-                  return ListTile(
-                    title: Text(name),
-                    subtitle: Text(abhaNumber),
-                    onTap: () => Navigator.of(context).pop(profile),
-                  );
-                },
-              ),
-            ),
-          ),
-        );
+      setState(() {
+        _profiles = profiles;
+        _selectedProfileIndex = profiles.length == 1 ? 0 : null;
+      });
+    } finally {
+      if (mounted) setState(() => _isSendingOtp = false);
+    }
+  }
 
-        if (!mounted || selectedProfile == null) return;
-        selectedIndex = _controller.mobileSearchRecordIndex(selectedProfile) ?? 0;
-      }
+  Future<void> _sendSelectedOtp() async {
+    if (_selectedProfileIndex == null || _selectedProfileIndex! >= _profiles.length) {
+      return;
+    }
 
+    final selectedIndex = _controller.mobileSearchRecordIndex(_profiles[_selectedProfileIndex!]) ??
+        _selectedProfileIndex!;
+
+    setState(() => _isSendingOtp = true);
+    try {
       final otpSent = await _controller.sendMobileSearchOtp(index: selectedIndex);
       if (!mounted || !otpSent) return;
 
@@ -336,7 +341,7 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
                                 )
                               : const Icon(Icons.search_rounded),
                           label: Text(
-                            _isSendingOtp ? 'Sending OTP...' : 'Search ABHA Profile',
+                            _isSendingOtp ? 'Searching ...' : 'Search ABHA Profile',
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFEF4444),
@@ -351,6 +356,96 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
                       ),
                     ),
                   ),
+                  if (_profiles.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Matching ABHA Profiles',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF111827),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ..._profiles.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final profile = entry.value;
+                            final isSelected = _selectedProfileIndex == index;
+                            final name = _profileName(profile);
+                            final abhaNumber = _profileAbhaNumber(profile);
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? const Color(0xFFFFF3CD)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xFFE6C653)
+                                      : const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                title: Text(name),
+                                subtitle: Text(abhaNumber),
+                                trailing: isSelected
+                                    ? const Icon(Icons.check_circle, color: Colors.green)
+                                    : const Icon(Icons.radio_button_unchecked),
+                                onTap: () => setState(() => _selectedProfileIndex = index),
+                              ),
+                            );
+                          }),
+                          if (_selectedProfileIndex != null) ...[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _isSendingOtp ? null : _sendSelectedOtp,
+                                icon: _isSendingOtp
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Icon(Icons.send_rounded),
+                                label: Text(
+                                  _isSendingOtp ? 'Sending OTP...' : 'Send OTP',
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFEF4444),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

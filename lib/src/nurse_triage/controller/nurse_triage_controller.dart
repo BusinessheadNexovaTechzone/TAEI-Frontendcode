@@ -1203,24 +1203,59 @@ class NurseTriageController extends GetxController {
     return found.id;
   }
 
+  String _normalizeLookupToken(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '')
+        .trim();
+  }
+
   int? _mapStateNameToLookupId(String stateName) {
     if (lookupList.value?.state == null) return null;
-    final token = stateName.toLowerCase();
-    final found = lookupList.value!.state!.firstWhere(
-      (e) => e.name != null && e.name!.toLowerCase().contains(token),
+    final rawToken = stateName.trim();
+    if (rawToken.isEmpty) return null;
+
+    final targetToken = _normalizeLookupToken(rawToken);
+    for (final item in lookupList.value!.state!) {
+      final candidateName = item.name ?? '';
+      if (candidateName.trim().isEmpty) continue;
+      final candidateToken = _normalizeLookupToken(candidateName);
+      if (candidateToken == targetToken ||
+          candidateToken.contains(targetToken) ||
+          targetToken.contains(candidateToken)) {
+        return item.id;
+      }
+    }
+
+    final fallback = lookupList.value!.state!.firstWhere(
+      (e) => e.name != null && e.name!.toLowerCase().contains(rawToken.toLowerCase()),
       orElse: () => LooksUpItem(),
     );
-    return found.id;
+    return fallback.id;
   }
 
   int? _mapDistrictNameToLookupId(String districtName) {
     if (lookupList.value?.district == null) return null;
-    final token = districtName.toLowerCase();
-    final found = lookupList.value!.district!.firstWhere(
-      (e) => e.name != null && e.name!.toLowerCase().contains(token),
+    final rawToken = districtName.trim();
+    if (rawToken.isEmpty) return null;
+
+    final targetToken = _normalizeLookupToken(rawToken);
+    for (final item in lookupList.value!.district!) {
+      final candidateName = item.name ?? '';
+      if (candidateName.trim().isEmpty) continue;
+      final candidateToken = _normalizeLookupToken(candidateName);
+      if (candidateToken == targetToken ||
+          candidateToken.contains(targetToken) ||
+          targetToken.contains(candidateToken)) {
+        return item.id;
+      }
+    }
+
+    final fallback = lookupList.value!.district!.firstWhere(
+      (e) => e.name != null && e.name!.toLowerCase().contains(rawToken.toLowerCase()),
       orElse: () => LooksUpItem(),
     );
-    return found.id;
+    return fallback.id;
   }
 
   void _applyAgeFromDob(String dob) {
