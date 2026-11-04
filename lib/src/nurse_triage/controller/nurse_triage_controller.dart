@@ -1582,6 +1582,10 @@ class NurseTriageController extends GetxController {
           _buildDialogInfoRow('Name', profile.name),
           _buildDialogInfoRow('ABHA Number', profile.abhaNumber),
           _buildDialogInfoRow('ABHA Address', profile.abhaAddress),
+          _buildDialogInfoRow('Address', _mergeAddressDetails(profile)),
+          _buildDialogInfoRow('District', profile.district),
+          _buildDialogInfoRow('State', profile.state),
+          _buildDialogInfoRow('Pincode', profile.pincode),
           _buildDialogInfoRow('Date of Birth', profile.dateOfBirth),
           _buildDialogInfoRow('Age', profile.age),
           _buildDialogInfoRow('Gender', profile.gender),
@@ -1795,8 +1799,42 @@ class NurseTriageController extends GetxController {
     );
   }
 
+  String _mergeAddressDetails(AbhaVerifiedProfile profile) {
+    final parts = <String>[];
+
+    final address = profile.address;
+    if (address.trim().isNotEmpty && address.toLowerCase() != 'not available') {
+      parts.add(address);
+    }
+
+    final district = profile.district;
+    if (district.trim().isNotEmpty && district.toLowerCase() != 'not available') {
+      parts.add(district);
+    }
+
+    final state = profile.state;
+    if (state.trim().isNotEmpty && state.toLowerCase() != 'not available') {
+      parts.add(state);
+    }
+
+    final pincode = profile.pincode;
+    if (pincode.trim().isNotEmpty && pincode.toLowerCase() != 'not available') {
+      parts.add(pincode);
+    }
+
+    if (parts.isEmpty) {
+      return 'Not Available';
+    }
+
+    return parts.join(', ');
+  }
+
   Map<String, dynamic> _selectedProfilePayload(
       AbhaVerifiedProfile profile, int? profileId) {
+    final addressValue = _mergeAddressDetails(profile);
+    final normalizedAddress =
+        addressValue == 'Not Available' ? profile.abhaAddress : addressValue;
+
     return {
       if (profileId != null) 'profileId': profileId,
       'fullName': profile.name,
@@ -1811,9 +1849,15 @@ class NurseTriageController extends GetxController {
       'gender': profile.gender,
       'mobile': profile.mobile,
       'state': profile.state,
+      'stateName': profile.state,
       'district': profile.district,
+      'districtName': profile.district,
       'pincode': profile.pincode,
-      'address': profile.address,
+      'pinCode': profile.pincode,
+      'address': normalizedAddress,
+      'residentialAddress': normalizedAddress,
+      'addressLine': normalizedAddress,
+      'addressLine1': normalizedAddress,
       'profilePhoto': profile.profilePhoto,
       'photo': profile.profilePhoto,
       'verificationStatus': profile.verificationStatus,

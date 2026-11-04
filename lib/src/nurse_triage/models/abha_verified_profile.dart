@@ -194,15 +194,38 @@ class AbhaVerifiedProfile {
     final calculatedAge = _calculateAge(normalizedDob);
     final normalizedAge =
         calculatedAge == 'Not Available' ? apiAge : calculatedAge;
-    final state = _readString(flattened, ['state', 'statename', 'state_name']);
-    final district =
-        _readString(flattened, ['district', 'districtname', 'district_name']);
-    final pincode = _readString(flattened, ['pincode', 'pinCode', 'pin_code']);
+    final state = _readString(flattened, [
+      'state',
+      'statename',
+      'state_name',
+      'stateName',
+      'residentialState',
+    ]);
+    final district = _readString(flattened, [
+      'district',
+      'districtname',
+      'district_name',
+      'districtName',
+      'residentialDistrict',
+    ]);
+    final pincode = _readString(flattened, [
+      'pincode',
+      'pinCode',
+      'pin_code',
+      'postalCode',
+      'postal_code',
+      'zipCode',
+      'zipcode',
+    ]);
     final address = _readString(flattened, [
       'residentialAddress',
       'permanentAddress',
       'addressLine',
+      'addressLine1',
+      'address_line_1',
       'address',
+      'residential_address',
+      'street',
     ]);
 
     print('========== ABHA VERIFICATION RESPONSE ==========');

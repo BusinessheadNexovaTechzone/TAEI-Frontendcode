@@ -336,7 +336,7 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
                                 )
                               : const Icon(Icons.search_rounded),
                           label: Text(
-                            _isSendingOtp ? 'Sending OTP...' : 'Send OTP',
+                            _isSendingOtp ? 'Sending OTP...' : 'Search ABHA Profile',
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFEF4444),
