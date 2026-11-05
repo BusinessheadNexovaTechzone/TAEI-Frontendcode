@@ -158,11 +158,20 @@ class AbhaVerifiedProfile {
     final gender = _buildGender(flattened);
     final mobile = _readString(flattened, [
       'mobile',
+      'mobileNumber',
       'mobilenumber',
+      'mobile_number',
+      'mobileNo',
+      'mobileno',
+      'phone',
+      'phoneNumber',
+      'phonenumber',
+      'phone_number',
       'communicationMobile',
       'profileMobile',
-      'phone',
-      'phonenumber',
+      'contactNumber',
+      'contact_number',
+      'contactNo',
     ]);
     final verificationStatus = _readString(flattened, [
       'verifiedstatus',

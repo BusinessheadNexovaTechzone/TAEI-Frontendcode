@@ -1114,7 +1114,16 @@ class NurseTriageController extends GetxController {
       triage.nameOfPatient = name.replaceAll(RegExp(r'\s+'), ' ');
     }
 
-    final mobile = firstNonEmpty([data['mobile'], data['mobileNumber']]);
+    final mobile = firstNonEmpty([
+      data['mobile'],
+      data['mobileNumber'],
+      data['mobile_number'],
+      data['mobileNo'],
+      data['mobileno'],
+      data['phone'],
+      data['phoneNumber'],
+      data['phone_number'],
+    ]);
     if (mobile.isNotEmpty) triage.patientMobileNumber = mobile;
 
 // ✅ ABHA ID
@@ -1580,7 +1589,9 @@ class NurseTriageController extends GetxController {
       } catch (_) {}
     }
 
-    final selectedProfileId = profile.profileId;
+    final selectedProfileId = profile.profileId ??
+        extractAbhaProfileId(response) ??
+        int.tryParse(currentProfileId.value);
     final result = _selectedProfilePayload(profile, selectedProfileId);
 
     return Container(
@@ -1664,17 +1675,21 @@ class NurseTriageController extends GetxController {
                   );
                 }),
               );
+              final effectiveProfileId = selectedProfileId ??
+                  extractAbhaProfileId(response) ??
+                  int.tryParse(currentProfileId.value);
+
               final useButton = Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    result['mobile'] = selectedProfileId == null
+                    result['mobile'] = effectiveProfileId == null
                         ? profile.mobile
-                        : _updatedAbhaProfileMobiles[selectedProfileId] ??
+                        : _updatedAbhaProfileMobiles[effectiveProfileId] ??
                             profile.mobile;
                     final selectedResponse = <String, dynamic>{
-                      'profileId': selectedProfileId,
+                      'profileId': effectiveProfileId,
                       'result': {
-                        'profileId': selectedProfileId,
+                        'profileId': effectiveProfileId,
                         'ABHAProfile': result,
                       },
                     };
@@ -1682,7 +1697,7 @@ class NurseTriageController extends GetxController {
                     _applyAadhaarResponseData(selectedResponse);
                     selectedAbhaProfile.value = result;
                     log('[ABHA][PROFILE-SELECT] Selected index: $index');
-                    log('[ABHA][PROFILE-SELECT] Selected profileId: ${selectedProfileId ?? 'missing'}');
+                    log('[ABHA][PROFILE-SELECT] Selected profileId: ${effectiveProfileId ?? 'missing'}');
                     log('[ABHA][PROFILE-SELECT] Selected ABHA Number: ${profile.abhaNumber}');
                     log('[ABHA][PROFILE-SELECT] Returning selected profile to caller');
                     Get.back(result: result);
@@ -1713,14 +1728,23 @@ class NurseTriageController extends GetxController {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   actionButtons,
-                  if (selectedProfileId != null) ...[
+                  if (selectedProfileId != null ||
+                      extractAbhaProfileId(response) != null ||
+                      (currentProfileId.value.isNotEmpty &&
+                          int.tryParse(currentProfileId.value) != null)) ...[
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: () => _updateAbhaProfileMobile(
                         context: context,
-                        profileId: selectedProfileId,
-                        currentMobile:
-                            _updatedAbhaProfileMobiles[selectedProfileId] ??
+                        profileId: selectedProfileId ??
+                            extractAbhaProfileId(response) ??
+                            int.tryParse(currentProfileId.value) ??
+                            0,
+                        currentMobile: _updatedAbhaProfileMobiles[
+                                    selectedProfileId ??
+                                        extractAbhaProfileId(response) ??
+                                        int.tryParse(currentProfileId.value) ??
+                                        0] ??
                                 profile.mobile,
                       ),
                       icon: const Icon(Icons.edit_outlined),
@@ -1883,6 +1907,8 @@ class NurseTriageController extends GetxController {
       'age': profile.age,
       'gender': profile.gender,
       'mobile': profile.mobile,
+      'mobileNumber': profile.mobile,
+      'mobile_number': profile.mobile,
       'state': profile.state,
       'stateName': profile.state,
       'district': profile.district,

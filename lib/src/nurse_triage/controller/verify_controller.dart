@@ -112,6 +112,8 @@ Map<String, dynamic> buildProfileCardPayloadFromVerifyResponse(
       'mobile': normalized.mobile == 'Not Available' ? '' : normalized.mobile,
       'mobileNumber':
           normalized.mobile == 'Not Available' ? '' : normalized.mobile,
+      'mobile_number':
+          normalized.mobile == 'Not Available' ? '' : normalized.mobile,
       'address': residentialAddress,
       'residentialAddress': residentialAddress,
       'preferredAbhaAddress': preferredAbhaAddress,
