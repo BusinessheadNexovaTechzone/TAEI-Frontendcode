@@ -857,6 +857,7 @@ class VerifyAbhaController extends GetxController {
     Map<String, dynamic> response, {
     String? accessToken,
     bool usePhrCard = false,
+    int? profileId,
   }) async {
     final normalizedResponse = normalizeVerifyResponsePayload(response);
 
@@ -873,21 +874,24 @@ class VerifyAbhaController extends GetxController {
     nurseController.verifiedAbhaAccessToken = accessToken;
     nurseController.verifiedAbhaUsesPhrCard = usePhrCard;
     nurseController.clearAbhaCardPreviewCache();
-    final profileId = _resolveProfileIdFromResponse(normalizedResponse);
+    final effectiveProfileId = profileId ??
+        _resolveProfileIdFromResponse(normalizedResponse) ??
+        int.tryParse(nurseController.currentProfileId.value) ??
+        nurseController.createTriageModel.value?.triage?.abhaProfileId;
     final payload = _buildAadhaarProfileCardPayload(normalizedResponse);
-    final enrichedPayload = _injectProfileIdIntoPayload(payload, profileId);
+    final enrichedPayload = _injectProfileIdIntoPayload(payload, effectiveProfileId);
 
     nurseController.aadhaarProfileData.value = enrichedPayload;
     nurseController.verifiedAbhaProfileData.value = enrichedPayload;
     nurseController.aadhaarProfileImported.value = true;
 
-    if (profileId != null && profileId > 0) {
-      nurseController.currentProfileId.value = profileId.toString();
+    if (effectiveProfileId != null && effectiveProfileId > 0) {
+      nurseController.currentProfileId.value = effectiveProfileId.toString();
       if (nurseController.createTriageModel.value?.triage != null) {
         nurseController.createTriageModel.value!.triage!.abhaProfileId =
-            profileId;
+            effectiveProfileId;
       }
-      log('[VERIFY ABHA] profileId extracted: $profileId');
+      log('[VERIFY ABHA] profileId extracted: $effectiveProfileId');
     } else {
       final fallbackProfileId = extractAbhaProfileId(enrichedPayload);
       if (fallbackProfileId != null && fallbackProfileId > 0) {

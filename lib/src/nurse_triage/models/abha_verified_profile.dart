@@ -86,9 +86,24 @@ class AbhaVerifiedProfile {
     void addValue(Object? value) {
       if (value is List) {
         for (final item in value) {
-          final parsed = int.tryParse(item?.toString() ?? '');
-          if (parsed != null && parsed > 0) values.add(parsed);
+          if (item is Map) {
+            addValue(item['id'] ??
+                item['profileId'] ??
+                item['profile_id'] ??
+                item['abhaProfileId']);
+          } else {
+            final parsed = int.tryParse(item?.toString() ?? '');
+            if (parsed != null && parsed > 0) values.add(parsed);
+          }
         }
+        return;
+      }
+
+      if (value is Map) {
+        addValue(value['id'] ??
+            value['profileId'] ??
+            value['profile_id'] ??
+            value['abhaProfileId']);
         return;
       }
 
@@ -103,6 +118,7 @@ class AbhaVerifiedProfile {
       'abha_profile_id',
       'profileIds',
       'profile_ids',
+      'profiles',
     ]) {
       addValue(response[key]);
     }
@@ -117,6 +133,7 @@ class AbhaVerifiedProfile {
           'abha_profile_id',
           'profileIds',
           'profile_ids',
+          'profiles',
         ]) {
           addValue(wrapper[key]);
         }
