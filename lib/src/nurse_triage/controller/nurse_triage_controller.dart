@@ -1502,6 +1502,7 @@ class NurseTriageController extends GetxController {
     bool returnToCaller = false,
   }) async {
     aadhaarProfileData.value = d; // store payload for later "View Card"
+    rememberVerifiedAbhaAccessToken(d);
     final profile = _resolveAbhaProfilePayload(d);
     final normalizedProfiles = AbhaVerifiedProfile.fromResponseList(d);
     int? extractedProfileId = extractAbhaProfileId(d) ??

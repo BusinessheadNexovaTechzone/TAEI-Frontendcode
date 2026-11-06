@@ -91,24 +91,48 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
   Map<String, dynamic> _buildExistingProfilePayload(
       Map<String, dynamic> response) {
     final result = response['result'];
-    final profileMap = result is Map
+    final baseProfileMap = result is Map
         ? Map<String, dynamic>.from(result as Map)
         : <String, dynamic>{};
-    final profileId = response['profileId'];
+    final profileMap = result is Map && result['ABHAProfile'] is Map
+        ? Map<String, dynamic>.from(result['ABHAProfile'] as Map)
+        : baseProfileMap;
+    final profileId = response['profileId'] ?? response['id'] ?? profileMap['profileId'] ?? profileMap['id'];
     final parsedProfileId = int.tryParse(profileId?.toString() ?? '');
+
+    final healthId = [
+      response['healthId'],
+      response['health_id'],
+      response['abhaAddress'],
+      response['preferredAbhaAddress'],
+      profileMap['healthId'],
+      profileMap['health_id'],
+      profileMap['abhaAddress'],
+      profileMap['preferredAbhaAddress'],
+      profileMap['healthIdNumber'],
+    ].firstWhere(
+      (value) => value != null && value.toString().trim().isNotEmpty,
+      orElse: () => null,
+    )?.toString();
 
     final normalizedProfile = <String, dynamic>{
       ...profileMap,
       if (parsedProfileId != null) 'profileId': parsedProfileId,
       if (parsedProfileId != null) 'id': parsedProfileId,
+      if (healthId != null && profileMap['healthId'] == null) 'healthId': healthId,
+      if (healthId != null && profileMap['health_id'] == null) 'health_id': healthId,
+      if (healthId != null && profileMap['abhaAddress'] == null)
+        'abhaAddress': healthId,
+      if (healthId != null && profileMap['preferredAbhaAddress'] == null)
+        'preferredAbhaAddress': healthId,
       if (profileMap['ABHANumber'] == null &&
           profileMap['abhaNumber'] == null &&
-          profileMap['healthIdNumber'] != null)
-        'ABHANumber': profileMap['healthIdNumber'],
+          (profileMap['healthIdNumber'] != null || healthId != null))
+        'ABHANumber': profileMap['healthIdNumber'] ?? healthId,
       if (profileMap['ABHANumber'] == null &&
           profileMap['abhaNumber'] == null &&
-          profileMap['healthIdNumber'] != null)
-        'abhaNumber': profileMap['healthIdNumber'],
+          (profileMap['healthIdNumber'] != null || healthId != null))
+        'abhaNumber': profileMap['healthIdNumber'] ?? healthId,
       if (profileMap['mobile'] == null && profileMap['mobileNumber'] != null)
         'mobile': profileMap['mobileNumber'],
     };
@@ -171,6 +195,10 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
 
     final response = _demoController.responseData.value;
     final profileId = _demoController.profileId.value;
+
+    if (response != null) {
+      _nurseController.rememberVerifiedAbhaAccessToken(response);
+    }
 
     if (response == null || profileId == null || profileId <= 0) {
       await CommonErrorDialog.show(
