@@ -1639,8 +1639,13 @@ class NurseTriageController extends GetxController {
 
     final selectedProfileId = profile.profileId ??
         extractAbhaProfileId(response) ??
+        extractAbhaProfileId(aadhaarProfileData.value) ??
+        extractAbhaProfileId(verifiedAbhaProfileData.value) ??
         int.tryParse(currentProfileId.value);
-    final result = _selectedProfilePayload(profile, selectedProfileId);
+    final resolvedProfileId = selectedProfileId ??
+        extractAbhaProfileId(<String, dynamic>{'result': response}) ??
+        extractAbhaProfileId(<String, dynamic>{'data': response});
+    final result = _selectedProfilePayload(profile, resolvedProfileId ?? selectedProfileId);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1669,8 +1674,8 @@ class NurseTriageController extends GetxController {
             ),
           ),
           const SizedBox(height: 12),
-          if (selectedProfileId != null) ...[
-            _buildOfficialAbhaCardPreview(selectedProfileId),
+          if ((selectedProfileId ?? resolvedProfileId) != null) ...[
+            _buildOfficialAbhaCardPreview((selectedProfileId ?? resolvedProfileId)!),
             const SizedBox(height: 12),
           ],
           _buildDialogInfoRow('Name', profile.name),
@@ -1724,6 +1729,7 @@ class NurseTriageController extends GetxController {
                 }),
               );
               final effectiveProfileId = selectedProfileId ??
+                  resolvedProfileId ??
                   extractAbhaProfileId(response) ??
                   int.tryParse(currentProfileId.value);
 
@@ -1772,27 +1778,26 @@ class NurseTriageController extends GetxController {
                       ],
                     );
 
+              final updateProfileId = selectedProfileId ??
+                  resolvedProfileId ??
+                  extractAbhaProfileId(response) ??
+                  extractAbhaProfileId(aadhaarProfileData.value) ??
+                  extractAbhaProfileId(verifiedAbhaProfileData.value) ??
+                  int.tryParse(currentProfileId.value) ??
+                  0;
+
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   actionButtons,
-                  if (selectedProfileId != null ||
-                      extractAbhaProfileId(response) != null ||
-                      (currentProfileId.value.isNotEmpty &&
-                          int.tryParse(currentProfileId.value) != null)) ...[
+                  if (updateProfileId > 0 || profile.mobile.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: () => _updateAbhaProfileMobile(
                         context: context,
-                        profileId: selectedProfileId ??
-                            extractAbhaProfileId(response) ??
-                            int.tryParse(currentProfileId.value) ??
-                            0,
+                        profileId: updateProfileId,
                         currentMobile: _updatedAbhaProfileMobiles[
-                                    selectedProfileId ??
-                                        extractAbhaProfileId(response) ??
-                                        int.tryParse(currentProfileId.value) ??
-                                        0] ??
+                                    updateProfileId] ??
                                 profile.mobile,
                       ),
                       icon: const Icon(Icons.edit_outlined),
