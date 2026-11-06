@@ -987,6 +987,22 @@ class VerifyAbhaController extends GetxController {
           selectedMethod.value == 'mobile-search' ||
           selectedLoginType.value == 'mobile-search-otp';
 
+      final verifyResponseProfileId = _resolveProfileIdFromResponse(response);
+      if (verifyResponseProfileId != null && verifyResponseProfileId > 0) {
+        final nurseController = Get.isRegistered<NurseTriageController>()
+            ? Get.find<NurseTriageController>()
+            : null;
+        if (nurseController != null) {
+          nurseController.currentProfileId.value =
+              verifyResponseProfileId.toString();
+          if (nurseController.createTriageModel.value?.triage != null) {
+            nurseController.createTriageModel.value!.triage!.abhaProfileId =
+                verifyResponseProfileId;
+          }
+          log('[VERIFY ABHA] stored profileId from verify response: $verifyResponseProfileId');
+        }
+      }
+
       if (isMobileSearchVerification) {
         _verifiedAbhaAccessToken = _extractAccessToken(response) ??
             _extractAccessToken(response['data'] is Map ? response['data'] : {});
@@ -1103,10 +1119,13 @@ class VerifyAbhaController extends GetxController {
         }
         return false;
       }
+      final resolvedProfileId =
+          verifyResponseProfileId ?? _resolveProfileIdFromResponse(profileDetails);
       await _syncVerifiedResponse(
         profileDetails,
         accessToken: _verifiedAbhaAccessToken,
         usePhrCard: _usesPhrProfile,
+        profileId: resolvedProfileId,
       );
       return true;
     } catch (e) {

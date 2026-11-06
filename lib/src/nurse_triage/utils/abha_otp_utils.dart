@@ -9,6 +9,19 @@ int? extractAbhaProfileId(Map<String, dynamic>? response) {
         lowered.contains('account');
   }
 
+  int? parseProfileIdValue(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value > 0 ? value : null;
+    if (value is num) return value.toInt() > 0 ? value.toInt() : null;
+    if (value is String) {
+      final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+      if (digits.isEmpty) return null;
+      final parsed = int.tryParse(digits);
+      return parsed != null && parsed > 0 ? parsed : null;
+    }
+    return null;
+  }
+
   int? walk(Object? node, {bool inProfileContext = false}) {
     if (node is Map) {
       final keys = node.keys.map((key) => key.toString().toLowerCase()).toList();
@@ -19,23 +32,32 @@ int? extractAbhaProfileId(Map<String, dynamic>? response) {
         final key = entry.key.toString().toLowerCase();
         final value = entry.value;
 
-        final keyLooksLikeProfileId = key == 'profileid' ||
-            key == 'abhaprofileid' ||
-            key == 'abha_profile_id' ||
-            key == 'profile_id' ||
-            key == 'profileidnumber' ||
-            key == 'profileidno';
+        final keyLooksLikeProfileId = const {
+          'profileid',
+          'abhaprofileid',
+          'abha_profile_id',
+          'profile_id',
+          'profileidnumber',
+          'profileidno',
+          'abhaid',
+          'abha_id',
+          'abhaidnumber',
+          'abha_profileid',
+          'profileidvalue',
+          'profileidval',
+        }.contains(key);
 
         if (keyLooksLikeProfileId) {
-          final parsed = int.tryParse(value?.toString() ?? '');
-          if (parsed != null && parsed > 0) return parsed;
+          final parsed = parseProfileIdValue(value);
+          if (parsed != null) return parsed;
         }
 
-        final keyLooksLikeNestedId = (key == 'id' || key == 'profileid') &&
-            (hasProfileContext || looksLikeProfileContext(key));
+        final keyLooksLikeNestedId =
+            const {'id', 'profileid', 'profile_id'}.contains(key) &&
+                (hasProfileContext || looksLikeProfileContext(key));
         if (keyLooksLikeNestedId) {
-          final parsed = int.tryParse(value?.toString() ?? '');
-          if (parsed != null && parsed > 0) return parsed;
+          final parsed = parseProfileIdValue(value);
+          if (parsed != null) return parsed;
         }
 
         final nestedResult = walk(

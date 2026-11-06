@@ -1784,6 +1784,7 @@ class NurseTriageController extends GetxController {
                   extractAbhaProfileId(response) ??
                   extractAbhaProfileId(aadhaarProfileData.value) ??
                   extractAbhaProfileId(verifiedAbhaProfileData.value) ??
+                  createTriageModel.value?.triage?.abhaProfileId ??
                   int.tryParse(currentProfileId.value) ??
                   0;
 
@@ -1819,8 +1820,13 @@ class NurseTriageController extends GetxController {
     required int profileId,
     required String currentMobile,
   }) async {
-    final flowId = 'profile-mobile-update-$profileId';
-    if (profileId <= 0) {
+    final resolvedProfileId = profileId > 0
+        ? profileId
+        : (int.tryParse(currentProfileId.value) ??
+            createTriageModel.value?.triage?.abhaProfileId ??
+            0);
+    final flowId = 'profile-mobile-update-$resolvedProfileId';
+    if (resolvedProfileId <= 0) {
       await CommonErrorDialog.show(
         Get.context!,
         message: 'We could not identify this ABHA profile. Please try again.',
@@ -1835,12 +1841,12 @@ class NurseTriageController extends GetxController {
           flowId: flowId,
           currentMobile: currentMobile,
           onSendOtp: (mobile) => sendMobileUpdateOtp(
-            profileId: profileId,
+            profileId: resolvedProfileId,
             mobile: mobile,
             flowId: flowId,
           ),
           onVerify: (otp) => verifyMobileUpdateOtp(
-            profileId: profileId,
+            profileId: resolvedProfileId,
             txnId: mobileUpdateTxnId.value,
             otp: otp,
             flowId: flowId,
@@ -1850,7 +1856,9 @@ class NurseTriageController extends GetxController {
     );
 
     if (mobile != null) {
-      _updatedAbhaProfileMobiles[profileId] = mobile;
+      _updatedAbhaProfileMobiles[resolvedProfileId] = mobile;
+      currentProfileId.value = resolvedProfileId.toString();
+      createTriageModel.value?.triage?.abhaProfileId = resolvedProfileId;
       Fluttertoast.showToast(msg: 'Mobile number updated successfully');
     }
   }
