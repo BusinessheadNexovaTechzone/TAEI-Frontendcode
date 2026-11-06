@@ -161,6 +161,7 @@ class _FingerprintAuthenticationScreenState
 
       // Step 3: Store response and update triage model
       _nurseController.aadhaarProfileData.value = enrollResponse;
+      _nurseController.rememberVerifiedAbhaAccessToken(enrollResponse);
       _nurseController.createTriageModel.value!.triage!.aadhaar = aadhaar;
       _nurseController.createTriageModel.value!.triage!.patientMobileNumber =
           mobile;

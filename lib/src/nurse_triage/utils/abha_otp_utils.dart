@@ -1,11 +1,19 @@
 int? extractAbhaProfileId(Map<String, dynamic>? response) {
   if (response == null) return null;
 
+  bool looksLikeProfileContext(String key) {
+    final lowered = key.toLowerCase();
+    return lowered.contains('profile') ||
+        lowered.contains('abha') ||
+        lowered.contains('healthid') ||
+        lowered.contains('account');
+  }
+
   int? walk(Object? node, {bool inProfileContext = false}) {
     if (node is Map) {
       final keys = node.keys.map((key) => key.toString().toLowerCase()).toList();
       final hasProfileContext = inProfileContext ||
-          keys.any((key) => key.contains('profile') || key.contains('abha'));
+          keys.any(looksLikeProfileContext);
 
       for (final entry in node.entries) {
         final key = entry.key.toString().toLowerCase();
@@ -14,22 +22,25 @@ int? extractAbhaProfileId(Map<String, dynamic>? response) {
         final keyLooksLikeProfileId = key == 'profileid' ||
             key == 'abhaprofileid' ||
             key == 'abha_profile_id' ||
-            key == 'profile_id';
+            key == 'profile_id' ||
+            key == 'profileidnumber' ||
+            key == 'profileidno';
 
         if (keyLooksLikeProfileId) {
           final parsed = int.tryParse(value?.toString() ?? '');
-          if (parsed != null) return parsed;
+          if (parsed != null && parsed > 0) return parsed;
         }
 
-        final keyLooksLikeNestedId = key == 'id' && hasProfileContext;
+        final keyLooksLikeNestedId = (key == 'id' || key == 'profileid') &&
+            (hasProfileContext || looksLikeProfileContext(key));
         if (keyLooksLikeNestedId) {
           final parsed = int.tryParse(value?.toString() ?? '');
-          if (parsed != null) return parsed;
+          if (parsed != null && parsed > 0) return parsed;
         }
 
         final nestedResult = walk(
           value,
-          inProfileContext: hasProfileContext || key.contains('profile') || key.contains('abha'),
+          inProfileContext: hasProfileContext || looksLikeProfileContext(key),
         );
         if (nestedResult != null) return nestedResult;
       }

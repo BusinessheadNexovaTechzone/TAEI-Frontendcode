@@ -165,6 +165,8 @@ class AbhaVerifiedProfile {
     final abhaAddress = _readString(flattened, [
       'preferredabhaaddress',
       'preferredAbhaAddress',
+      'preferredAddress',
+      'preferred_address',
       'abhaaddress',
       'abha_address',
       'preferred_abha_address',
@@ -341,11 +343,18 @@ class AbhaVerifiedProfile {
     }
 
     final directCandidates = <Object?>[
-      response['result'] is Map
-          ? (response['result'] as Map)['ABHAProfile']
-          : null,
+      response['result'] is Map ? (response['result'] as Map)['ABHAProfile'] : null,
+      response['result'] is Map ? (response['result'] as Map)['profile'] : null,
+      response['result'] is Map ? (response['result'] as Map)['profiles'] : null,
       response['data'] is Map ? (response['data'] as Map)['ABHAProfile'] : null,
+      response['data'] is Map ? (response['data'] as Map)['profile'] : null,
+      response['data'] is Map ? (response['data'] as Map)['profiles'] : null,
+      response['profile'] is Map ? (response['profile'] as Map)['ABHAProfile'] : null,
+      response['profile'] is Map ? (response['profile'] as Map)['profile'] : null,
+      response['profile'],
       response['ABHAProfile'],
+      response['profiles'],
+      response['accounts'],
     ];
 
     for (final candidate in directCandidates) {

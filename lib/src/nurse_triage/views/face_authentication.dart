@@ -295,6 +295,7 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
       }
 
       _controller.aadhaarProfileData.value = enrollResponse;
+      _controller.rememberVerifiedAbhaAccessToken(enrollResponse);
       _captureTimer?.cancel();
       _controller.createTriageModel.value!.triage!.aadhaar =
           widget.aadhaar.replaceAll(RegExp(r'\D'), '');

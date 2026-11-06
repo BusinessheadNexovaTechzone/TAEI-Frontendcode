@@ -795,6 +795,54 @@ class NurseTriageController extends GetxController {
   String? verifiedAbhaAccessToken;
   bool verifiedAbhaUsesPhrCard = false;
 
+  String? extractAccessTokenFromPayload(Map<String, dynamic>? response) {
+    if (response == null) return null;
+
+    const tokenKeys = {
+      'accesstoken',
+      'token',
+      'ttoken',
+      'xtoken',
+      'abhausertoken',
+    };
+
+    String? findToken(Object? value) {
+      if (value is Map) {
+        for (final entry in value.entries) {
+          final key = entry.key.toString().toLowerCase().replaceAll('_', '').replaceAll('-', '');
+          if (tokenKeys.contains(key)) {
+            final token = entry.value?.toString().trim();
+            if (token != null && token.isNotEmpty) return token;
+          }
+        }
+        for (final nested in value.values) {
+          final token = findToken(nested);
+          if (token != null) return token;
+        }
+      } else if (value is List) {
+        for (final item in value) {
+          final token = findToken(item);
+          if (token != null) return token;
+        }
+      }
+      return null;
+    }
+
+    return findToken(response);
+  }
+
+  void rememberVerifiedAbhaAccessToken(
+    Map<String, dynamic>? response, {
+    bool usePhrCard = false,
+  }) {
+    final token = extractAccessTokenFromPayload(response);
+    if (token == null || token.trim().isEmpty) return;
+
+    verifiedAbhaAccessToken = token.trim();
+    verifiedAbhaUsesPhrCard = usePhrCard;
+    clearAbhaCardPreviewCache();
+  }
+
   void clearAbhaCardPreviewCache() {
     _abhaCardPreviewCache.clear();
   }
@@ -1901,6 +1949,8 @@ class NurseTriageController extends GetxController {
       'abhaNumber': profile.abhaNumber,
       'ABHANumber': profile.abhaNumber,
       'abhaAddress': profile.abhaAddress,
+      'preferredAddress': profile.abhaAddress,
+      'preferred_address': profile.abhaAddress,
       'preferredAbhaAddress': profile.abhaAddress,
       'dateOfBirth': profile.dateOfBirth,
       'dob': profile.dateOfBirth,
