@@ -228,14 +228,26 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
                 triage?.addressLine,
                 cachedProfile['address'],
               ]),
-              'abhaAddress': payload['abhaAddress'] ??
-                  payload['preferredAbhaAddress'] ??
-                  cachedProfile['abhaAddress'] ??
-                  '',
-              'preferredAbhaAddress': payload['abhaAddress'] ??
-                  payload['preferredAbhaAddress'] ??
-                  cachedProfile['preferredAbhaAddress'] ??
-                  '',
+              'abhaAddress': _firstNonEmpty([
+                payload['abhaAddress'],
+                payload['preferredAbhaAddress'],
+                payload['healthId'],
+                payload['health_id'],
+                cachedProfile['abhaAddress'],
+                cachedProfile['preferredAbhaAddress'],
+                cachedProfile['healthId'],
+                cachedProfile['health_id'],
+              ]),
+              'preferredAbhaAddress': _firstNonEmpty([
+                payload['abhaAddress'],
+                payload['preferredAbhaAddress'],
+                payload['healthId'],
+                payload['health_id'],
+                cachedProfile['abhaAddress'],
+                cachedProfile['preferredAbhaAddress'],
+                cachedProfile['healthId'],
+                cachedProfile['health_id'],
+              ]),
               'verificationStatus': 'VERIFIED',
               'verificationType': 'AADHAAR',
               'status': 'ACTIVE',

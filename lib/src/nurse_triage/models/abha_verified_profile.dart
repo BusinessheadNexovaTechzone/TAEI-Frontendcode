@@ -171,6 +171,9 @@ class AbhaVerifiedProfile {
       'abha_address',
       'preferred_abha_address',
       'phrAddress',
+      'healthid',
+      'health_id',
+      'healthId',
     ]);
     final name = _buildName(flattened);
     final dob = _buildDob(flattened);
