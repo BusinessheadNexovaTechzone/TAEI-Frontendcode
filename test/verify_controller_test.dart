@@ -1,10 +1,85 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:taei_gov/src/nurse_triage/controller/verify_controller.dart';
 import 'package:taei_gov/src/nurse_triage/models/abha_verified_profile.dart';
+import 'package:taei_gov/src/nurse_triage/services/verify_service.dart';
 import 'package:taei_gov/src/nurse_triage/utils/abha_otp_utils.dart';
+
+class _FakeVerifyAbhaService extends VerifyAbhaService {
+  int verifyAbhaUserCalls = 0;
+  String? accountDetailsToken;
+
+  @override
+  Future<Map<String, dynamic>?> verifyOtp({
+    required String loginType,
+    required String txnId,
+    required String otp,
+  }) async =>
+      {
+        'success': true,
+        'txnId': 'otp-transaction',
+        'tToken': 'otp-token',
+        'ABHANumber': '91-1234-5678-9012',
+      };
+
+  @override
+  Future<Map<String, dynamic>?> verifyAbhaUser({
+    required String abhaNumber,
+    required String txnId,
+    required String tToken,
+  }) async {
+    verifyAbhaUserCalls++;
+    return {'success': true, 'accessToken': 'verified-user-token'};
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getAbhaAccountDetails({
+    required String accessToken,
+  }) async {
+    accountDetailsToken = accessToken;
+    return {
+      'ABHANumber': '91-1234-5678-9012',
+      'name': 'Aadhaar User',
+    };
+  }
+}
 
 void main() {
   group('VerifyAbhaController', () {
+    test('uses the OTP token for Aadhaar account details without verify-user',
+        () async {
+      final service = _FakeVerifyAbhaService();
+      final controller = VerifyAbhaController(service: service);
+      controller.setSelection(
+        loginType: 'aadhaar-aadhaar-otp',
+        loginId: '123456789012',
+        method: 'aadhaar',
+      );
+      controller.selectedTxnId.value = 'otp-transaction';
+
+      final verified = await controller.verifyOtp(otp: '123456');
+
+      expect(verified, isTrue);
+      expect(service.verifyAbhaUserCalls, 0);
+      expect(service.accountDetailsToken, 'otp-token');
+    });
+
+    test('keeps verify-user for mobile login verification', () async {
+      final service = _FakeVerifyAbhaService();
+      final controller = VerifyAbhaController(service: service);
+      controller.setSelection(
+        loginType: 'mobile-mobile-otp',
+        loginId: '9876543210',
+        method: 'mobile',
+      );
+      controller.selectedTxnId.value = 'otp-transaction';
+
+      final verified = await controller.verifyOtp(otp: '123456');
+
+      expect(verified, isTrue);
+      expect(service.verifyAbhaUserCalls, 1);
+      expect(service.accountDetailsToken, 'verified-user-token');
+    });
+
     test('uses the mobile login OTP flow for mobile number verification', () {
       final controller = VerifyAbhaController();
 

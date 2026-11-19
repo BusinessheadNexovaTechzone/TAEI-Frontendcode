@@ -308,13 +308,13 @@ class TriageService {
   }
 
   static Future<Map<String, dynamic>?> sendMobileUpdateOtp({
-    required int profileId,
+    required String xToken,
     required String mobile,
     String? flowId,
   }) async {
     final url = Urls.updateMobileSendOtp;
     final requestBody = {
-      'profileId': profileId,
+      'xToken': xToken,
       'mobile': mobile,
     };
     AbhaDebugLogger.log('START sendMobileUpdateOtp', flowId: flowId);
@@ -362,14 +362,14 @@ class TriageService {
   }
 
   static Future<Map<String, dynamic>?> verifyMobileUpdateOtp({
-    required int profileId,
+    required String xToken,
     required String txnId,
     required String otp,
     String? flowId,
   }) async {
     final url = Urls.updateMobileVerifyOtp;
     final requestBody = {
-      'profileId': profileId,
+      'xToken': xToken,
       'txnId': txnId,
       'otp': otp,
     };
@@ -377,18 +377,18 @@ class TriageService {
     final maskedOtp = otp.isEmpty ? 'EMPTY' : '*' * otp.length;
 
     debugPrint('============================================================');
-    debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp REQUEST');
+    debugPrint(
+        '[ABHA][API][FLOW:${flowId ?? 'unknown'}] update-mobile/verify-otp REQUEST');
     debugPrint('============================================================');
     debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] URL:');
     debugPrint(url);
     debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] METHOD: POST');
-    debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] profileId: $profileId');
-    debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] txnId: $txnId');
+    debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] txnId: [REDACTED]');
     debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] otp: $maskedOtp');
     debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] REQUEST BODY:');
     debugPrint('{');
-    debugPrint('  "profileId": ${profileId},');
-    debugPrint('  "txnId": "$txnId",');
+    debugPrint('  "xToken": "[REDACTED]",');
+    debugPrint('  "txnId": "[REDACTED]",');
     debugPrint('  "otp": "$maskedOtp"');
     debugPrint('}');
     debugPrint('============================================================');
@@ -422,7 +422,7 @@ class TriageService {
       debugPrint(
           '[ABHA][API][FLOW:${flowId ?? 'unknown'}] STATUS: ${response.statusCode}');
       debugPrint('[ABHA][API][FLOW:${flowId ?? 'unknown'}] RESPONSE:');
-      debugPrint(jsonEncode(responseBody));
+      debugPrint(jsonEncode(AbhaDebugLogger.sanitizeData(responseBody)));
       debugPrint(
           '============================================================');
 
@@ -456,7 +456,7 @@ class TriageService {
       debugPrint(
           '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] StackTrace: $stackTrace');
       debugPrint(
-          '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] Request: profileId=$profileId txnId=$txnId otp=$maskedOtp');
+          '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] Request: xToken=[REDACTED] txnId=[REDACTED] otp=$maskedOtp');
       AbhaDebugLogger.error('API FAILED: verifyMobileUpdateOtp',
           flowId: flowId);
       AbhaDebugLogger.error('Exception: $ex', flowId: flowId);

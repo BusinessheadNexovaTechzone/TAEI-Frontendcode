@@ -361,15 +361,16 @@ class NurseTriageController extends GetxController {
   }
 
   Future<bool> sendMobileUpdateOtp({
-    required int profileId,
+    required String xToken,
     required String mobile,
     String? flowId,
   }) async {
-    if (profileId <= 0) {
+    if (xToken.trim().isEmpty) {
       if (Get.context != null) {
         await CommonErrorDialog.show(
           Get.context!,
-          message: 'We could not identify your ABHA profile. Please try again.',
+          message:
+              'Your ABHA verification session has expired. Verify your ABHA account again before updating the mobile number.',
         );
       }
       return false;
@@ -388,7 +389,7 @@ class NurseTriageController extends GetxController {
     try {
       _logFlow('========== MOBILE UPDATE OTP ==========');
       _logFlow('[MOBILE UPDATE] Starting send OTP');
-      _logFlow('[MOBILE UPDATE] profileId available: true');
+      _logFlow('[MOBILE UPDATE] ABHA token available: true');
       _logFlow('[MOBILE UPDATE] mobile available: ${mobile.isNotEmpty}');
       _logFlow('[MOBILE UPDATE] mobile length: ${mobile.length}');
       _logFlow('[MOBILE UPDATE] Calling updatemobile/send-otp...');
@@ -399,13 +400,12 @@ class NurseTriageController extends GetxController {
       mobileUpdateTxnId.value = '';
 
       final d = await TriageService.sendMobileUpdateOtp(
-        profileId: profileId,
+        xToken: xToken,
         mobile: mobile,
         flowId: flowId,
       );
 
       _logFlow('[MOBILE UPDATE] Send OTP response received');
-      _logFlow('[MOBILE UPDATE] Response: $d');
 
       if (d == null) {
         _logFlow('[MOBILE UPDATE] ERROR: send OTP returned no payload');
@@ -419,6 +419,8 @@ class NurseTriageController extends GetxController {
         return false;
       }
 
+      _logFlow(
+          '[MOBILE UPDATE] Response: ${AbhaDebugLogger.sanitizeData(d)}');
       final txnId = d['txnId'] ?? d['data']?['txnId'];
       final deliveryMessage = d['message'] ?? d['data']?['message'] ?? '';
       if (txnId != null) {
@@ -462,18 +464,16 @@ class NurseTriageController extends GetxController {
   }
 
   Future<bool> verifyMobileUpdateOtp({
-    required int profileId,
+    required String xToken,
     required String txnId,
     required String otp,
     String? flowId,
   }) async {
     debugPrint(
         '[ABHA][TRACE][FLOW:${flowId ?? 'unknown'}] ENTER controller.verifyMobileUpdateOtp');
-    debugPrint(
-        '[ABHA][VALIDATION][FLOW:${flowId ?? 'unknown'}] profileId: $profileId');
-    if (profileId <= 0) {
+    if (xToken.trim().isEmpty) {
       debugPrint(
-          '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] profileId is missing or invalid');
+          '[ABHA][ERROR][FLOW:${flowId ?? 'unknown'}] ABHA token is missing');
       if (Get.context != null) {
         await CommonErrorDialog.show(
           Get.context!,
@@ -518,18 +518,17 @@ class NurseTriageController extends GetxController {
     try {
       _logFlow('========== MOBILE OTP VERIFICATION ==========');
       _logFlow('[MOBILE OTP] OTP length: ${otp.length}');
-      _logFlow('[MOBILE OTP] profileId available: ${profileId > 0}');
+      _logFlow('[MOBILE OTP] ABHA token available: true');
       _logFlow('[MOBILE OTP] mobileUpdateTxnId available: ${txnId.isNotEmpty}');
       _logFlow('[MOBILE OTP] Calling verify mobile OTP...');
 
       final d = await TriageService.verifyMobileUpdateOtp(
-        profileId: profileId,
+        xToken: xToken,
         txnId: txnId,
         otp: otp,
         flowId: flowId,
       );
       _logFlow('[MOBILE OTP] Verify response received');
-      _logFlow('[MOBILE OTP] Response: $d');
 
       if (d == null) {
         mobileUpdateVerified.value = false;
@@ -543,6 +542,7 @@ class NurseTriageController extends GetxController {
         return false;
       }
 
+      _logFlow('[MOBILE OTP] Response: ${AbhaDebugLogger.sanitizeData(d)}');
       if (AbhaErrorMessageService.isFailure(d)) {
         mobileUpdateVerified.value = false;
         lastApiError.value = d;
@@ -1500,6 +1500,7 @@ class NurseTriageController extends GetxController {
     Map<String, dynamic> d, {
     bool showDialog = true,
     bool returnToCaller = false,
+    bool showUpdateNumber = true,
   }) async {
     aadhaarProfileData.value = d; // store payload for later "View Card"
     rememberVerifiedAbhaAccessToken(d);
@@ -1611,6 +1612,7 @@ class NurseTriageController extends GetxController {
                         index: index,
                         response: d,
                         returnToCaller: returnToCaller,
+                        showUpdateNumber: showUpdateNumber,
                       );
                     },
                   ),
@@ -1630,6 +1632,7 @@ class NurseTriageController extends GetxController {
     required int index,
     required Map<String, dynamic> response,
     required bool returnToCaller,
+    required bool showUpdateNumber,
   }) {
     ImageProvider? photoProvider;
     if (profile.profilePhoto.isNotEmpty) {
@@ -1792,7 +1795,8 @@ class NurseTriageController extends GetxController {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   actionButtons,
-                  if (updateProfileId > 0 || profile.mobile.isNotEmpty) ...[
+                  if (showUpdateNumber &&
+                      (updateProfileId > 0 || profile.mobile.isNotEmpty)) ...[
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: () => _updateAbhaProfileMobile(
@@ -1833,6 +1837,15 @@ class NurseTriageController extends GetxController {
       );
       return;
     }
+    final xToken = verifiedAbhaAccessToken?.trim() ?? '';
+    if (xToken.isEmpty) {
+      await CommonErrorDialog.show(
+        Get.context!,
+        message:
+            'Your ABHA verification session has expired. Verify your ABHA account again before updating the mobile number.',
+      );
+      return;
+    }
 
     final mobile = await Navigator.of(context).push<String>(
       MaterialPageRoute(
@@ -1841,12 +1854,12 @@ class NurseTriageController extends GetxController {
           flowId: flowId,
           currentMobile: currentMobile,
           onSendOtp: (mobile) => sendMobileUpdateOtp(
-            profileId: resolvedProfileId,
+            xToken: xToken,
             mobile: mobile,
             flowId: flowId,
           ),
           onVerify: (otp) => verifyMobileUpdateOtp(
-            profileId: resolvedProfileId,
+            xToken: xToken,
             txnId: mobileUpdateTxnId.value,
             otp: otp,
             flowId: flowId,

@@ -398,17 +398,22 @@ class _VerifyMobileAbhaScreenState extends State<VerifyMobileAbhaScreen> {
                                       : const Color(0xFFE5E7EB),
                                 ),
                               ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
+                              child: Material(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                clipBehavior: Clip.antiAlias,
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  title: Text(name),
+                                  subtitle: Text(abhaNumber),
+                                  trailing: isSelected
+                                      ? const Icon(Icons.check_circle, color: Colors.green)
+                                      : const Icon(Icons.radio_button_unchecked),
+                                  onTap: () => setState(() => _selectedProfileIndex = index),
                                 ),
-                                title: Text(name),
-                                subtitle: Text(abhaNumber),
-                                trailing: isSelected
-                                    ? const Icon(Icons.check_circle, color: Colors.green)
-                                    : const Icon(Icons.radio_button_unchecked),
-                                onTap: () => setState(() => _selectedProfileIndex = index),
                               ),
                             );
                           }),

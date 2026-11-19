@@ -151,7 +151,10 @@ Map<String, dynamic> buildProfileCardPayloadFromVerifyResponse(
 }
 
 class VerifyAbhaController extends GetxController {
-  final VerifyAbhaService _service = VerifyAbhaService();
+  VerifyAbhaController({VerifyAbhaService? service})
+      : _service = service ?? VerifyAbhaService();
+
+  final VerifyAbhaService _service;
   String? _verifiedAbhaAccessToken;
 
   final RxList<Map<String, dynamic>> mobileSearchProfiles =
@@ -193,10 +196,17 @@ class VerifyAbhaController extends GetxController {
       'abhausertoken',
     };
 
-    String? findToken(Object? value) {
-      if (value is Map) {
-        for (final entry in value.entries) {
-          if (tokenKeys.contains(entry.key
+    return _extractTokenByKeys(response, tokenKeys);
+  }
+
+  String? _extractTokenByKeys(
+    Object? value,
+    Set<String> normalizedKeys,
+  ) {
+    String? findToken(Object? current) {
+      if (current is Map) {
+        for (final entry in current.entries) {
+          if (normalizedKeys.contains(entry.key
               .toString()
               .toLowerCase()
               .replaceAll('_', '')
@@ -205,12 +215,12 @@ class VerifyAbhaController extends GetxController {
             if (token != null && token.isNotEmpty) return token;
           }
         }
-        for (final nested in value.values) {
+        for (final nested in current.values) {
           final token = findToken(nested);
           if (token != null) return token;
         }
-      } else if (value is List) {
-        for (final item in value) {
+      } else if (current is List) {
+        for (final item in current) {
           final token = findToken(item);
           if (token != null) return token;
         }
@@ -218,21 +228,37 @@ class VerifyAbhaController extends GetxController {
       return null;
     }
 
-    return findToken(response);
+    return findToken(value);
   }
 
   String? _extractAbhaNumber(Map<String, dynamic> response) {
-    final accounts = response['accounts'];
-    if (accounts is! List) return null;
-
-    for (final account in accounts) {
-      if (account is! Map) continue;
-      for (final key in const ['ABHANumber', 'abhaNumber']) {
-        final value = account[key]?.toString().trim();
-        if (value != null && value.isNotEmpty) return value;
+    String? findNumber(Object? value) {
+      if (value is Map) {
+        for (final entry in value.entries) {
+          final key = entry.key
+              .toString()
+              .toLowerCase()
+              .replaceAll('_', '')
+              .replaceAll('-', '');
+          if (const {'abhanumber', 'healthidnumber'}.contains(key)) {
+            final number = entry.value?.toString().trim();
+            if (number != null && number.isNotEmpty) return number;
+          }
+        }
+        for (final nested in value.values) {
+          final number = findNumber(nested);
+          if (number != null) return number;
+        }
+      } else if (value is List) {
+        for (final item in value) {
+          final number = findNumber(item);
+          if (number != null) return number;
+        }
       }
+      return null;
     }
-    return null;
+
+    return findNumber(response);
   }
 
   void setSelection({
@@ -1024,18 +1050,24 @@ class VerifyAbhaController extends GetxController {
           'transactionId',
           'otpTxnId',
           'xTxnId',
-        ])?.toString();
-        final otpToken = _extractAccessToken(response) ??
-            _extractAccessToken(
-                response['data'] is Map ? response['data'] : {});
+        ])?.toString() ??
+            selectedTxnId.value;
+        final otpToken =
+            _extractTokenByKeys(response, const {'ttoken'}) ??
+                _extractAccessToken(response) ??
+            _extractAccessToken(response['data'] is Map ? response['data'] : {});
+        final selectedAbhaNumber = selectedMethod.value.startsWith('abha-')
+            ? selectedLoginId.value
+            : null;
         final abhaNumber = _extractAbhaNumber(response) ??
             _extractAbhaNumber(response['data'] is Map ? response['data'] : {});
-        if (txnId == null ||
-            txnId.trim().isEmpty ||
+        final resolvedAbhaNumber = abhaNumber ?? selectedAbhaNumber;
+        if (txnId.trim().isEmpty ||
             otpToken == null ||
-            abhaNumber == null) {
+            resolvedAbhaNumber == null ||
+            resolvedAbhaNumber.trim().isEmpty) {
           const message =
-              'Mobile verification succeeded, but the response is missing the transaction ID, token, or ABHA number.';
+              'ABHA verification succeeded, but the transaction ID, token, or ABHA number needed to verify the user is missing.';
           lastApiError.value = {'message': message};
           if (Get.context != null) {
             await CommonErrorDialog.show(
@@ -1047,7 +1079,7 @@ class VerifyAbhaController extends GetxController {
         }
 
         final verifiedUser = await _service.verifyAbhaUser(
-          abhaNumber: abhaNumber,
+          abhaNumber: resolvedAbhaNumber,
           txnId: txnId,
           tToken: otpToken,
         );
@@ -1077,7 +1109,21 @@ class VerifyAbhaController extends GetxController {
           }
           return false;
         }
-      } else if (_usesAbhaAccountDetails || _usesPhrProfile) {
+      } else if (_usesAbhaAccountDetails) {
+        _verifiedAbhaAccessToken = _extractAccessToken(response);
+        if (_verifiedAbhaAccessToken == null) {
+          const message =
+              'ABHA OTP verification succeeded, but no account-details token was returned.';
+          lastApiError.value = {'message': message};
+          if (Get.context != null) {
+            await CommonErrorDialog.show(
+              Get.context!,
+              message: message,
+            );
+          }
+          return false;
+        }
+      } else if (_usesPhrProfile) {
         _verifiedAbhaAccessToken = _extractAccessToken(response);
         if (_verifiedAbhaAccessToken == null) {
           const message =

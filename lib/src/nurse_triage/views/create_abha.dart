@@ -15,6 +15,7 @@ import 'package:taei_gov/src/nurse_triage/views/face_authentication.dart';
 import 'package:taei_gov/src/nurse_triage/views/fingerprint_authentication.dart';
 import 'package:taei_gov/src/nurse_triage/views/update_mobile_otp_dialog.dart';
 import 'package:taei_gov/src/nurse_triage/services/triage_service.dart';
+import 'package:taei_gov/src/nurse_triage/services/verify_service.dart';
 import 'package:taei_gov/src/nurse_triage/services/abha_error_message_service.dart';
 import 'package:taei_gov/src/nurse_triage/utils/abha_debug_logger.dart';
 import 'package:taei_gov/utils/common/error_dialog.dart';
@@ -44,6 +45,8 @@ enum _AbhaWorkflowState {
 }
 
 class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
+  final VerifyAbhaService _verifyAbhaService = VerifyAbhaService();
+
   final NurseTriageController controller =
       Get.isRegistered<NurseTriageController>()
           ? Get.find<NurseTriageController>()
@@ -95,6 +98,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   Timer? _otpLockoutTimer;
   bool _showSuccess = false;
   bool _isProcessingMobileUpdate = false;
+  bool _abhaUserVerifiedForMobileUpdate = false;
   bool _showMobileUpdateOtp = false;
   bool _isMobileOtpDialogVisible = false;
   String _currentOtpMode = 'aadhaar';
@@ -935,6 +939,14 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       _workflowState = _AbhaWorkflowState.mobileUpdateOtpSending;
     });
     try {
+      if (!await _verifyAbhaUserForMobileUpdate()) {
+        setState(() {
+          _showMobileUpdateOtp = false;
+          _workflowState = _AbhaWorkflowState.error;
+        });
+        return false;
+      }
+
       log('========== MOBILE UPDATE OTP REQUEST ==========');
       log('[MOBILE UPDATE] Update mobile OTP flow started');
       log('[MOBILE UPDATE] profileId available: ${profileId > 0}');
@@ -946,7 +958,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
           '[ABHA][TRACE][FLOW:$_abhaFlowId] controller.currentProfileId set: ${controller.currentProfileId.value}');
 
       final sent = await controller.sendMobileUpdateOtp(
-        profileId: profileId,
+        xToken: controller.verifiedAbhaAccessToken ?? '',
         mobile: mobile,
         flowId: _abhaFlowId,
       );
@@ -986,6 +998,96 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     }
   }
 
+  Future<bool> _verifyAbhaUserForMobileUpdate() async {
+    if (_abhaUserVerifiedForMobileUpdate &&
+        (controller.verifiedAbhaAccessToken?.trim().isNotEmpty ?? false)) {
+      return true;
+    }
+
+    final response = _verificationResponse;
+    if (response == null) {
+      await CommonErrorDialog.show(
+        context,
+        message:
+            'We could not verify your ABHA account. Please restart the Aadhaar verification flow.',
+      );
+      return false;
+    }
+
+    final abhaNumber =
+        _findResponseField(response, {'abhanumber', 'healthidnumber'});
+    final txnId = _findResponseField(
+          response,
+          {'txnid', 'transactionid', 'otptxnid'},
+        ) ??
+        controller.aadhaarTxnId.value;
+    final tToken = _findResponseField(response, {'ttoken'}) ??
+        controller.extractAccessTokenFromPayload(response);
+    if (abhaNumber == null || txnId.trim().isEmpty || tToken == null) {
+      await CommonErrorDialog.show(
+        context,
+        message:
+            'The Aadhaar verification response is missing the ABHA number or verification token. Please verify your ABHA account again.',
+      );
+      return false;
+    }
+
+    final verifiedUser = await _verifyAbhaService.verifyAbhaUser(
+      abhaNumber: abhaNumber,
+      txnId: txnId,
+      tToken: tToken,
+    );
+    if (verifiedUser == null ||
+        AbhaErrorMessageService.isFailure(verifiedUser)) {
+      await CommonErrorDialog.showFromResponse(
+        context,
+        response: verifiedUser ??
+            {'message': 'Unable to verify the ABHA user. Please try again.'},
+      );
+      return false;
+    }
+
+    final xToken = controller.extractAccessTokenFromPayload(verifiedUser);
+    if (xToken == null || xToken.trim().isEmpty) {
+      await CommonErrorDialog.show(
+        context,
+        message:
+            'ABHA verification succeeded, but no mobile-update token was returned. Please try again.',
+      );
+      return false;
+    }
+
+    controller.verifiedAbhaAccessToken = xToken.trim();
+    _abhaUserVerifiedForMobileUpdate = true;
+    return true;
+  }
+
+  String? _findResponseField(Object? value, Set<String> normalizedKeys) {
+    if (value is Map) {
+      for (final entry in value.entries) {
+        final key = entry.key
+            .toString()
+            .toLowerCase()
+            .replaceAll('_', '')
+            .replaceAll('-', '');
+        if (normalizedKeys.contains(key)) {
+          final fieldValue = entry.value?.toString().trim();
+          if (fieldValue != null && fieldValue.isNotEmpty) return fieldValue;
+        }
+      }
+      for (final nested in value.values) {
+        final fieldValue = _findResponseField(nested, normalizedKeys);
+        if (fieldValue != null) return fieldValue;
+      }
+    } else if (value is List) {
+      for (final item in value) {
+        final fieldValue = _findResponseField(item, normalizedKeys);
+        if (fieldValue != null) return fieldValue;
+      }
+    }
+    return null;
+  }
+
   Future<bool> _verifyMobileUpdateOtp(String otp) async {
     if (_isProcessingMobileUpdate) {
       debugPrint(
@@ -1021,7 +1123,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       AbhaDebugLogger.workflow('Calling updatemobile/verify-otp',
           flowId: _abhaFlowId);
       final success = await controller.verifyMobileUpdateOtp(
-        profileId: profileId,
+        xToken: controller.verifiedAbhaAccessToken ?? '',
         txnId: controller.mobileUpdateTxnId.value,
         otp: otp,
         flowId: _abhaFlowId,

@@ -88,6 +88,7 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
       await _nurseController.showAadhaarSuccessDialog(
         verifiedProfile,
         returnToCaller: true,
+        showUpdateNumber: !_nurseController.verifiedAbhaUsesPhrCard,
       );
     }
 
@@ -106,6 +107,7 @@ class _VerifyAbhaScreenState extends State<VerifyAbhaScreen>
     final selectedProfile = await _nurseController.showAadhaarSuccessDialog(
       payload,
       returnToCaller: true,
+      showUpdateNumber: !_nurseController.verifiedAbhaUsesPhrCard,
     );
     if (!mounted || selectedProfile == null) return;
 
