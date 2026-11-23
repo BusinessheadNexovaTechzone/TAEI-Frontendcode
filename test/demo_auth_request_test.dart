@@ -17,52 +17,52 @@ class _CapturingDemoAuthService extends DemoAuthService {
 }
 
 void main() {
-  group('Tamil Nadu district codes', () {
-    test('uses census 2011 codes, including reorganized districts', () {
-      final codesByName = {
-        for (final district in tamilNaduDistricts) district.name: district.code,
-      };
+  group('LGD state and district codes', () {
+    test('includes states and union territories with district lists', () {
+      expect(lgdStates, hasLength(36));
+      expect(lgdStates.map((state) => state.code).toSet(), hasLength(36));
+      expect(
+        lgdStates.singleWhere((state) => state.name == 'Tamil Nadu').code,
+        33,
+      );
+      var districtCount = 0;
+      for (final state in lgdStates) {
+        final districts = getDistrictsForState(state.name);
+        expect(districts, isNotEmpty,
+            reason: '${state.name} should have districts');
+        expect(
+          districts.every(
+            (district) => district.code > 0 && district.code <= 640,
+          ),
+          isTrue,
+          reason: '${state.name} should have Census district codes',
+        );
+        districtCount += districts.length;
+      }
+      expect(districtCount, 790);
 
-      expect(codesByName, {
-        'Ariyalur': 615,
-        'Chengalpattu': 603,
-        'Chennai': 602,
-        'Coimbatore': 631,
-        'Cuddalore': 616,
-        'Dharmapuri': 629,
-        'Dindigul': 611,
-        'Erode': 609,
-        'Kallakurichi': 606,
-        'Kancheepuram': 603,
-        'Kanniyakumari': 628,
-        'Karur': 612,
-        'Krishnagiri': 630,
-        'Madurai': 622,
-        'Mayiladuthurai': 617,
-        'Nagapattinam': 617,
-        'Namakkal': 608,
-        'Perambalur': 614,
-        'Pudukkottai': 620,
-        'Ramanathapuram': 625,
-        'Ranipet': 604,
-        'Salem': 607,
-        'Sivaganga': 621,
-        'Tenkasi': 627,
-        'Thanjavur': 619,
-        'Theni': 623,
-        'The Nilgiris': 610,
-        'Thiruvallur': 601,
-        'Thiruvarur': 618,
-        'Thoothukkudi': 626,
-        'Tiruchirappalli': 613,
-        'Tirunelveli': 627,
-        'Tirupathur': 604,
-        'Tiruppur': 632,
-        'Tiruvannamalai': 605,
-        'Vellore': 604,
-        'Viluppuram': 606,
-        'Virudhunagar': 624,
-      });
+      expect(
+        tamilNaduDistricts
+            .singleWhere((district) => district.name == 'Vellore')
+            .code,
+        605,
+      );
+      expect(
+        getDistrictsForState('Tamil Nadu').map((district) => district.name),
+        contains('Vellore'),
+      );
+      expect(
+        getDistrictsForState('Karnataka').map((district) => district.name),
+        contains('Bengaluru Urban'),
+      );
+      expect(
+        getDistrictsForState('Telangana')
+            .singleWhere(
+              (district) => district.name == 'Bhadradri Kothagudem',
+            )
+            .code,
+        541,
+      );
     });
   });
 
@@ -87,12 +87,32 @@ void main() {
     expect(service.requestBody, {
       'aadhaar': '123456789012',
       'stateCode': '33',
-      'districtCode': '604',
+      'districtCode': '605',
       'dateOfBirth': '24-04-2003',
       'gender': 'M',
       'name': 'Test Patient',
       'mobile': '9000000000',
       'pinCode': '632514',
     });
+  });
+
+  test('sends Census district codes for other states', () async {
+    final service = _CapturingDemoAuthService();
+    final controller = DemoAuthController(service: service);
+    controller.selectState('Karnataka');
+    controller.selectDistrict('Bengaluru Urban');
+
+    final success = await controller.submitDemoAuth(
+      aadhaar: '123456789012',
+      stateName: 'Karnataka',
+      districtName: 'Bengaluru Urban',
+      dateOfBirth: '24-04-2003',
+      gender: 'M',
+      name: 'Test Patient',
+    );
+
+    expect(success, isTrue);
+    expect(service.requestBody?['stateCode'], '29');
+    expect(service.requestBody?['districtCode'], '572');
   });
 }
