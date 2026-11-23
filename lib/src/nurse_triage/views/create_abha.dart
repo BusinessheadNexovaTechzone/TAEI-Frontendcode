@@ -492,6 +492,22 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   ) async {
     if (!mounted || enrollmentResponse == null) return;
 
+    final response = Map<String, dynamic>.from(enrollmentResponse);
+
+    if (isExistingAbhaAccountResponse(response)) {
+      _verificationResponse = response;
+      controller.aadhaarProfileData.value = response;
+      controller.verifiedAbhaProfileData.value = response;
+      final selectedProfile = await controller.showAadhaarSuccessDialog(
+        response,
+        returnToCaller: true,
+      );
+      if (mounted && selectedProfile != null) {
+        Navigator.of(context).pop(selectedProfile);
+      }
+      return;
+    }
+
     if (controller.aadhaarTxnId.value.trim().isEmpty) {
       await CommonErrorDialog.show(
         context,
@@ -501,9 +517,9 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       return;
     }
 
-    _verificationResponse = Map<String, dynamic>.from(enrollmentResponse);
-    controller.aadhaarProfileData.value = _verificationResponse;
-    controller.verifiedAbhaProfileData.value = _verificationResponse;
+    _verificationResponse = response;
+    controller.aadhaarProfileData.value = response;
+    controller.verifiedAbhaProfileData.value = response;
     setState(() {
       _workflowState = _AbhaWorkflowState.aadhaarVerified;
       _currentStep = 2;
@@ -706,7 +722,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
         flowId: _abhaFlowId,
       );
 
-      if (messageLower == 'this account already exist' || isNew == false) {
+      if (isExistingAbhaAccountResponse(response)) {
         AbhaDebugLogger.workflow('EXISTING ACCOUNT DETECTED',
             flowId: _abhaFlowId);
         AbhaDebugLogger.workflow('Message: $message', flowId: _abhaFlowId);

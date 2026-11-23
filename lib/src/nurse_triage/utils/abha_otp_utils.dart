@@ -82,6 +82,47 @@ int? extractAbhaProfileId(Map<String, dynamic>? response) {
   return walk(response);
 }
 
+bool isExistingAbhaAccountResponse(Map<String, dynamic> response) {
+  bool indicatesExistingAccount(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('account already exist') ||
+        normalized.contains('abha profile already exist') ||
+        normalized.contains('abha already exist') ||
+        normalized.contains('health id already exist') ||
+        normalized.contains('already registered');
+  }
+
+  bool visit(Object? value) {
+    if (value is Map) {
+      for (final entry in value.entries) {
+        final key = entry.key
+            .toString()
+            .toLowerCase()
+            .replaceAll('_', '')
+            .replaceAll('-', '');
+        if (key == 'isnew' &&
+            entry.value?.toString().trim().toLowerCase() == 'false') {
+          return true;
+        }
+        if (key == 'message' &&
+            entry.value is String &&
+            indicatesExistingAccount(entry.value as String)) {
+          return true;
+        }
+        if (visit(entry.value)) return true;
+      }
+    } else if (value is List) {
+      for (final item in value) {
+        if (visit(item)) return true;
+      }
+    }
+
+    return false;
+  }
+
+  return visit(response);
+}
+
 String buildMobileOtpFailureMessage(dynamic payload) {
   final rawMessage = payload?.toString().toLowerCase() ?? '';
 
