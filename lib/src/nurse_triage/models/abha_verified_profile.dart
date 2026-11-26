@@ -162,19 +162,7 @@ class AbhaVerifiedProfile {
       'profile_id',
       'id',
     ]));
-    final abhaAddress = _readString(flattened, [
-      'preferredabhaaddress',
-      'preferredAbhaAddress',
-      'preferredAddress',
-      'preferred_address',
-      'abhaaddress',
-      'abha_address',
-      'preferred_abha_address',
-      'phrAddress',
-      'healthid',
-      'health_id',
-      'healthId',
-    ]);
+    final abhaAddress = _readAbhaAddress(mergedResponse);
     final name = _buildName(flattened);
     final dob = _buildDob(flattened);
     final gender = _buildGender(flattened);
@@ -524,6 +512,78 @@ class AbhaVerifiedProfile {
   static String _readString(Map<String, dynamic> source, List<String> keys) {
     final value = _readAny(source, keys);
     return displayValue(value);
+  }
+
+  static String _readAbhaAddress(Map<String, dynamic> source) {
+    const addressKeys = [
+      'preferredabhaaddress',
+      'preferredaddress',
+      'abhaaddress',
+      'phraddress',
+      'healthid',
+    ];
+
+    Object? findValue(Object? node, String targetKey) {
+      if (node is Map) {
+        for (final entry in node.entries) {
+          final key = entry.key
+              .toString()
+              .toLowerCase()
+              .replaceAll('_', '')
+              .replaceAll('-', '');
+          if (key == targetKey) return entry.value;
+        }
+        for (final value in node.values) {
+          final match = findValue(value, targetKey);
+          if (match != null) return match;
+        }
+      } else if (node is List) {
+        for (final value in node) {
+          final match = findValue(value, targetKey);
+          if (match != null) return match;
+        }
+      }
+
+      return null;
+    }
+
+    String? singleAddress(Object? value) {
+      if (value is List) {
+        for (final item in value) {
+          final address = singleAddress(item);
+          if (address != null) return address;
+        }
+        return null;
+      }
+      if (value is Map) {
+        for (final key in addressKeys) {
+          final address = singleAddress(findValue(value, key));
+          if (address != null) return address;
+        }
+        return null;
+      }
+      if (value is! String) return null;
+
+      var text = value.trim();
+      if (text.startsWith('[') && text.endsWith(']')) {
+        final addresses = text.substring(1, text.length - 1).split(',');
+        for (final item in addresses) {
+          final address =
+              item.trim().replaceAll(RegExp(r'''^['"]|['"]$'''), '');
+          if (address.isNotEmpty && !_isMissing(address)) return address;
+        }
+        return null;
+      }
+
+      return text.isNotEmpty && !_isMissing(text) ? text : null;
+    }
+
+    for (final key in addressKeys) {
+      final address = singleAddress(findValue(source, key));
+      if (address != null) return address;
+    }
+
+    return 'Not Available';
   }
 
   static String displayValue(Object? value) {

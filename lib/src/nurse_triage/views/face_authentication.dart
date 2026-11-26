@@ -316,6 +316,10 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
         return;
       }
 
+      final profileDetails =
+          await _controller.fetchCreatedAbhaProfileDetails(enrollResponse);
+      if (!mounted || profileDetails == null) return;
+
       setState(() {
         _statusMessage = 'Face scan completed. Showing ABHA profile.';
       });
@@ -323,7 +327,8 @@ class _FaceAuthenticationScreenState extends State<FaceAuthenticationScreen> {
       debugPrint('==================================');
       debugPrint('SHOW PROFILE CARD');
       debugPrint('==================================');
-      final selectedProfile = await _controller.showLastAadhaarProfileCard(
+      final selectedProfile = await _controller.showAadhaarSuccessDialog(
+        profileDetails,
         returnToCaller: true,
       );
       if (mounted && selectedProfile != null) {

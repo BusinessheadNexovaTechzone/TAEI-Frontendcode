@@ -9,10 +9,11 @@ class LGDState {
 }
 
 class LGDDistrict {
-  const LGDDistrict({required this.name, required this.code});
+  const LGDDistrict({required this.name, required this.code, this.lgdCode});
 
   final String name;
   final int code;
+  final int? lgdCode;
 }
 
 const List<LGDState> lgdStates = [
@@ -738,7 +739,7 @@ const Map<int, List<LGDDistrict>> _districtsByStateCode = {
     LGDDistrict(name: 'Thanjavur', code: 620),
     LGDDistrict(name: 'The Nilgiris', code: 611),
     LGDDistrict(name: 'Theni', code: 624),
-    LGDDistrict(name: 'Thiruvallur', code: 602),
+    LGDDistrict(name: 'Thiruvallur', code: 602, lgdCode: 589),
     LGDDistrict(name: 'Thiruvarur', code: 619),
     LGDDistrict(name: 'Thoothukkudi', code: 627),
     LGDDistrict(name: 'Tiruchirappalli', code: 614),

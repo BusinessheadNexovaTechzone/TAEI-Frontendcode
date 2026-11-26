@@ -96,6 +96,26 @@ void main() {
     });
   });
 
+  test('sends Thiruvallur LGD code for ABHA demo authentication', () async {
+    final service = _CapturingDemoAuthService();
+    final controller = DemoAuthController(service: service);
+    controller.selectState('Tamil Nadu');
+    controller.selectDistrict('Thiruvallur');
+
+    final success = await controller.submitDemoAuth(
+      aadhaar: '123456789012',
+      stateName: 'Tamil Nadu',
+      districtName: 'Thiruvallur',
+      dateOfBirth: '24-04-2003',
+      gender: 'M',
+      name: 'Test Patient',
+    );
+
+    expect(success, isTrue);
+    expect(service.requestBody?['stateCode'], '33');
+    expect(service.requestBody?['districtCode'], '589');
+  });
+
   test('sends Census district codes for other states', () async {
     final service = _CapturingDemoAuthService();
     final controller = DemoAuthController(service: service);

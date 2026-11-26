@@ -206,14 +206,18 @@ class DemoAuthController extends GetxController {
       final body = <String, dynamic>{
         'aadhaar': cleanedAadhaar,
         'stateCode': selectedState.code.toString(),
-        'districtCode': selectedDistrict.code.toString(),
+        'districtCode':
+            (selectedDistrict.lgdCode ?? selectedDistrict.code).toString(),
         'dateOfBirth': dateOfBirth.trim(),
         'gender': gender.trim(),
         'name': name.trim(),
       };
 
       log('[ABHA] State Code: ${selectedState.code}');
-      log('[ABHA] District Code: ${selectedDistrict.code}');
+      log(
+        '[ABHA] District Code: '
+        '${selectedDistrict.lgdCode ?? selectedDistrict.code}',
+      );
 
       final trimmedMobile = mobile?.trim() ?? '';
       final trimmedPin = pinCode?.trim() ?? '';

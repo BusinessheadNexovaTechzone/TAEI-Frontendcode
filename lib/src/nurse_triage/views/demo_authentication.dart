@@ -194,24 +194,38 @@ class _DemoAuthenticationScreenState extends State<DemoAuthenticationScreen> {
     }
 
     final response = _demoController.responseData.value;
-    final profileId = _demoController.profileId.value;
-
-    if (response != null) {
-      _nurseController.rememberVerifiedAbhaAccessToken(response);
-    }
-
-    if (response == null || profileId == null || profileId <= 0) {
+    if (response == null) {
       await CommonErrorDialog.show(
         context,
-        message:
-            'ABHA profile was created, but the profile ID could not be retrieved.',
+        message: 'The ABHA enrollment response was unavailable.',
       );
       setState(() => _isSubmitting = false);
       return;
     }
 
-    final profilePayload = _buildExistingProfilePayload(response);
-    _nurseController.aadhaarProfileData.value = profilePayload;
+    final profilePayload =
+        await _nurseController.fetchCreatedAbhaProfileDetails(
+      response,
+      profileFallback: _buildExistingProfilePayload(response),
+    );
+    if (!mounted) return;
+    if (profilePayload == null) {
+      setState(() => _isSubmitting = false);
+      return;
+    }
+
+    final profileId = _demoController.profileId.value ??
+        int.tryParse(_nurseController.currentProfileId.value);
+    if (profileId == null || profileId <= 0) {
+      await CommonErrorDialog.show(
+        context,
+        message:
+            'ABHA profile details were retrieved, but the profile ID could not be identified.',
+      );
+      setState(() => _isSubmitting = false);
+      return;
+    }
+
     _nurseController.currentProfileId.value = profileId.toString();
     _nurseController.createTriageModel.value?.triage?.abhaProfileId = profileId;
     _nurseController.createTriageModel.refresh();

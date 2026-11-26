@@ -98,7 +98,6 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   Timer? _otpLockoutTimer;
   bool _showSuccess = false;
   bool _isProcessingMobileUpdate = false;
-  bool _abhaUserVerifiedForMobileUpdate = false;
   bool _showMobileUpdateOtp = false;
   bool _isMobileOtpDialogVisible = false;
   String _currentOtpMode = 'aadhaar';
@@ -302,6 +301,9 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       controller.createTriageModel.value!.triage!.aadhaar = aadhaar;
       controller.currentProfileId.value = '';
       controller.mobileUpdateTxnId.value = '';
+      controller.verifiedAbhaAccessToken = null;
+      controller.verifiedAbhaUsesPhrCard = false;
+      controller.clearAbhaCardPreviewCache();
 
       AbhaDebugLogger.ui('Verify Aadhaar OTP button pressed',
           flowId: _abhaFlowId);
@@ -457,6 +459,9 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     if (!mounted) return;
     controller.aadhaarTxnId.value = '';
     controller.currentProfileId.value = '';
+    controller.verifiedAbhaAccessToken = null;
+    controller.verifiedAbhaUsesPhrCard = false;
+    controller.clearAbhaCardPreviewCache();
     _verificationResponse = null;
 
     if (authMethod == 'Fingerprint Authentication') {
@@ -496,10 +501,27 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
 
     if (isExistingAbhaAccountResponse(response)) {
       _verificationResponse = response;
+      controller.rememberVerifiedAbhaAccessToken(_verificationResponse);
       controller.aadhaarProfileData.value = response;
       controller.verifiedAbhaProfileData.value = response;
-      final selectedProfile = await controller.showAadhaarSuccessDialog(
+      if (!await _verifyAbhaUserForMobileUpdate()) {
+        setState(() {
+          _workflowState = _AbhaWorkflowState.error;
+        });
+        return;
+      }
+      final profileDetails = await controller.fetchCreatedAbhaProfileDetails(
         response,
+        useStoredAccessToken: true,
+      );
+      if (profileDetails == null) {
+        setState(() {
+          _workflowState = _AbhaWorkflowState.error;
+        });
+        return;
+      }
+      final selectedProfile = await controller.showAadhaarSuccessDialog(
+        profileDetails,
         returnToCaller: true,
       );
       if (mounted && selectedProfile != null) {
@@ -518,8 +540,15 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     }
 
     _verificationResponse = response;
+    controller.rememberVerifiedAbhaAccessToken(_verificationResponse);
     controller.aadhaarProfileData.value = response;
     controller.verifiedAbhaProfileData.value = response;
+    if (!await _verifyAbhaUserForMobileUpdate()) {
+      setState(() {
+        _workflowState = _AbhaWorkflowState.error;
+      });
+      return;
+    }
     setState(() {
       _workflowState = _AbhaWorkflowState.aadhaarVerified;
       _currentStep = 2;
@@ -687,6 +716,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       // so rebuilding the profile from triage fields would lose DOB, age,
       // gender, photo and any other demographic fields returned here.
       _verificationResponse = Map<String, dynamic>.from(response);
+      controller.rememberVerifiedAbhaAccessToken(_verificationResponse);
       controller.aadhaarProfileData.value = _verificationResponse;
       controller.verifiedAbhaProfileData.value = _verificationResponse;
 
@@ -738,8 +768,25 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
             flowId: _abhaFlowId);
 
         try {
-          final result = await controller.showAadhaarSuccessDialog(
+          if (!await _verifyAbhaUserForMobileUpdate()) {
+            setState(() {
+              _workflowState = _AbhaWorkflowState.error;
+            });
+            return;
+          }
+          final profileDetails =
+              await controller.fetchCreatedAbhaProfileDetails(
             response,
+            useStoredAccessToken: true,
+          );
+          if (profileDetails == null) {
+            setState(() {
+              _workflowState = _AbhaWorkflowState.error;
+            });
+            return;
+          }
+          final result = await controller.showAadhaarSuccessDialog(
+            profileDetails,
             returnToCaller: true,
           );
           if (mounted && result != null) {
@@ -800,6 +847,12 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
             flowId: _abhaFlowId);
 
         if (mobileIsAlreadyVerified) {
+          if (!await _verifyAbhaUserForMobileUpdate()) {
+            setState(() {
+              _workflowState = _AbhaWorkflowState.error;
+            });
+            return;
+          }
           _verifiedMobileNumber = normalizedEnteredMobile;
           _verifiedMobileProfileId = profileId;
           setState(() {
@@ -1015,8 +1068,7 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
   }
 
   Future<bool> _verifyAbhaUserForMobileUpdate() async {
-    if (_abhaUserVerifiedForMobileUpdate &&
-        (controller.verifiedAbhaAccessToken?.trim().isNotEmpty ?? false)) {
+    if (controller.verifiedAbhaAccessToken?.trim().isNotEmpty ?? false) {
       return true;
     }
 
@@ -1074,7 +1126,6 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
     }
 
     controller.verifiedAbhaAccessToken = xToken.trim();
-    _abhaUserVerifiedForMobileUpdate = true;
     return true;
   }
 
@@ -1324,8 +1375,17 @@ class _CreateAbhaScreenState extends State<CreateAbhaScreen> {
       _showSuccess = false;
     });
 
-    final selectedProfile = await controller.showAadhaarSuccessDialog(
+    final profileDetails = await controller.fetchCreatedAbhaProfileDetails(
       profilePayload,
+      useStoredAccessToken: true,
+      preserveEnrollmentAddress: true,
+    );
+    if (profileDetails == null) {
+      setState(() => _workflowState = _AbhaWorkflowState.error);
+      return;
+    }
+    final selectedProfile = await controller.showAadhaarSuccessDialog(
+      profileDetails,
       returnToCaller: true,
     );
 

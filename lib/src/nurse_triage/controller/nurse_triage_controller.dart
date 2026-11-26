@@ -35,6 +35,7 @@ import '../models/create_triage_model.dart';
 import '../models/update_mobile_verify_otp_response.dart';
 import '../services/triage_service.dart';
 import '../services/abha_error_message_service.dart';
+import '../services/verify_service.dart';
 import '../views/update_mobile_number_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/face_rd_service.dart';
@@ -42,6 +43,11 @@ import '../utils/abha_debug_logger.dart';
 import '../utils/abha_otp_utils.dart';
 
 class NurseTriageController extends GetxController {
+  NurseTriageController({VerifyAbhaService? verifyAbhaService})
+      : _verifyAbhaService = verifyAbhaService ?? VerifyAbhaService();
+
+  final VerifyAbhaService _verifyAbhaService;
+
   RxInt currentIndex = 0.obs;
   RxString searchController = ''.obs;
 
@@ -340,7 +346,9 @@ class NurseTriageController extends GetxController {
       }
       aadhaarOtp.value = '';
 
-      showAadhaarSuccessDialog(d, showDialog: showDialog);
+      final profileDetails = await fetchCreatedAbhaProfileDetails(d);
+      if (profileDetails == null) return false;
+      await showAadhaarSuccessDialog(profileDetails, showDialog: showDialog);
 
       return true;
     } catch (e) {
@@ -695,6 +703,38 @@ class NurseTriageController extends GetxController {
     return null;
   }
 
+  Map<String, dynamic>? _resolveDirectAccountDetails(
+    Map<String, dynamic> response,
+  ) {
+    const profileKeys = {
+      'abhanumber',
+      'abhaprofileid',
+      'abhaaddress',
+      'preferredabhaaddress',
+      'healthidnumber',
+      'mobile',
+      'fullname',
+      'name',
+    };
+
+    Map<String, dynamic>? fromMap(Object? value) {
+      if (value is! Map) return null;
+      final map = Map<String, dynamic>.from(value);
+      final hasProfileField = map.keys.any((key) => profileKeys.contains(
+            key
+                .toString()
+                .toLowerCase()
+                .replaceAll('_', '')
+                .replaceAll('-', ''),
+          ));
+      return hasProfileField ? map : null;
+    }
+
+    return fromMap(response) ??
+        fromMap(response['result']) ??
+        fromMap(response['data']);
+  }
+
   String? _extractAbhaNumber(String rawValue) {
     final normalized = rawValue.trim();
     final abhaNumberMatch = RegExp(r'(?:(?:ABHA|abha)[^0-9]*)([0-9]{12,20})')
@@ -798,44 +838,68 @@ class NurseTriageController extends GetxController {
   String? extractAccessTokenFromPayload(Map<String, dynamic>? response) {
     if (response == null) return null;
 
-    const tokenKeys = {
-      'accesstoken',
-      'token',
-      'ttoken',
-      'xtoken',
-      'abhausertoken',
-    };
+    return _findAbhaToken(response, const [
+      {'accesstoken'},
+      {'xtoken'},
+      {'abhausertoken'},
+      {'token'},
+      {'ttoken'},
+    ]);
+  }
 
-    String? findToken(Object? value) {
+  String? _extractAbhaXTokenFromPayload(Map<String, dynamic>? response) {
+    if (response == null) return null;
+
+    return _findAbhaToken(response, const [
+      {'accesstoken'},
+      {'xtoken'},
+      {'abhausertoken'},
+      {'token'},
+    ]);
+  }
+
+  String? _findAbhaToken(
+    Map<String, dynamic> response,
+    List<Set<String>> tokenKeyPriorities,
+  ) {
+    String? findToken(Object? value, Set<String> tokenKeys) {
       if (value is Map) {
         for (final entry in value.entries) {
-          final key = entry.key.toString().toLowerCase().replaceAll('_', '').replaceAll('-', '');
+          final key = entry.key
+              .toString()
+              .toLowerCase()
+              .replaceAll('_', '')
+              .replaceAll('-', '');
           if (tokenKeys.contains(key)) {
             final token = entry.value?.toString().trim();
             if (token != null && token.isNotEmpty) return token;
           }
         }
         for (final nested in value.values) {
-          final token = findToken(nested);
+          final token = findToken(nested, tokenKeys);
           if (token != null) return token;
         }
       } else if (value is List) {
         for (final item in value) {
-          final token = findToken(item);
+          final token = findToken(item, tokenKeys);
           if (token != null) return token;
         }
       }
       return null;
     }
 
-    return findToken(response);
+    for (final tokenKeys in tokenKeyPriorities) {
+      final token = findToken(response, tokenKeys);
+      if (token != null) return token;
+    }
+    return null;
   }
 
   void rememberVerifiedAbhaAccessToken(
     Map<String, dynamic>? response, {
     bool usePhrCard = false,
   }) {
-    final token = extractAccessTokenFromPayload(response);
+    final token = _extractAbhaXTokenFromPayload(response);
     if (token == null || token.trim().isEmpty) return;
 
     verifiedAbhaAccessToken = token.trim();
@@ -845,6 +909,136 @@ class NurseTriageController extends GetxController {
 
   void clearAbhaCardPreviewCache() {
     _abhaCardPreviewCache.clear();
+  }
+
+  Future<Map<String, dynamic>?> fetchCreatedAbhaProfileDetails(
+    Map<String, dynamic> enrollmentResponse, {
+    Map<String, dynamic>? profileFallback,
+    bool useStoredAccessToken = false,
+    bool preserveEnrollmentAddress = false,
+    bool usePhrProfile = false,
+  }) async {
+    final responseToken = _extractAbhaXTokenFromPayload(enrollmentResponse);
+    if (responseToken != null) {
+      verifiedAbhaAccessToken = responseToken;
+      verifiedAbhaUsesPhrCard = usePhrProfile;
+      clearAbhaCardPreviewCache();
+    } else if (useStoredAccessToken) {
+      verifiedAbhaUsesPhrCard = usePhrProfile;
+    } else {
+      verifiedAbhaAccessToken = null;
+      verifiedAbhaUsesPhrCard = usePhrProfile;
+      clearAbhaCardPreviewCache();
+    }
+
+    final accessToken = responseToken ??
+        (useStoredAccessToken ? verifiedAbhaAccessToken : null);
+    if (accessToken == null || accessToken.trim().isEmpty) {
+      const error = {
+        'message':
+            'ABHA profile was created, but no account-details token was returned.',
+      };
+      lastApiError.value = error;
+      if (Get.context != null) {
+        await CommonErrorDialog.showFromResponse(
+          Get.context!,
+          response: error,
+        );
+      }
+      return null;
+    }
+
+    final details = usePhrProfile
+        ? await _verifyAbhaService.getAbhaPhrProfile(accessToken: accessToken)
+        : await _verifyAbhaService.getAbhaAccountDetails(
+            accessToken: accessToken,
+          );
+    if (details == null || AbhaErrorMessageService.isFailure(details)) {
+      final error = details ??
+          {
+            'message': usePhrProfile
+                ? 'Unable to retrieve the ABHA PHR profile.'
+                : 'Unable to retrieve ABHA account details.',
+          };
+      lastApiError.value = error;
+      if (Get.context != null) {
+        await CommonErrorDialog.showFromResponse(
+          Get.context!,
+          response: error,
+        );
+      }
+      return null;
+    }
+
+    final fetchedProfile = _resolveAbhaProfilePayload(details) ??
+        _resolveDirectAccountDetails(details);
+    if (fetchedProfile == null) {
+      const error = {
+        'message':
+            'The ABHA account-details response did not contain a profile.',
+      };
+      lastApiError.value = error;
+      if (Get.context != null) {
+        await CommonErrorDialog.showFromResponse(
+          Get.context!,
+          response: error,
+        );
+      }
+      return null;
+    }
+
+    final sourceProfile = profileFallback ?? enrollmentResponse;
+    final enrollmentProfile = _resolveAbhaProfilePayload(sourceProfile);
+    final safeFetchedProfile = Map<String, dynamic>.from(fetchedProfile)
+      ..removeWhere(
+        (key, _) => const {
+          'accesstoken',
+          'token',
+          'xtoken',
+          'ttoken',
+          'abhausertoken',
+        }.contains(
+          key.toLowerCase().replaceAll('_', '').replaceAll('-', ''),
+        ),
+      );
+    final mergedProfile = <String, dynamic>{
+      if (enrollmentProfile != null) ...enrollmentProfile,
+      ...safeFetchedProfile,
+    };
+    if (preserveEnrollmentAddress && enrollmentProfile != null) {
+      for (final key in const [
+        'abhaAddress',
+        'preferredAbhaAddress',
+        'healthId',
+        'health_id',
+      ]) {
+        final value = enrollmentProfile[key]?.toString().trim() ?? '';
+        if (value.isNotEmpty) mergedProfile[key] = enrollmentProfile[key];
+      }
+    }
+
+    final profileId = extractAbhaProfileId(details) ??
+        extractAbhaProfileId(enrollmentResponse) ??
+        extractAbhaProfileId(profileFallback);
+    if (profileId != null && profileId > 0) {
+      mergedProfile.putIfAbsent('profileId', () => profileId);
+      currentProfileId.value = profileId.toString();
+      createTriageModel.value?.triage?.abhaProfileId = profileId;
+    } else {
+      currentProfileId.value = '';
+      createTriageModel.value?.triage?.abhaProfileId = null;
+    }
+
+    final profilePayload = <String, dynamic>{
+      'result': {'ABHAProfile': mergedProfile},
+      if (profileId != null && profileId > 0) 'profileId': profileId,
+    };
+    aadhaarProfileData.value = profilePayload;
+    verifiedAbhaProfileData.value = profilePayload;
+    aadhaarProfileImported.value = true;
+    createTriageModel.refresh();
+    lastApiError.value = null;
+    return profilePayload;
   }
 
   Future<void> downloadAbhaCard({
@@ -1679,7 +1873,8 @@ class NurseTriageController extends GetxController {
           ),
           const SizedBox(height: 12),
           if ((selectedProfileId ?? resolvedProfileId) != null) ...[
-            _buildOfficialAbhaCardPreview((selectedProfileId ?? resolvedProfileId)!),
+            _buildOfficialAbhaCardPreview(
+                (selectedProfileId ?? resolvedProfileId)!),
             const SizedBox(height: 12),
           ],
           _buildDialogInfoRow('Name', profile.name),
@@ -1802,8 +1997,8 @@ class NurseTriageController extends GetxController {
                       onPressed: () => _updateAbhaProfileMobile(
                         context: context,
                         profileId: updateProfileId,
-                        currentMobile: _updatedAbhaProfileMobiles[
-                                    updateProfileId] ??
+                        currentMobile:
+                            _updatedAbhaProfileMobiles[updateProfileId] ??
                                 profile.mobile,
                       ),
                       icon: const Icon(Icons.edit_outlined),
@@ -1942,7 +2137,8 @@ class NurseTriageController extends GetxController {
     }
 
     final district = profile.district;
-    if (district.trim().isNotEmpty && district.toLowerCase() != 'not available') {
+    if (district.trim().isNotEmpty &&
+        district.toLowerCase() != 'not available') {
       parts.add(district);
     }
 
@@ -2971,7 +3167,10 @@ class NurseTriageController extends GetxController {
 
         print(enrollResponse);
 
-        showAadhaarSuccessDialog(enrollResponse);
+        final profileDetails =
+            await fetchCreatedAbhaProfileDetails(enrollResponse);
+        if (profileDetails == null) return;
+        await showAadhaarSuccessDialog(profileDetails);
 
         return;
       }
@@ -3096,7 +3295,10 @@ class NurseTriageController extends GetxController {
           return;
         }
 
-        showAadhaarSuccessDialog(enrollResponse);
+        final profileDetails =
+            await fetchCreatedAbhaProfileDetails(enrollResponse);
+        if (profileDetails == null) return;
+        await showAadhaarSuccessDialog(profileDetails);
       }
     } catch (e) {
       Fluttertoast.showToast(

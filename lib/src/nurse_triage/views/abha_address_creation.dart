@@ -260,11 +260,15 @@ class _AbhaAddressCreationStepState extends State<AbhaAddressCreationStep> {
 
         // Keep the complete profile (DOB, age, gender, photo, etc.) available
         // for the preview and for the parent screen after address creation.
-        _controller.aadhaarProfileData.value = profilePayload;
-        _controller.verifiedAbhaProfileData.value = profilePayload;
+        final profileDetails = await _controller.fetchCreatedAbhaProfileDetails(
+          profilePayload,
+          useStoredAccessToken: true,
+          preserveEnrollmentAddress: true,
+        );
+        if (profileDetails == null) return;
 
         final result = await _controller.showAadhaarSuccessDialog(
-          profilePayload,
+          profileDetails,
           returnToCaller: true,
         );
         if (mounted && result != null && Navigator.of(context).canPop()) {

@@ -34,6 +34,31 @@ void main() {
       expect(profiles.single.address, '12 Main Street');
     });
 
+    test('uses one preferred address instead of displaying address lists', () {
+      final profile = AbhaVerifiedProfile.fromProfileMap({
+        'preferredAbhaAddress': [
+          'asha.preferred@abdm',
+          'asha.other@abdm',
+        ],
+        'abhaAddress': '[asha.other@abdm, asha.third@abdm]',
+      });
+
+      expect(profile.abhaAddress, 'asha.preferred@abdm');
+    });
+
+    test(
+        'selects a single address from a list when no preferred address exists',
+        () {
+      final profile = AbhaVerifiedProfile.fromProfileMap({
+        'abhaAddress': [
+          'asha.first@abdm',
+          'asha.second@abdm',
+        ],
+      });
+
+      expect(profile.abhaAddress, 'asha.first@abdm');
+    });
+
     test(
         'prefers numeric birth date parts over localized DOB and calculates age',
         () {

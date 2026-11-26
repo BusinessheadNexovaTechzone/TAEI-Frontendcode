@@ -196,6 +196,10 @@ class _FingerprintAuthenticationScreenState
         return;
       }
 
+      final profileDetails =
+          await _nurseController.fetchCreatedAbhaProfileDetails(enrollResponse);
+      if (!mounted || profileDetails == null) return;
+
       setState(() {
         _statusMessage = 'Enrollment successful. Showing ABHA profile.';
       });
@@ -203,7 +207,8 @@ class _FingerprintAuthenticationScreenState
       log('========== FINGERPRINT AUTH FLOW COMPLETE ==========');
 
       // Step 4: Display ABHA profile card using existing flow
-      final selectedProfile = await _nurseController.showLastAadhaarProfileCard(
+      final selectedProfile = await _nurseController.showAadhaarSuccessDialog(
+        profileDetails,
         returnToCaller: true,
       );
       if (mounted && selectedProfile != null) {
